@@ -33,9 +33,9 @@ This repository contains the FaunaWatch mobile application.
 ## Tech Stack
 
 - Flutter 3.44.1 (stable channel) / Dart 3.12.1
-- State management: Not yet selected — do not choose one without team approval
-- Backend: Not yet selected — do not choose Firebase, Supabase, or another backend without team approval
-- MVVM architecture
+- State management: Riverpod
+- Backend: Supabase
+- MVVM architecture (Model → Service → ViewModel → View)
 - Android and iOS
 - AI providers: Google Gemini, Groq, OpenRouter (user-supplied keys)
 
@@ -75,16 +75,17 @@ Strict MVVM + separation of concerns:
 1. **Models** (`lib/data/models/` or feature-local `models/`): Pure Dart
    types/domain logic only. No Flutter widget imports, no direct API/DB
    calls, no side effects.
-2. **Services** (`lib/core/services/` or `lib/data/services/`): All external
-   integrations live here ONLY — AI provider calls, backend calls, device
-   capabilities (location, storage), auth. No UI state, no widgets.
-3. **Repositories**: Abstract data access; mediate between Services and
-   ViewModels. Views never call a Service directly.
-4. **ViewModels**: Hold presentation state, call Repositories, expose a
-   clean interface to Views. No widget/UI code here.
-5. **Views**:  Flutter widgets responsible for presentation and user
-   interaction only. Never call a Service or Repository directly and never
-   contain business logic.
+2. **Services** (`lib/core/services/` or `lib/data/services/`): All
+   external integrations live here ONLY — AI provider calls, Supabase
+   calls, device capabilities (location, storage), auth. No UI state, no
+   widgets. Introduce a Repository sub-layer only for a feature that
+   genuinely needs it (e.g. local cache + remote sync) — don't add one by
+   default.
+3. **ViewModels**: Riverpod providers/notifiers. Hold presentation state,
+   call the Service layer, expose a clean interface to Views. No
+   widget/UI code here.
+4. **Views**: Flutter widgets. Presentation and user interaction only.
+   Never call a Service directly, never contain business logic.
 
 ### Working style
 
@@ -185,4 +186,3 @@ with the actual implementation — don't let it drift into aspiration.
 Do not invent project requirements. If implementation details are
 unclear, inspect the repository and existing documentation first, then
 follow the clarification protocol above rather than guessing.
-
