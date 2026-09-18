@@ -20,6 +20,7 @@ This repository contains the FaunaWatch mobile application.
 - MVVM architecture (Model → Service → ViewModel → View)
 - Android and iOS
 - AI providers: Google Gemini, Groq, OpenRouter (user-supplied keys)
+- Mapping: Mapbox
 
 ## Essential Commands
 
