@@ -107,29 +107,34 @@ architecture.
 
 ## AI Provider Integration
 
-FaunaWatch supports Gemini, Groq, and OpenRouter. Users supply their own
-API key; there is no shared/hardcoded key. A user's API key is runtime
-user data, not application configuration — treat it accordingly.
+FaunaWatch supports Gemini, Groq, and OpenRouter.
 
-- NEVER store API keys in: source code, `.env` files, shared
+Users provide and manage their own AI provider API keys. The mobile
+application authenticates directly with the selected AI provider using the
+user's own API key.
+
+There are no shared or hardcoded FaunaWatch AI provider keys.
+
+A user's AI API key is runtime user data, not application configuration.
+
+- NEVER store API keys in source code, `.env` files, shared
   preferences/plain-text local storage, Git-tracked configuration, logs,
   or analytics.
 - Use platform-backed secure storage (e.g. Keychain/Keystore-backed
-  storage) for persistent credentials — not generic local storage.
-- Never send a user's AI provider key to FaunaWatch's backend unless the
-  architecture explicitly requires it and the team has approved that
-  design. Prefer direct provider authentication from the client when
-  consistent with the approved architecture.
+  storage) for persistent API keys.
+- Never send a user's AI provider API key to the FaunaWatch backend unless
+  the architecture is explicitly changed and approved by the team.
+- AI provider calls must be made through the Service layer and must never
+  be initiated directly from Views or ViewModels.
 - Abstract provider implementations behind a common interface so the app
-  isn't tightly coupled to one provider.
-- Do not assume that Gemini, Groq, and OpenRouter support identical
-  models, request formats, capabilities, or response structures.
-  Provider-specific differences must be isolated inside the provider
-  implementation rather than leaking into Views or ViewModels.
-- **Tests must mock AI provider calls.** Never let `flutter test` or CI
-  make live calls to Gemini/Groq/OpenRouter — these are paid, per-key
-  rate-limited APIs, and a test run is not a reason to spend someone's
-  quota.
+  is not tightly coupled to one provider.
+- Provider-specific request formats, models, capabilities, errors, and
+  response structures must remain isolated inside their provider
+  implementations.
+- Do not assume Gemini, Groq, and OpenRouter support identical models,
+  request formats, capabilities, or response structures.
+- Tests must mock AI provider calls. Never allow `flutter test` or CI to
+  make live calls to Gemini, Groq, or OpenRouter.
 
 ## Security
 
