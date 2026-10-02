@@ -18,6 +18,7 @@ This repository contains the FaunaWatch mobile application.
 - State management: Riverpod
 - Backend: Supabase
 - MVVM architecture (Model → Service → ViewModel → View)
+- Secure local key storage: `flutter_secure_storage` (Android Keystore / iOS Keychain)
 - Android and iOS
 - AI providers: Google Gemini, Groq, OpenRouter (user-supplied keys)
 - Mapping: Mapbox
