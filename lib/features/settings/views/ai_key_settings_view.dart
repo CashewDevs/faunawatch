@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
@@ -12,13 +14,33 @@ class AiKeySettingsView extends ConsumerStatefulWidget {
 }
 
 class _AiKeySettingsViewState extends ConsumerState<AiKeySettingsView> {
+  static const _windowSecurityChannel =
+      MethodChannel('faunawatch/window_security');
+
   final _apiKeyController = TextEditingController();
   bool _obscureApiKey = true;
 
   @override
+  void initState() {
+    super.initState();
+    _setWindowSecure(true);
+  }
+
+  @override
   void dispose() {
+    _setWindowSecure(false);
     _apiKeyController.dispose();
     super.dispose();
+  }
+
+  Future<void> _setWindowSecure(bool secure) async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _windowSecurityChannel
+          .invokeMethod<void>('setSecure', {'secure': secure});
+    } catch (_) {
+      // Ignore when window security flag is unavailable (e.g. in test environments).
+    }
   }
 
   @override

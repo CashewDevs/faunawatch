@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 
@@ -38,10 +39,15 @@ class AiKeySettingsState {
 class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   @override
   Future<AiKeySettingsState> build() async {
+    final userId = ref.watch(currentUserIdProvider);
+    if (userId == null) {
+      return const AiKeySettingsState();
+    }
     final storage = ref.watch(aiApiKeyStorageServiceProvider);
     final configuredProviders = <AiProvider, bool>{};
     for (final provider in AiProvider.values) {
-      configuredProviders[provider] = await storage.readKey(provider) != null;
+      configuredProviders[provider] =
+          await storage.readKey(userId, provider) != null;
     }
     return AiKeySettingsState(configuredProviders: configuredProviders);
   }
@@ -55,6 +61,16 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   }
 
   Future<bool> saveKey(String apiKey) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) {
+      state = AsyncData(
+        (state.asData?.value ?? const AiKeySettingsState()).copyWith(
+          errorMessage: 'User must be signed in to save keys.',
+        ),
+      );
+      return false;
+    }
+
     final current = state.asData?.value;
     if (current == null || current.isSaving) return false;
     state = AsyncData(current.copyWith(isSaving: true, clearErrorMessage: true));
@@ -62,7 +78,7 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
     try {
       await ref
           .read(aiApiKeyStorageServiceProvider)
-          .saveKey(current.selectedProvider, apiKey);
+          .saveKey(userId, current.selectedProvider, apiKey);
       final configuredProviders = Map<AiProvider, bool>.from(
         current.configuredProviders,
       )..[current.selectedProvider] = true;
@@ -86,6 +102,9 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   }
 
   Future<bool> removeKey() async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) return false;
+
     final current = state.asData?.value;
     if (current == null || current.isSaving) return false;
     state = AsyncData(current.copyWith(isSaving: true, clearErrorMessage: true));
@@ -93,7 +112,7 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
     try {
       await ref
           .read(aiApiKeyStorageServiceProvider)
-          .deleteKey(current.selectedProvider);
+          .deleteKey(userId, current.selectedProvider);
       final configuredProviders = Map<AiProvider, bool>.from(
         current.configuredProviders,
       )..[current.selectedProvider] = false;
@@ -114,6 +133,16 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
       );
       return false;
     }
+  }
+
+  /// Deletes all AI provider keys for the user.
+  ///
+  /// Intended to be called on sign-out.
+  Future<void> deleteAllKeys([String? userId]) async {
+    final targetUserId = userId ?? ref.read(currentUserIdProvider);
+    if (targetUserId == null) return;
+    await ref.read(aiApiKeyStorageServiceProvider).deleteAllKeys(targetUserId);
+    ref.invalidateSelf();
   }
 }
 
