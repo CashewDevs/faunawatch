@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/settings/views/ai_key_settings_view.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 /// The root presentation widget containing the top app bar, active tab body,
@@ -28,10 +29,7 @@ class ShellView extends ConsumerWidget {
             title: 'Alerts View',
             icon: Icons.notifications_outlined,
           ),
-          _PlaceholderDestinationView(
-            title: 'Profile View',
-            icon: Icons.person_outlined,
-          ),
+          AiKeySettingsView(),
         ],
       ),
       bottomNavigationBar: NavigationBar(

@@ -18,6 +18,7 @@ This repository contains the FaunaWatch mobile application.
 - State management: Riverpod
 - Backend: Supabase
 - MVVM architecture (Model → Service → ViewModel → View)
+- Secure local key storage: `flutter_secure_storage` (Android Keystore / iOS Keychain)
 - Android and iOS
 - AI providers: Google Gemini, Groq, OpenRouter (user-supplied keys)
 - Mapping: Mapbox
@@ -178,13 +179,16 @@ A user's AI API key is runtime user data, not application configuration.
   request formats, capabilities, or response structures.
 - Tests must mock AI provider calls. Never allow `flutter test` or CI to
   make live calls to Gemini, Groq, or OpenRouter.
+- API keys must never be logged or included in error messages, exception
+  messages, debug output, crash reports, or analytics.
 
 ## Security
 
 Treat all API keys, tokens, passwords, credentials, and private user data
 as secrets. Never commit them. Before adding a new config file, check
 whether it could contain sensitive data — use placeholder/example configs
-in docs instead of real-shaped values.
+in docs instead of real-shaped values. API keys must never be logged, printed,
+or included in exception or error messages.
 
 ## Coding Standards
 
