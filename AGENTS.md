@@ -84,11 +84,54 @@ Strict MVVM + separation of concerns:
    here.
 4. **Views**: Flutter widgets. Presentation and user interaction only.
    Never call a Service directly, never contain business logic.
+   - **Screens / Pages**: Top-level route widgets live in
+     `lib/features/<feature_name>/views/screens/` (or directly in `views/`
+     if the feature contains a single screen).
+   - **Widgets**: Feature-specific subcomponents live in
+     `lib/features/<feature_name>/views/widgets/`.
+   - **Shared Widgets**: Common widgets used across features live in
+     `lib/core/widgets/`.
 
 **Repository is optional.** Introduce a Repository sub-layer only for a
 feature that genuinely needs one (e.g. local cache + remote sync). Do not
 add one by default, and do not introduce one solely to satisfy the
 architecture.
+
+### Directory Structure
+
+```text
+faunawatch/
+├── assets/
+│   ├── animations/            # Lottie (.json / .dotlottie) or Rive (.riv)
+│   ├── icons/                 # Custom SVG / vector icons
+│   └── images/                # PNG, JPG, WebP raster/vector images
+├── lib/
+│   ├── core/
+│   │   ├── constants/         # AppAssets, AppColors, AppStrings
+│   │   ├── services/          # Global services (Supabase, AI, location, auth)
+│   │   ├── theme/             # Light/dark ThemeData, styles
+│   │   └── widgets/           # App-wide reusable UI components
+│   ├── features/
+│   │   └── <feature_name>/    # Feature-scoped MVVM
+│   │       ├── models/        # Pure domain models
+│   │       ├── services/      # Feature-specific external integrations (if any)
+│   │       ├── viewmodels/    # Riverpod Notifiers / State classes
+│   │       ├── views/
+│   │       │   ├── screens/   # Route/page-level Views
+│   │       │   └── widgets/   # Feature-specific subcomponents
+│   │       └── repositories/  # OPTIONAL: local cache + sync only
+│   └── main.dart              # App bootstrap and ProviderScope
+└── pubspec.yaml
+```
+
+### Asset Guidelines
+
+- Place static media files in `assets/` categorized by type: `images/`,
+  `icons/`, and `animations/`.
+- Register all asset directories under `flutter.assets` in `pubspec.yaml`.
+- Never hardcode raw asset path strings directly in Views. Define and
+  reference them as typed static constants in
+  `lib/core/constants/app_assets.dart`.
 
 ### Working style
 

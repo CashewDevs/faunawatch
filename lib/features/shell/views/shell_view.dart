@@ -13,9 +13,7 @@ class ShellView extends ConsumerWidget {
     final currentDestination = ref.watch(shellViewModelProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('FaunaWatch'),
-      ),
+      appBar: AppBar(title: const Text('FaunaWatch')),
       body: IndexedStack(
         index: currentDestination.index,
         children: const [
@@ -68,10 +66,7 @@ class ShellView extends ConsumerWidget {
 
 /// Internal placeholder widget for shell destinations before feature implementation.
 class _PlaceholderDestinationView extends StatelessWidget {
-  const _PlaceholderDestinationView({
-    required this.title,
-    required this.icon,
-  });
+  const _PlaceholderDestinationView({required this.title, required this.icon});
 
   final String title;
   final IconData icon;
@@ -82,22 +77,15 @@ class _PlaceholderDestinationView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 64,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+          Icon(icon, size: 64, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 16),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
+          Text(title, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           Text(
             'Feature pending implementation',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),

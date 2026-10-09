@@ -8,12 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // CRITICAL: Future AI agents and contributors MUST NOT modify this navigation structure,
 // add or remove destinations, or change the shell navigation hierarchy without explicit
 // team discussion and approval.
-enum ShellDestination {
-  report,
-  map,
-  alerts,
-  profile,
-}
+enum ShellDestination { report, map, alerts, profile }
 
 /// Riverpod Notifier managing the active [ShellDestination] for the application shell.
 class ShellViewModel extends Notifier<ShellDestination> {
@@ -37,6 +32,4 @@ class ShellViewModel extends Notifier<ShellDestination> {
 
 /// Provider exposing the [ShellViewModel] and current [ShellDestination].
 final shellViewModelProvider =
-    NotifierProvider<ShellViewModel, ShellDestination>(
-  ShellViewModel.new,
-);
+    NotifierProvider<ShellViewModel, ShellDestination>(ShellViewModel.new);

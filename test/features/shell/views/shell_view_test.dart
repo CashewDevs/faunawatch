@@ -5,11 +5,7 @@ import 'package:faunawatch/features/shell/views/shell_view.dart';
 
 void main() {
   Widget buildTestShell() {
-    return const ProviderScope(
-      child: MaterialApp(
-        home: ShellView(),
-      ),
-    );
+    return const ProviderScope(child: MaterialApp(home: ShellView()));
   }
 
   group('ShellView', () {
@@ -34,8 +30,9 @@ void main() {
       expect(find.text('Report View'), findsOneWidget);
     });
 
-    testWidgets('switches views when navigation items are tapped',
-        (tester) async {
+    testWidgets('switches views when navigation items are tapped', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildTestShell());
 
       // Tap Map destination
