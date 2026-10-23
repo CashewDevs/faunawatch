@@ -38,36 +38,41 @@ void main() {
     });
 
     test(
-        'saves and removes a key for the selected provider with current user ID',
-        () async {
-      await container.read(aiKeySettingsViewModelProvider.future);
-      final viewModel =
-          container.read(aiKeySettingsViewModelProvider.notifier);
+      'saves and removes a key for the selected provider with current user ID',
+      () async {
+        await container.read(aiKeySettingsViewModelProvider.future);
+        final viewModel = container.read(
+          aiKeySettingsViewModelProvider.notifier,
+        );
 
-      viewModel.selectProvider(AiProvider.openRouter);
-      expect(await viewModel.saveKey('openrouter-secret'), isTrue);
-      expect(storage.keys[(userId, AiProvider.openRouter)], 'openrouter-secret');
-      expect(
-        container
-            .read(aiKeySettingsViewModelProvider)
-            .requireValue
-            .selectedProviderIsConfigured,
-        isTrue,
-      );
+        viewModel.selectProvider(AiProvider.openRouter);
+        expect(await viewModel.saveKey('openrouter-secret'), isTrue);
+        expect(
+          storage.keys[(userId, AiProvider.openRouter)],
+          'openrouter-secret',
+        );
+        expect(
+          container
+              .read(aiKeySettingsViewModelProvider)
+              .requireValue
+              .selectedProviderIsConfigured,
+          isTrue,
+        );
 
-      expect(await viewModel.removeKey(), isTrue);
-      expect(
-        storage.keys.containsKey((userId, AiProvider.openRouter)),
-        isFalse,
-      );
-      expect(
-        container
-            .read(aiKeySettingsViewModelProvider)
-            .requireValue
-            .selectedProviderIsConfigured,
-        isFalse,
-      );
-    });
+        expect(await viewModel.removeKey(), isTrue);
+        expect(
+          storage.keys.containsKey((userId, AiProvider.openRouter)),
+          isFalse,
+        );
+        expect(
+          container
+              .read(aiKeySettingsViewModelProvider)
+              .requireValue
+              .selectedProviderIsConfigured,
+          isFalse,
+        );
+      },
+    );
 
     test('reloads when the signed-in user changes', () async {
       const userA = 'user-aaa';
@@ -86,15 +91,17 @@ void main() {
 
       // Initially user A
       dynamicContainer.read(currentUserIdProvider.notifier).state = userA;
-      final stateA =
-          await dynamicContainer.read(aiKeySettingsViewModelProvider.future);
+      final stateA = await dynamicContainer.read(
+        aiKeySettingsViewModelProvider.future,
+      );
       expect(stateA.configuredProviders[AiProvider.gemini], isTrue);
       expect(stateA.configuredProviders[AiProvider.groq], isFalse);
 
       // User switches to user B
       dynamicContainer.read(currentUserIdProvider.notifier).state = userB;
-      final stateB =
-          await dynamicContainer.read(aiKeySettingsViewModelProvider.future);
+      final stateB = await dynamicContainer.read(
+        aiKeySettingsViewModelProvider.future,
+      );
       expect(stateB.configuredProviders[AiProvider.gemini], isFalse);
       expect(stateB.configuredProviders[AiProvider.groq], isTrue);
     });
@@ -109,50 +116,59 @@ void main() {
       );
       addTearDown(noUserContainer.dispose);
 
-      final state =
-          await noUserContainer.read(aiKeySettingsViewModelProvider.future);
+      final state = await noUserContainer.read(
+        aiKeySettingsViewModelProvider.future,
+      );
 
       expect(state.configuredProviders, isEmpty);
     });
 
-    test('deleteAllKeys deletes all keys for current user on sign out', () async {
-      storage.keys[(userId, AiProvider.gemini)] = 'g-secret';
-      storage.keys[(userId, AiProvider.groq)] = 'q-secret';
-      storage.keys[('other-user', AiProvider.gemini)] = 'other-secret';
+    test(
+      'deleteAllKeys deletes all keys for current user on sign out',
+      () async {
+        storage.keys[(userId, AiProvider.gemini)] = 'g-secret';
+        storage.keys[(userId, AiProvider.groq)] = 'q-secret';
+        storage.keys[('other-user', AiProvider.gemini)] = 'other-secret';
 
-      await container.read(aiKeySettingsViewModelProvider.future);
-      final viewModel =
-          container.read(aiKeySettingsViewModelProvider.notifier);
+        await container.read(aiKeySettingsViewModelProvider.future);
+        final viewModel = container.read(
+          aiKeySettingsViewModelProvider.notifier,
+        );
 
-      await viewModel.deleteAllKeys();
+        await viewModel.deleteAllKeys();
 
-      expect(storage.deletedAllForUsers, contains(userId));
-      expect(storage.keys.containsKey((userId, AiProvider.gemini)), isFalse);
-      expect(storage.keys[('other-user', AiProvider.gemini)], 'other-secret');
-    });
+        expect(storage.deletedAllForUsers, contains(userId));
+        expect(storage.keys.containsKey((userId, AiProvider.gemini)), isFalse);
+        expect(storage.keys[('other-user', AiProvider.gemini)], 'other-secret');
+      },
+    );
 
     group('window security', () {
       test('enableWindowSecurity delegates to WindowSecurityService', () async {
         await container.read(aiKeySettingsViewModelProvider.future);
-        final viewModel =
-            container.read(aiKeySettingsViewModelProvider.notifier);
+        final viewModel = container.read(
+          aiKeySettingsViewModelProvider.notifier,
+        );
 
         await viewModel.enableWindowSecurity();
 
         expect(windowSecurity.isSecure, isTrue);
       });
 
-      test('disableWindowSecurity delegates to WindowSecurityService',
-          () async {
-        await container.read(aiKeySettingsViewModelProvider.future);
-        final viewModel =
-            container.read(aiKeySettingsViewModelProvider.notifier);
+      test(
+        'disableWindowSecurity delegates to WindowSecurityService',
+        () async {
+          await container.read(aiKeySettingsViewModelProvider.future);
+          final viewModel = container.read(
+            aiKeySettingsViewModelProvider.notifier,
+          );
 
-        await viewModel.enableWindowSecurity();
-        await viewModel.disableWindowSecurity();
+          await viewModel.enableWindowSecurity();
+          await viewModel.disableWindowSecurity();
 
-        expect(windowSecurity.isSecure, isFalse);
-      });
+          expect(windowSecurity.isSecure, isFalse);
+        },
+      );
     });
   });
 }

@@ -13,29 +13,37 @@ void main() {
       service = SecureAiApiKeyStorageService(storage: storage);
     });
 
-    test('stores each provider key independently and trims whitespace',
-        () async {
-      await service.saveKey(userId, AiProvider.gemini, '  gemini-secret  ');
-      await service.saveKey(userId, AiProvider.groq, 'groq-secret');
+    test(
+      'stores each provider key independently and trims whitespace',
+      () async {
+        await service.saveKey(userId, AiProvider.gemini, '  gemini-secret  ');
+        await service.saveKey(userId, AiProvider.groq, 'groq-secret');
 
-      expect(await service.readKey(userId, AiProvider.gemini), 'gemini-secret');
-      expect(await service.readKey(userId, AiProvider.groq), 'groq-secret');
-      expect(await service.readKey(userId, AiProvider.openRouter), isNull);
-    });
+        expect(
+          await service.readKey(userId, AiProvider.gemini),
+          'gemini-secret',
+        );
+        expect(await service.readKey(userId, AiProvider.groq), 'groq-secret');
+        expect(await service.readKey(userId, AiProvider.openRouter), isNull);
+      },
+    );
 
-    test('uses storage key format faunawatch.ai_key.<userId>.<provider>',
-        () async {
-      await service.saveKey(userId, AiProvider.gemini, 'gemini-secret');
+    test(
+      'uses storage key format faunawatch.ai_key.<userId>.<provider>',
+      () async {
+        await service.saveKey(userId, AiProvider.gemini, 'gemini-secret');
 
-      expect(
-        storage.values['faunawatch.ai_key.$userId.gemini'],
-        'gemini-secret',
-      );
-    });
+        expect(
+          storage.values['faunawatch.ai_key.$userId.gemini'],
+          'gemini-secret',
+        );
+      },
+    );
 
     test('rejects an empty key', () async {
+      // saveKey throws synchronously, so pass a closure for the matcher to call.
       await expectLater(
-        service.saveKey(userId, AiProvider.gemini, '  '),
+        () => service.saveKey(userId, AiProvider.gemini, '  '),
         throwsArgumentError,
       );
       expect(storage.values, isEmpty);
@@ -114,4 +122,4 @@ class _MemorySecureKeyValueStore implements SecureKeyValueStore {
   Future<void> delete(String key) async {
     values.remove(key);
   }
-}
+}

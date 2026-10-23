@@ -31,8 +31,9 @@ class AiKeySettingsState {
       selectedProvider: selectedProvider ?? this.selectedProvider,
       configuredProviders: configuredProviders ?? this.configuredProviders,
       isSaving: isSaving ?? this.isSaving,
-      errorMessage:
-          clearErrorMessage ? null : errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage
+          ? null
+          : errorMessage ?? this.errorMessage,
     );
   }
 }
@@ -83,7 +84,9 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
 
     final current = state.asData?.value;
     if (current == null || current.isSaving) return false;
-    state = AsyncData(current.copyWith(isSaving: true, clearErrorMessage: true));
+    state = AsyncData(
+      current.copyWith(isSaving: true, clearErrorMessage: true),
+    );
 
     try {
       await ref
@@ -117,7 +120,9 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
 
     final current = state.asData?.value;
     if (current == null || current.isSaving) return false;
-    state = AsyncData(current.copyWith(isSaving: true, clearErrorMessage: true));
+    state = AsyncData(
+      current.copyWith(isSaving: true, clearErrorMessage: true),
+    );
 
     try {
       await ref
@@ -161,5 +166,5 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
 
 final aiKeySettingsViewModelProvider =
     AsyncNotifierProvider<AiKeySettingsViewModel, AiKeySettingsState>(
-  AiKeySettingsViewModel.new,
-);
+      AiKeySettingsViewModel.new,
+    );

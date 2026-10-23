@@ -19,7 +19,7 @@ abstract interface class WindowSecurityService {
 /// registered in `MainActivity.kt`.
 final class PlatformWindowSecurityService implements WindowSecurityService {
   PlatformWindowSecurityService({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel('faunawatch/window_security');
+    : _channel = channel ?? const MethodChannel('faunawatch/window_security');
 
   final MethodChannel _channel;
 

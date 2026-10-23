@@ -14,10 +14,19 @@ class ShellView extends ConsumerStatefulWidget {
 }
 
 class _ShellViewState extends ConsumerState<ShellView> {
+  // Cached because `ref` cannot be used inside dispose().
+  late final AiKeySettingsViewModel _aiKeySettingsViewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _aiKeySettingsViewModel = ref.read(aiKeySettingsViewModelProvider.notifier);
+  }
+
   @override
   void dispose() {
     // Ensure FLAG_SECURE is cleared when the shell is removed from the tree.
-    ref.read(aiKeySettingsViewModelProvider.notifier).disableWindowSecurity();
+    _aiKeySettingsViewModel.disableWindowSecurity();
     super.dispose();
   }
 

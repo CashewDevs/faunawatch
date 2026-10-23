@@ -7,8 +7,7 @@ class AiKeySettingsView extends ConsumerStatefulWidget {
   const AiKeySettingsView({super.key});
 
   @override
-  ConsumerState<AiKeySettingsView> createState() =>
-      _AiKeySettingsViewState();
+  ConsumerState<AiKeySettingsView> createState() => _AiKeySettingsViewState();
 }
 
 class _AiKeySettingsViewState extends ConsumerState<AiKeySettingsView> {
@@ -27,9 +26,8 @@ class _AiKeySettingsViewState extends ConsumerState<AiKeySettingsView> {
 
     return settingsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => const Center(
-        child: Text('Could not load secure key settings.'),
-      ),
+      error: (error, stackTrace) =>
+          const Center(child: Text('Could not load secure key settings.')),
       data: (settings) => _buildSettings(context, settings),
     );
   }

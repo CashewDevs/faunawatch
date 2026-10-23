@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('PlatformWindowSecurityService', () {
     late List<MethodCall> log;
     late MethodChannel channel;
@@ -13,9 +16,9 @@ void main() {
       channel = const MethodChannel('faunawatch/window_security');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
-        log.add(call);
-        return null;
-      });
+            log.add(call);
+            return null;
+          });
       service = PlatformWindowSecurityService(channel: channel);
     });
 

@@ -10,12 +10,13 @@ abstract interface class SecureKeyValueStore {
 
 final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
   FlutterSecureKeyValueStore({FlutterSecureStorage? storage})
-      : _storage = storage ??
-            const FlutterSecureStorage(
-              iOptions: IOSOptions(
-                accessibility: KeychainAccessibility.first_unlock_this_device,
-              ),
-            );
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            iOptions: IOSOptions(
+              accessibility: KeychainAccessibility.first_unlock_this_device,
+            ),
+          );
 
   final FlutterSecureStorage _storage;
 
@@ -41,7 +42,7 @@ abstract interface class AiApiKeyStorageService {
 
 final class SecureAiApiKeyStorageService implements AiApiKeyStorageService {
   SecureAiApiKeyStorageService({SecureKeyValueStore? storage})
-      : _storage = storage ?? FlutterSecureKeyValueStore();
+    : _storage = storage ?? FlutterSecureKeyValueStore();
 
   final SecureKeyValueStore _storage;
 
@@ -55,10 +56,7 @@ final class SecureAiApiKeyStorageService implements AiApiKeyStorageService {
     if (normalizedKey.isEmpty) {
       throw ArgumentError('API key must not be empty.');
     }
-    return _storage.write(
-      provider.storageKey(userId),
-      normalizedKey,
-    );
+    return _storage.write(provider.storageKey(userId), normalizedKey);
   }
 
   @override
