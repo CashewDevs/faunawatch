@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
@@ -10,13 +11,16 @@ void main() {
     const userId = 'user-test-001';
     late ProviderContainer container;
     late _FakeAiApiKeyStorageService storage;
+    late _FakeWindowSecurityService windowSecurity;
 
     setUp(() {
       storage = _FakeAiApiKeyStorageService();
+      windowSecurity = _FakeWindowSecurityService();
       container = ProviderContainer(
         overrides: [
           aiApiKeyStorageServiceProvider.overrideWithValue(storage),
           currentUserIdProvider.overrideWith((ref) => userId),
+          windowSecurityServiceProvider.overrideWithValue(windowSecurity),
         ],
       );
     });
@@ -75,6 +79,7 @@ void main() {
       final dynamicContainer = ProviderContainer(
         overrides: [
           aiApiKeyStorageServiceProvider.overrideWithValue(storage),
+          windowSecurityServiceProvider.overrideWithValue(windowSecurity),
         ],
       );
       addTearDown(dynamicContainer.dispose);
@@ -99,6 +104,7 @@ void main() {
         overrides: [
           aiApiKeyStorageServiceProvider.overrideWithValue(storage),
           currentUserIdProvider.overrideWith((ref) => null),
+          windowSecurityServiceProvider.overrideWithValue(windowSecurity),
         ],
       );
       addTearDown(noUserContainer.dispose);
@@ -123,6 +129,30 @@ void main() {
       expect(storage.deletedAllForUsers, contains(userId));
       expect(storage.keys.containsKey((userId, AiProvider.gemini)), isFalse);
       expect(storage.keys[('other-user', AiProvider.gemini)], 'other-secret');
+    });
+
+    group('window security', () {
+      test('enableWindowSecurity delegates to WindowSecurityService', () async {
+        await container.read(aiKeySettingsViewModelProvider.future);
+        final viewModel =
+            container.read(aiKeySettingsViewModelProvider.notifier);
+
+        await viewModel.enableWindowSecurity();
+
+        expect(windowSecurity.isSecure, isTrue);
+      });
+
+      test('disableWindowSecurity delegates to WindowSecurityService',
+          () async {
+        await container.read(aiKeySettingsViewModelProvider.future);
+        final viewModel =
+            container.read(aiKeySettingsViewModelProvider.notifier);
+
+        await viewModel.enableWindowSecurity();
+        await viewModel.disableWindowSecurity();
+
+        expect(windowSecurity.isSecure, isFalse);
+      });
     });
   });
 }
@@ -153,5 +183,19 @@ class _FakeAiApiKeyStorageService implements AiApiKeyStorageService {
   Future<void> deleteAllKeys(String userId) async {
     deletedAllForUsers.add(userId);
     keys.removeWhere((key, _) => key.$1 == userId);
+  }
+}
+
+class _FakeWindowSecurityService implements WindowSecurityService {
+  bool isSecure = false;
+
+  @override
+  Future<void> enableSecure() async {
+    isSecure = true;
+  }
+
+  @override
+  Future<void> disableSecure() async {
+    isSecure = false;
   }
 }

@@ -6,14 +6,16 @@ abstract interface class SecureKeyValueStore {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
   Future<void> delete(String key);
-
-  /// Deletes all entries whose key starts with [prefix].
-  Future<void> deleteAllWithPrefix(String prefix);
 }
 
 final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
   FlutterSecureKeyValueStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ??
+            const FlutterSecureStorage(
+              iOptions: IOSOptions(
+                accessibility: KeychainAccessibility.first_unlock_this_device,
+              ),
+            );
 
   final FlutterSecureStorage _storage;
 
@@ -26,16 +28,6 @@ final class FlutterSecureKeyValueStore implements SecureKeyValueStore {
 
   @override
   Future<void> delete(String key) => _storage.delete(key: key);
-
-  @override
-  Future<void> deleteAllWithPrefix(String prefix) async {
-    final allEntries = await _storage.readAll();
-    for (final key in allEntries.keys) {
-      if (key.startsWith(prefix)) {
-        await _storage.delete(key: key);
-      }
-    }
-  }
 }
 
 abstract interface class AiApiKeyStorageService {
@@ -61,7 +53,7 @@ final class SecureAiApiKeyStorageService implements AiApiKeyStorageService {
   Future<void> saveKey(String userId, AiProvider provider, String apiKey) {
     final normalizedKey = apiKey.trim();
     if (normalizedKey.isEmpty) {
-      throw ArgumentError.value(apiKey, 'apiKey', 'must not be empty');
+      throw ArgumentError('API key must not be empty.');
     }
     return _storage.write(
       provider.storageKey(userId),
@@ -75,7 +67,6 @@ final class SecureAiApiKeyStorageService implements AiApiKeyStorageService {
 
   @override
   Future<void> deleteAllKeys(String userId) async {
-    await _storage.deleteAllWithPrefix(AiProviderDetails.storageKeyPrefix(userId));
     for (final provider in AiProvider.values) {
       await _storage.delete(provider.storageKey(userId));
     }

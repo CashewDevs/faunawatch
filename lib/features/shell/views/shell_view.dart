@@ -1,16 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/ai_key_settings_view.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 /// The root presentation widget containing the top app bar, active tab body,
 /// and bottom navigation bar.
-class ShellView extends ConsumerWidget {
+class ShellView extends ConsumerStatefulWidget {
   const ShellView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShellView> createState() => _ShellViewState();
+}
+
+class _ShellViewState extends ConsumerState<ShellView> {
+  @override
+  void dispose() {
+    // Ensure FLAG_SECURE is cleared when the shell is removed from the tree.
+    ref.read(aiKeySettingsViewModelProvider.notifier).disableWindowSecurity();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final currentDestination = ref.watch(shellViewModelProvider);
+
+    // Toggle FLAG_SECURE based on whether the Profile (key-settings) tab
+    // is active. This avoids blocking screenshots on unrelated tabs, which
+    // happened previously because IndexedStack builds all children at
+    // launch and initState ran unconditionally.
+    ref.listen<ShellDestination>(shellViewModelProvider, (previous, next) {
+      final viewModel = ref.read(aiKeySettingsViewModelProvider.notifier);
+      if (next == ShellDestination.profile) {
+        viewModel.enableWindowSecurity();
+      } else if (previous == ShellDestination.profile) {
+        viewModel.disableWindowSecurity();
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: const Text('FaunaWatch')),

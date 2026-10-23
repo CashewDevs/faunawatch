@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 
@@ -51,6 +52,15 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
     }
     return AiKeySettingsState(configuredProviders: configuredProviders);
   }
+
+  /// Enables FLAG_SECURE to prevent screenshots while the key settings
+  /// screen is visible.
+  Future<void> enableWindowSecurity() =>
+      ref.read(windowSecurityServiceProvider).enableSecure();
+
+  /// Clears FLAG_SECURE when the key settings screen is no longer visible.
+  Future<void> disableWindowSecurity() =>
+      ref.read(windowSecurityServiceProvider).disableSecure();
 
   void selectProvider(AiProvider provider) {
     final current = state.asData?.value;
@@ -138,6 +148,9 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   /// Deletes all AI provider keys for the user.
   ///
   /// Intended to be called on sign-out.
+  // TODO(auth): Wire this into the sign-out flow once auth is implemented.
+  // Currently nothing in lib/ calls deleteAllKeys. This is expected —
+  // the auth feature will invoke it on sign-out.
   Future<void> deleteAllKeys([String? userId]) async {
     final targetUserId = userId ?? ref.read(currentUserIdProvider);
     if (targetUserId == null) return;

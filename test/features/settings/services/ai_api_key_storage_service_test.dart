@@ -114,9 +114,4 @@ class _MemorySecureKeyValueStore implements SecureKeyValueStore {
   Future<void> delete(String key) async {
     values.remove(key);
   }
-
-  @override
-  Future<void> deleteAllWithPrefix(String prefix) async {
-    values.removeWhere((key, _) => key.startsWith(prefix));
-  }
-}
+}
