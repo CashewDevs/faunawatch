@@ -14,13 +14,19 @@ void main() {
       container.dispose();
     });
 
-    test('initial destination is report', () {
+    test('initial destination is feed', () {
       final destination = container.read(shellViewModelProvider);
-      expect(destination, equals(ShellDestination.report));
+      expect(destination, equals(ShellDestination.feed));
     });
 
     test('selectDestination updates destination correctly', () {
       final viewModel = container.read(shellViewModelProvider.notifier);
+
+      viewModel.selectDestination(ShellDestination.gallery);
+      expect(
+        container.read(shellViewModelProvider),
+        equals(ShellDestination.gallery),
+      );
 
       viewModel.selectDestination(ShellDestination.map);
       expect(
@@ -28,10 +34,16 @@ void main() {
         equals(ShellDestination.map),
       );
 
-      viewModel.selectDestination(ShellDestination.alerts);
+      viewModel.selectDestination(ShellDestination.chats);
       expect(
         container.read(shellViewModelProvider),
-        equals(ShellDestination.alerts),
+        equals(ShellDestination.chats),
+      );
+
+      viewModel.selectDestination(ShellDestination.notifs);
+      expect(
+        container.read(shellViewModelProvider),
+        equals(ShellDestination.notifs),
       );
 
       viewModel.selectDestination(ShellDestination.profile);
@@ -40,10 +52,10 @@ void main() {
         equals(ShellDestination.profile),
       );
 
-      viewModel.selectDestination(ShellDestination.report);
+      viewModel.selectDestination(ShellDestination.feed);
       expect(
         container.read(shellViewModelProvider),
-        equals(ShellDestination.report),
+        equals(ShellDestination.feed),
       );
     });
 
@@ -53,16 +65,28 @@ void main() {
       viewModel.selectIndex(1);
       expect(
         container.read(shellViewModelProvider),
-        equals(ShellDestination.map),
+        equals(ShellDestination.gallery),
       );
 
       viewModel.selectIndex(2);
       expect(
         container.read(shellViewModelProvider),
-        equals(ShellDestination.alerts),
+        equals(ShellDestination.map),
       );
 
       viewModel.selectIndex(3);
+      expect(
+        container.read(shellViewModelProvider),
+        equals(ShellDestination.chats),
+      );
+
+      viewModel.selectIndex(4);
+      expect(
+        container.read(shellViewModelProvider),
+        equals(ShellDestination.notifs),
+      );
+
+      viewModel.selectIndex(5);
       expect(
         container.read(shellViewModelProvider),
         equals(ShellDestination.profile),
@@ -71,30 +95,30 @@ void main() {
       viewModel.selectIndex(0);
       expect(
         container.read(shellViewModelProvider),
-        equals(ShellDestination.report),
+        equals(ShellDestination.feed),
       );
     });
 
     test('selectIndex ignores out-of-bounds indices', () {
       final viewModel = container.read(shellViewModelProvider.notifier);
 
-      // Default is report
+      // Default is feed
       viewModel.selectIndex(-1);
       expect(
         container.read(shellViewModelProvider),
-        equals(ShellDestination.report),
+        equals(ShellDestination.feed),
       );
 
-      viewModel.selectIndex(4);
+      viewModel.selectIndex(6);
       expect(
         container.read(shellViewModelProvider),
-        equals(ShellDestination.report),
+        equals(ShellDestination.feed),
       );
 
       viewModel.selectIndex(99);
       expect(
         container.read(shellViewModelProvider),
-        equals(ShellDestination.report),
+        equals(ShellDestination.feed),
       );
     });
   });
