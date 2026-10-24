@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/features/auth/models/login_form_state.dart';
 import 'package:faunawatch/features/auth/services/auth_service.dart';
 
@@ -14,12 +15,12 @@ class LoginViewModel extends Notifier<LoginFormState> {
 
   /// Updates the email / username in state.
   void onEmailChanged(String email) {
-    state = state.copyWith(email: email);
+    state = state.copyWith(email: email, errorMessage: null);
   }
 
   /// Updates the password in state.
   void onPasswordChanged(String password) {
-    state = state.copyWith(password: password);
+    state = state.copyWith(password: password, errorMessage: null);
   }
 
   /// Toggles visibility of the password field.
@@ -39,6 +40,9 @@ class LoginViewModel extends Notifier<LoginFormState> {
       final success = await _authService.login(state.email, state.password);
       state = state.copyWith(isSubmitting: false);
       return success;
+    } on AuthException catch (e) {
+      state = state.copyWith(isSubmitting: false, errorMessage: e.message);
+      return false;
     } catch (e) {
       state = state.copyWith(
         isSubmitting: false,

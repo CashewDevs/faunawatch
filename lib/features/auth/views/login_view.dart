@@ -19,11 +19,26 @@ class LoginView extends ConsumerWidget {
     final success = await ref
         .read(loginViewModelProvider.notifier)
         .submitLogin();
-    if (context.mounted && success) {
+    if (!context.mounted) return;
+    if (success) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => const ShellView()),
         (route) => false,
       );
+    } else {
+      final error = ref.read(loginViewModelProvider).errorMessage;
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error,
+              style: GoogleFonts.dmSans(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: AppColors.notifsBadgeRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -131,7 +146,43 @@ class LoginView extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
+                    if (state.errorMessage != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFF87171)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: AppColors.notifsBadgeRed,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                state.errorMessage!,
+                                style: GoogleFonts.dmSans(
+                                  color: const Color(0xFF991B1B),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ] else
+                      const SizedBox(height: 16),
                     // Email / Username Input
                     AuthTextField(
                       label: 'Email Address',

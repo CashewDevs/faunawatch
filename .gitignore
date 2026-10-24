@@ -10,6 +10,7 @@
 # Environment / secrets — never commit
 .env
 .env.*
+dart_defines.json
 
 
 

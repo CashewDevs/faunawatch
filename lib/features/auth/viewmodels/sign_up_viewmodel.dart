@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/features/auth/models/sign_up_form_state.dart';
 import 'package:faunawatch/features/auth/services/auth_service.dart';
 
@@ -14,17 +15,20 @@ class SignUpViewModel extends Notifier<SignUpFormState> {
 
   /// Updates the email in state.
   void onEmailChanged(String email) {
-    state = state.copyWith(email: email);
+    state = state.copyWith(email: email, errorMessage: null);
   }
 
   /// Updates the password in state.
   void onPasswordChanged(String password) {
-    state = state.copyWith(password: password);
+    state = state.copyWith(password: password, errorMessage: null);
   }
 
   /// Updates the confirm password in state.
   void onConfirmPasswordChanged(String confirmPassword) {
-    state = state.copyWith(confirmPassword: confirmPassword);
+    state = state.copyWith(
+      confirmPassword: confirmPassword,
+      errorMessage: null,
+    );
   }
 
   /// Toggles visibility of the password field.
@@ -45,12 +49,33 @@ class SignUpViewModel extends Notifier<SignUpFormState> {
       return false;
     }
 
+    if (state.password != state.confirmPassword) {
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: 'Passwords do not match.',
+      );
+      return false;
+    }
+
+    if (state.password.length < 6) {
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: 'Password should be at least 6 characters.',
+      );
+      return false;
+    }
+
     state = state.copyWith(isSubmitting: true, errorMessage: null);
 
     try {
       final success = await _authService.signUp(state.email, state.password);
       state = state.copyWith(isSubmitting: false);
       return success;
+    } on AuthException catch (e) {
+      // Surface the real Supabase error (e.g. "User already registered",
+      // "Password should be at least 6 characters", etc.)
+      state = state.copyWith(isSubmitting: false, errorMessage: e.message);
+      return false;
     } catch (e) {
       state = state.copyWith(
         isSubmitting: false,

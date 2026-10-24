@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/auth/services/auth_service.dart';
 
-/// Exposes the ID of the currently signed-in Supabase user.
+/// Reactively exposes the ID of the currently signed-in Supabase user.
 ///
-/// Returns `null` when no user is signed in.
-/// Can be updated reactively on sign-in, user switch, or sign-out.
-// TODO(auth): Nothing in lib/ currently writes to this provider, so key
-// operations will fail with "User must be signed in" until the auth feature
-// sets it on sign-in. Wire this up when Supabase auth integration lands.
-final currentUserIdProvider = StateProvider<String?>((ref) => null);
+/// Emits `null` when no session is active. Rebuilds automatically on
+/// sign-in, sign-out, and session refresh — no manual updates needed.
+final currentUserIdProvider = StreamProvider<String?>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return client.auth.onAuthStateChange.map((event) => event.session?.user.id);
+});
