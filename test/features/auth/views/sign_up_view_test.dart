@@ -5,9 +5,48 @@ import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/features/auth/views/sign_up_view.dart';
 import 'package:faunawatch/features/auth/views/widgets/login_action_button.dart';
 
+import 'package:faunawatch/features/auth/services/auth_service.dart';
+
+import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
+
+class _FakeAuthService implements AuthService {
+  @override
+  Future<bool> login(String email, String password) async => true;
+
+  @override
+  Future<bool> signUp(String email, String password) async => true;
+
+  @override
+  Future<void> signOut() async {}
+}
+
+class _FakeProfileService implements ProfileService {
+  @override
+  Future<bool> saveProfile({
+    required String username,
+    required String bio,
+  }) async => true;
+
+  @override
+  Future<bool> saveProfilePicture({
+    String? presetAvatar,
+    String? customImagePath,
+  }) async => true;
+
+  @override
+  Future<bool> saveProfileBanner({
+    String? bannerAsset,
+    int? colorValue,
+  }) async => true;
+}
+
 void main() {
   Widget createWidgetUnderTest() {
     return ProviderScope(
+      overrides: [
+        authServiceProvider.overrideWithValue(_FakeAuthService()),
+        profileServiceProvider.overrideWithValue(_FakeProfileService()),
+      ],
       child: MaterialApp(theme: AppTheme.lightTheme, home: const SignUpView()),
     );
   }

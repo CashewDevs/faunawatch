@@ -41,7 +41,7 @@ class AiKeySettingsState {
 class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   @override
   Future<AiKeySettingsState> build() async {
-    final userId = ref.watch(currentUserIdProvider);
+    final userId = await ref.watch(currentUserIdProvider.future);
     if (userId == null) {
       return const AiKeySettingsState();
     }
@@ -72,7 +72,7 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   }
 
   Future<bool> saveKey(String apiKey) async {
-    final userId = ref.read(currentUserIdProvider);
+    final userId = await ref.read(currentUserIdProvider.future);
     if (userId == null) {
       state = AsyncData(
         (state.asData?.value ?? const AiKeySettingsState()).copyWith(
@@ -115,7 +115,7 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   }
 
   Future<bool> removeKey() async {
-    final userId = ref.read(currentUserIdProvider);
+    final userId = await ref.read(currentUserIdProvider.future);
     if (userId == null) return false;
 
     final current = state.asData?.value;
@@ -157,7 +157,7 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   // Currently nothing in lib/ calls deleteAllKeys. This is expected —
   // the auth feature will invoke it on sign-out.
   Future<void> deleteAllKeys([String? userId]) async {
-    final targetUserId = userId ?? ref.read(currentUserIdProvider);
+    final targetUserId = userId ?? await ref.read(currentUserIdProvider.future);
     if (targetUserId == null) return;
     await ref.read(aiApiKeyStorageServiceProvider).deleteAllKeys(targetUserId);
     ref.invalidateSelf();

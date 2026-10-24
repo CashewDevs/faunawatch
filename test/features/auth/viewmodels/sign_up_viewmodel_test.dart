@@ -11,12 +11,26 @@ class _FakeAuthService implements AuthService {
 
   @override
   Future<bool> signUp(String email, String password) async => shouldSucceed;
+
+  @override
+  Future<void> signOut() async {}
 }
 
 void main() {
+  ProviderContainer createContainer({_FakeAuthService? authService}) {
+    final container = ProviderContainer(
+      overrides: [
+        authServiceProvider.overrideWithValue(
+          authService ?? _FakeAuthService(),
+        ),
+      ],
+    );
+    return container;
+  }
+
   group('SignUpViewModel', () {
     test('initial state has empty credentials and sign up disabled', () {
-      final container = ProviderContainer();
+      final container = createContainer();
       addTearDown(container.dispose);
 
       final state = container.read(signUpViewModelProvider);
@@ -29,7 +43,7 @@ void main() {
     });
 
     test('updating fields enables sign up when all are populated', () {
-      final container = ProviderContainer();
+      final container = createContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(signUpViewModelProvider.notifier);
@@ -44,7 +58,7 @@ void main() {
     });
 
     test('toggling password visibilities flips flags', () {
-      final container = ProviderContainer();
+      final container = createContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(signUpViewModelProvider.notifier);
@@ -65,9 +79,7 @@ void main() {
 
     test('submitSignUp succeeds with valid credentials', () async {
       final fakeAuth = _FakeAuthService();
-      final container = ProviderContainer(
-        overrides: [authServiceProvider.overrideWithValue(fakeAuth)],
-      );
+      final container = createContainer(authService: fakeAuth);
       addTearDown(container.dispose);
 
       final notifier = container.read(signUpViewModelProvider.notifier);

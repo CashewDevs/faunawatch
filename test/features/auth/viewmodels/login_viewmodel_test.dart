@@ -15,12 +15,26 @@ class _FakeAuthService implements AuthService {
   Future<bool> signUp(String email, String password) async {
     return shouldSucceed;
   }
+
+  @override
+  Future<void> signOut() async {}
 }
 
 void main() {
+  ProviderContainer createContainer({_FakeAuthService? authService}) {
+    final container = ProviderContainer(
+      overrides: [
+        authServiceProvider.overrideWithValue(
+          authService ?? _FakeAuthService(),
+        ),
+      ],
+    );
+    return container;
+  }
+
   group('LoginViewModel', () {
     test('initial state has empty credentials and login disabled', () {
-      final container = ProviderContainer();
+      final container = createContainer();
       addTearDown(container.dispose);
 
       final state = container.read(loginViewModelProvider);
@@ -33,7 +47,7 @@ void main() {
     test(
       'onEmailChanged and onPasswordChanged update credentials and enable login',
       () {
-        final container = ProviderContainer();
+        final container = createContainer();
         addTearDown(container.dispose);
 
         container
@@ -51,7 +65,7 @@ void main() {
     );
 
     test('togglePasswordVisibility flips isPasswordVisible flag', () {
-      final container = ProviderContainer();
+      final container = createContainer();
       addTearDown(container.dispose);
 
       final notifier = container.read(loginViewModelProvider.notifier);
@@ -65,7 +79,7 @@ void main() {
     });
 
     test('submitLogin returns false when login is not enabled', () async {
-      final container = ProviderContainer();
+      final container = createContainer();
       addTearDown(container.dispose);
 
       final result = await container
@@ -76,9 +90,7 @@ void main() {
 
     test('submitLogin succeeds when valid credentials provided', () async {
       final fakeAuth = _FakeAuthService();
-      final container = ProviderContainer(
-        overrides: [authServiceProvider.overrideWithValue(fakeAuth)],
-      );
+      final container = createContainer(authService: fakeAuth);
       addTearDown(container.dispose);
 
       final notifier = container.read(loginViewModelProvider.notifier);

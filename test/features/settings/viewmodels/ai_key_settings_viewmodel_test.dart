@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
@@ -19,7 +21,7 @@ void main() {
       container = ProviderContainer(
         overrides: [
           aiApiKeyStorageServiceProvider.overrideWithValue(storage),
-          currentUserIdProvider.overrideWith((ref) => userId),
+          currentUserIdProvider.overrideWith((ref) => Stream.value(userId)),
           windowSecurityServiceProvider.overrideWithValue(windowSecurity),
         ],
       );
@@ -81,16 +83,20 @@ void main() {
       storage.keys[(userA, AiProvider.gemini)] = 'secret-a';
       storage.keys[(userB, AiProvider.groq)] = 'secret-b';
 
+      final activeUserProvider = StateProvider<String?>((ref) => userA);
+
       final dynamicContainer = ProviderContainer(
         overrides: [
           aiApiKeyStorageServiceProvider.overrideWithValue(storage),
           windowSecurityServiceProvider.overrideWithValue(windowSecurity),
+          currentUserIdProvider.overrideWith(
+            (ref) => Stream.value(ref.watch(activeUserProvider)),
+          ),
         ],
       );
       addTearDown(dynamicContainer.dispose);
 
       // Initially user A
-      dynamicContainer.read(currentUserIdProvider.notifier).state = userA;
       final stateA = await dynamicContainer.read(
         aiKeySettingsViewModelProvider.future,
       );
@@ -98,7 +104,7 @@ void main() {
       expect(stateA.configuredProviders[AiProvider.groq], isFalse);
 
       // User switches to user B
-      dynamicContainer.read(currentUserIdProvider.notifier).state = userB;
+      dynamicContainer.read(activeUserProvider.notifier).state = userB;
       final stateB = await dynamicContainer.read(
         aiKeySettingsViewModelProvider.future,
       );
@@ -110,7 +116,7 @@ void main() {
       final noUserContainer = ProviderContainer(
         overrides: [
           aiApiKeyStorageServiceProvider.overrideWithValue(storage),
-          currentUserIdProvider.overrideWith((ref) => null),
+          currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
           windowSecurityServiceProvider.overrideWithValue(windowSecurity),
         ],
       );
