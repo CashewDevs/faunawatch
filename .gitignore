@@ -7,6 +7,10 @@
 .buildlog/
 .history
 
+# Environment / secrets — never commit
+.env
+.env.*
+
 
 
 # Flutter repo-specific
