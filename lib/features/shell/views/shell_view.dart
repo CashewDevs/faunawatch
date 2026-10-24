@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/feed/views/feed_view.dart';
+import 'package:faunawatch/features/gallery/views/gallery_view.dart';
+import 'package:faunawatch/features/messages/views/messages_view.dart';
+import 'package:faunawatch/features/notifications/views/notifications_view.dart';
+import 'package:faunawatch/features/profile/views/profile_view.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/ai_key_settings_view.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
+import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
+import 'package:faunawatch/features/shell/views/widgets/shell_nav_bar.dart';
 
 /// The root presentation widget containing the top app bar, active tab body,
 /// and bottom navigation bar.
@@ -33,6 +40,7 @@ class _ShellViewState extends ConsumerState<ShellView> {
   @override
   Widget build(BuildContext context) {
     final currentDestination = ref.watch(shellViewModelProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Toggle FLAG_SECURE based on whether the Profile (key-settings) tab
     // is active. This avoids blocking screenshots on unrelated tabs, which
@@ -48,18 +56,23 @@ class _ShellViewState extends ConsumerState<ShellView> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('FaunaWatch')),
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+      extendBody: true,
+      appBar: currentDestination == ShellDestination.feed
+          ? const ShellHeader()
+          : null,
       body: IndexedStack(
         index: currentDestination.index,
         children: const [
-          _PlaceholderDestinationView(
-            title: 'Report View',
-            icon: Icons.assignment_outlined,
-          ),
+          FeedView(),
+          GalleryView(),
           _PlaceholderDestinationView(
             title: 'Map View',
             icon: Icons.map_outlined,
           ),
+          MessagesView(),
+          NotificationsView(),
+          ProfileView(),
           _PlaceholderDestinationView(
             title: 'Alerts View',
             icon: Icons.notifications_outlined,
@@ -67,33 +80,16 @@ class _ShellViewState extends ConsumerState<ShellView> {
           AiKeySettingsView(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentDestination.index,
-        onDestinationSelected: (index) {
-          ref.read(shellViewModelProvider.notifier).selectIndex(index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'Report',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: 'Map',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: 'Alerts',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outlined),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: ShellNavBar(
+          currentDestination: currentDestination,
+          onSelectDestination: (destination) {
+            ref
+                .read(shellViewModelProvider.notifier)
+                .selectDestination(destination);
+          },
+        ),
       ),
     );
   }
