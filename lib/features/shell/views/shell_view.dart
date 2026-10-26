@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
@@ -66,10 +67,7 @@ class _ShellViewState extends ConsumerState<ShellView> {
         children: const [
           FeedView(),
           GalleryView(),
-          _PlaceholderDestinationView(
-            title: 'Map View',
-            icon: Icons.map_outlined,
-          ),
+          CommunityMapView(),
           MessagesView(),
           NotificationsView(),
           ProfileView(),
