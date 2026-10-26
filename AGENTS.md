@@ -21,7 +21,9 @@ This repository contains the FaunaWatch mobile application.
 - Secure local key storage: `flutter_secure_storage` (Android Keystore / iOS Keychain)
 - Android and iOS
 - AI providers: Google Gemini, Groq, OpenRouter (user-supplied keys)
-- Mapping: Mapbox
+- Mapping: Mapbox Maps SDK for Flutter (`mapbox_maps_flutter`); configure its
+  public token through the `MAPBOX_PUBLIC_TOKEN` build-time define. The SDK
+  requires iOS 14+.
 
 ## Essential Commands
 

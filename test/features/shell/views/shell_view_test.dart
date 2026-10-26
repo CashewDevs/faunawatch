@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
+import 'package:faunawatch/features/community_map/views/community_map_view.dart';
+import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
 import 'package:faunawatch/features/notifications/views/notifications_view.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
@@ -28,6 +31,9 @@ void main() {
         windowSecurityServiceProvider.overrideWithValue(windowSecurity),
         aiApiKeyStorageServiceProvider.overrideWithValue(
           _FakeAiApiKeyStorageService(),
+        ),
+        mapboxMapCanvasBuilderProvider.overrideWithValue(
+          const _FakeMapboxMapCanvasBuilder(),
         ),
       ],
       child: const MaterialApp(home: ShellView()),
@@ -95,7 +101,8 @@ void main() {
       // Tap Map destination
       await tester.tap(find.text('Map'));
       await tester.pumpAndSettle();
-      expect(find.text('Map View'), findsOneWidget);
+      expect(find.byType(CommunityMapView), findsOneWidget);
+      expect(find.text('Community map'), findsOneWidget);
 
       // Tap Chats destination
       await tester.tap(find.text('Chats'));
@@ -232,5 +239,18 @@ class _FakeAiApiKeyStorageService implements AiApiKeyStorageService {
   @override
   Future<void> deleteAllKeys(String userId) async {
     keys.removeWhere((key, _) => key.$1 == userId);
+  }
+}
+
+class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
+  const _FakeMapboxMapCanvasBuilder();
+
+  @override
+  Widget build({
+    required ViewportState viewport,
+    required MapCreatedCallback onMapCreated,
+    required OnStyleLoadedListener onStyleLoaded,
+  }) {
+    return const SizedBox(key: Key('fake_mapbox_map'));
   }
 }
