@@ -97,6 +97,7 @@ The first admin is added by the project owner: create the user under **Authentic
 ### 5. `create_moderation`
 
 - `reports.status` default becomes `pending`. Change `reports_insert_own` so new rows must have `status = 'pending'`.
+- Owners can edit only `pending` reports. Change `reports_update_own` (both `using` and `with check`) to require `status = 'pending'`, so approved and declined reports are locked for owners. Owners keep delete.
 - Guard trigger so only admins can change status:
 
   ```sql
@@ -129,13 +130,17 @@ The first admin is added by the project owner: create the user under **Authentic
 - Drop `ai_analyses_update_own_report`.
 - Change insert so the owner can insert only while the report is `pending`.
 - Add a trigger that rejects updates from non-admin clients, making rows write-once.
-- Add `species_origin public.species_origin` (nullable).
+- Add `species_origin public.species_origin` (nullable). Leave `species_reference.status` as it is: reference status and biogeographic origin are separate concepts.
+- JSONB conventions (no column change; document them in a `comment on column`):
+  - `possible_species`: array of at most 3 `{common_name, scientific_name, confidence}`, where `confidence` is a `confidence_label` value.
+  - `validation`: array of `{label, passed}` (`passed` is a boolean).
+  - `safety_recommendations` stays plain text.
 - Note for the admin UI: because AI runs on the user's device with their own key (`AGENTS.md`), RLS can make results write-once but cannot prove the first write is genuine. The admin site labels it "AI analysis from the reporter's device".
 
 ### 8. `create_comments`
 
 - `report_comments`: `id`, `report_id`, `user_id` → `profiles`, `body text not null`, `created_at`, `updated_at`.
-- `comment_moderation` (admin only): `comment_id` primary key → `report_comments`, `is_flagged boolean`, `note text`, `removed_at timestamptz`, `moderated_by`, `updated_at`.
+- `comment_moderation` (admin only): `comment_id` primary key → `report_comments`, `is_flagged boolean`, `note text`, `removed_at timestamptz`, `moderated_by`, `updated_at`. Only admins flag comments; users have no report-comment action.
 - Select: anyone who can see the report, excluding removed comments (use a security definer helper to check `comment_moderation`). Admins see all.
 - Insert: own row, not suspended, report is approved. Update/delete: own row.
 
@@ -150,7 +155,7 @@ The first admin is added by the project owner: create the user under **Authentic
 This changes who can see what. Flag it to the user before applying.
 
 - `reports` select: owner or `is_admin()` only. Replace `reports_select_authenticated`.
-- RPC `community_reports(min_lat, min_lng, max_lat, max_lng)`: security definer, returns **approved** reports only, with `round(latitude, 2)` / `round(longitude, 2)` (~1 km) and no exact coordinates. Use it for the community map and proximity warnings.
+- RPC `community_reports(min_lat, min_lng, max_lat, max_lng)`: security definer, returns **approved** reports only, with `round(latitude, 2)` / `round(longitude, 2)` (~1 km) and no exact coordinates. It is anonymous: no `user_id` and no reporter profile fields. Use it for the community map and proximity warnings.
 - `report_images`, `ai_analyses` select: owner, admins, or the parent report is approved.
 - Storage `report-images` select: owner folder, `is_admin()`, or the report in path segment 2 (`{user_id}/{report_id}/{file}`) is approved. Replace `report_images_storage_select`.
 - Avatars: `preset:` values are not storage paths; the bucket policy is unchanged.
@@ -160,7 +165,7 @@ This changes who can see what. Flag it to the user before applying.
 All check `is_admin()` first and raise if false.
 
 - `admin_list_users()`: profile fields, `email` and `email_confirmed_at` from `auth.users`, report count, current sanction.
-- `admin_sector_stats(from_ts, to_ts)`: groups sightings into fixed grid cells, returns the **cell centre** (never an average of points) and counts per cell, and omits cells with fewer than 3 sightings.
+- `admin_sector_stats(from_ts, to_ts, cell_deg default 0.1, min_count default 3)`: groups sightings into fixed grid cells (0.1° is about 11 km), returns the **cell centre** (never an average of points) and counts per cell, and omits cells with fewer than `min_count` sightings.
 - Admin select policies (`using (public.is_admin())`) on tables the admin site reads that are not already covered above.
 
 ## Mobile App (Dart) Changes
@@ -182,17 +187,25 @@ Follow `AGENTS.md` layering: Supabase access in Services only, models updated wi
 - Authentication → Providers → Email: turn on **Confirm email**.
 - Google provider setup will come with the admin site's Google sign-in task.
 
-## Open Questions (Do Not Guess)
+## Resolved Questions (2026-10-27)
 
-1. When an owner edits a report that is already approved or declined, should it go back to `pending`? Conservative: block edits to decided reports.
-2. Who can flag a comment: only admins, or can users report comments too? Conservative: admins only.
-3. Should `species_reference.status` also use the `species_origin` enum, and how does `possible_invasive` relate to origin `introduced`?
-4. `possible_species` entries are `{name, confidence}`. The admin site shows common and scientific names. Can entries become `{common_name, scientific_name, confidence}`?
-5. Invasive threat type for admin analytics (`colony`, `aquatic`, `ecosystem`, `biosecurity`): where does it come from (AI output, `species_reference`, or admin)? Leave it out until decided.
-6. Shape of `ai_analyses.validation` (proposed: array of `{label, passed}`) and whether `safety_recommendations` should be a list.
-7. Grid cell size for `admin_sector_stats` (proposed 0.1°, about 11 km) and the minimum count (proposed 3).
-8. Should `community_reports` include the reporter's profile (name, avatar) or stay anonymous?
-9. How far may EXIF GPS be from the reported location before the admin site shows "EXIF not verified"?
+The project owner answered these. They are already reflected in the migration plan above.
+
+| # | Question | Resolution |
+|---|---|---|
+| 1 | Can owners edit decided reports? | No. Owners can edit only `pending` reports (migration 5). |
+| 2 | Who flags comments? | Admins only (migration 8). |
+| 3 | `species_reference.status` vs `species_origin`? | Keep separate: reference status is not biogeographic origin (migration 7). |
+| 4 | Extend the `possible_species` shape? | Yes: `{common_name, scientific_name, confidence}`. JSONB convention, no schema change (migration 7). |
+| 5 | Invasive threat type? | Leave it out until its source is decided. Do not add a column. |
+| 6 | `validation` shape and `safety_recommendations` format? | `[{label, passed}]` for validation; plain text for safety recommendations (migration 7). |
+| 7 | Grid cell size and minimum count? | 0.1° (about 11 km) and 3, as function defaults (migration 11). |
+| 8 | Should community reports include the reporter's profile? | No. Anonymous, to protect reporter privacy (migration 10). |
+| 9 | EXIF GPS distance threshold? | 500 m. This is admin-site display logic, not a database constraint. |
+
+## Still Open
+
+- Invasive threat type (`colony`, `aquatic`, `ecosystem`, `biosecurity`): no source yet. Leave it out and mention it in your summary.
 
 ## Definition of Done
 
@@ -202,5 +215,5 @@ Follow `AGENTS.md` layering: Supabase access in Services only, models updated wi
 - [ ] No client can change `reports.status`, AI results, admin notes, comment moderation or sanctions unless admin
 - [ ] Exact coordinates, EXIF GPS and unapproved photos readable only by owner and admins
 - [ ] Dart models, services and tests updated; `dart format .`, `flutter analyze`, `flutter test` pass
-- [ ] Open questions flagged in comments and in the summary
+- [ ] Remaining open items flagged in comments and in the summary
 - [ ] Nothing pushed to the hosted project without approval, nothing committed to `main`
