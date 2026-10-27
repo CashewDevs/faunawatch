@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
+import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
+import '../../profile/fake_profile_service.dart';
 import 'package:faunawatch/features/profile_customization/views/profile_banner_view.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/banner_color_item.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/profile_banner_item.dart';
@@ -10,6 +12,9 @@ import 'package:faunawatch/features/profile_customization/views/widgets/profile_
 void main() {
   Widget createWidgetUnderTest() {
     return ProviderScope(
+      overrides: [
+        profileServiceProvider.overrideWithValue(FakeProfileService()),
+      ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
         home: const ProfileBannerView(),

@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_guide_sheet.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_purpose_card.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_warning_demo_card.dart';
+import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 
 /// Interactive Mapbox map for approximate community wildlife sightings.
 class CommunityMapView extends ConsumerStatefulWidget {
@@ -14,13 +18,30 @@ class CommunityMapView extends ConsumerStatefulWidget {
 
 class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   Brightness? _lastBrightness;
+  bool _showPurposeCard = true;
+  bool _showDemoControls = true;
+
+  void _openMapGuide() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+      ),
+      builder: (_) => const MapGuideSheet(),
+    );
+  }
 
   // The initial viewport must remain stable after Mapbox has rendered it.
   // The service changes only the pitch for 2D/3D, preserving the user's
   // current center, zoom, and bearing.
   late final CameraViewportState _initialViewport = CameraViewportState(
-    center: Point(coordinates: Position(0, 20)),
-    zoom: 1.5,
+    center: Point(
+      coordinates: Position(WarningDemo.longitude, WarningDemo.latitude),
+    ),
+    zoom: WarningDemo.zoom,
     pitch: 55,
   );
 
@@ -74,7 +95,11 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: _MapTitleCard(colorScheme: colorScheme),
+                        child: _MapTitleCard(
+                          colorScheme: colorScheme,
+                          onOpenPreview: () =>
+                              setState(() => _showPurposeCard = true),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       _MapModeButton(
@@ -89,6 +114,47 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   ),
                 ),
               ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  top: false,
+                  // Leave the native map attribution visible below the card.
+                  minimum: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 420,
+                      maxHeight: constraints.maxHeight * 0.46,
+                    ),
+                    child: _showPurposeCard
+                        ? MapPurposeCard(
+                            onLearnMore: _openMapGuide,
+                            onDismiss: () =>
+                                setState(() => _showPurposeCard = false),
+                          )
+                        : _showDemoControls
+                        ? MapWarningDemoCard(
+                            level: state.demoLevel,
+                            hasError: state.demoHasError,
+                            onSelect: ref
+                                .read(communityMapViewModelProvider.notifier)
+                                .selectDemoLevel,
+                            onRecenter: ref
+                                .read(communityMapViewModelProvider.notifier)
+                                .recenterDemo,
+                            onDismiss: () =>
+                                setState(() => _showDemoControls = false),
+                          )
+                        : ActionChip(
+                            avatar: const Icon(Icons.radar, size: 18),
+                            label: Text(
+                              'Warning demo · ${state.demoLevel.label}',
+                            ),
+                            onPressed: () =>
+                                setState(() => _showDemoControls = true),
+                          ),
+                  ),
+                ),
+              ),
             ],
           );
         },
@@ -98,9 +164,10 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
 }
 
 class _MapTitleCard extends StatelessWidget {
-  const _MapTitleCard({required this.colorScheme});
+  const _MapTitleCard({required this.colorScheme, required this.onOpenPreview});
 
   final ColorScheme colorScheme;
+  final VoidCallback onOpenPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -113,15 +180,26 @@ class _MapTitleCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Community map',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Community map',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: onOpenPreview,
+                  tooltip: 'Show map preview',
+                  icon: const Icon(Icons.info_outline),
+                ),
+              ],
             ),
             const SizedBox(height: 2),
             Text(
-              'Explore with touch, pinch, and two-finger rotation.',
+              'Cebu City, Philippines · Demo',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -152,9 +230,9 @@ class _MapModeButton extends StatelessWidget {
           tooltip: 'Switch to ${is3dEnabled ? '2D' : '3D'}',
           icon: Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
         ),
       ),

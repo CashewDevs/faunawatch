@@ -14,6 +14,13 @@ class ProfileHeaderCard extends StatelessWidget {
   final ProfileData profile;
 
   Widget _buildAvatar() {
+    if (profile.avatarUrl != null) {
+      return Image.network(
+        profile.avatarUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _defaultAvatar(),
+      );
+    }
     if (profile.customImagePath != null &&
         profile.customImagePath!.isNotEmpty &&
         !kIsWeb) {
@@ -81,7 +88,7 @@ class ProfileHeaderCard extends StatelessWidget {
                       Text(
                         profile.username.isNotEmpty
                             ? profile.username
-                            : 'tweetybird',
+                            : 'Profile',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.dmSans(
@@ -93,9 +100,7 @@ class ProfileHeaderCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        profile.bio.isNotEmpty
-                            ? profile.bio
-                            : 'pls dont be inluv wt sum1 else',
+                        profile.bio,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.dmSans(

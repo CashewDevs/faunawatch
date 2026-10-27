@@ -38,7 +38,25 @@ class ProfileView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileViewModelProvider);
+    final profileState = ref.watch(profileViewModelProvider);
+    if (profileState.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (profileState.hasError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Unable to load your profile.'),
+            TextButton(
+              onPressed: () => ref.invalidate(profileViewModelProvider),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    final profile = profileState.requireValue;
     final settings = ref.watch(settingsViewModelProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

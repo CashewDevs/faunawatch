@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -12,9 +13,7 @@ void main() {
   setUp(() {
     mapboxMapService = _FakeMapboxMapService();
     container = ProviderContainer(
-      overrides: [
-        mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
-      ],
+      overrides: [mapboxMapServiceProvider.overrideWithValue(mapboxMapService)],
     );
   });
 
@@ -25,7 +24,47 @@ void main() {
 
     expect(state.is3dEnabled, isTrue);
     expect(state.brightness, Brightness.light);
+    expect(state.demoLevel, DemoWarningLevel.approaching);
   });
+
+  test('waits for the style then renders the selected demo level', () async {
+    final viewModel = container.read(communityMapViewModelProvider.notifier);
+    await viewModel.selectDemoLevel(DemoWarningLevel.danger);
+    expect(mapboxMapService.demoCalls, isEmpty);
+    await viewModel.onStyleLoaded();
+    expect(mapboxMapService.demoCalls.single.level, DemoWarningLevel.danger);
+    await viewModel.selectDemoLevel(DemoWarningLevel.near);
+    expect(mapboxMapService.demoCalls.last.level, DemoWarningLevel.near);
+    expect(
+      container.read(communityMapViewModelProvider).demoLevel,
+      DemoWarningLevel.near,
+    );
+  });
+
+  test('a failed demo draw can be retried by recentering', () async {
+    final viewModel = container.read(communityMapViewModelProvider.notifier);
+    mapboxMapService.failDemo = true;
+    await viewModel.onStyleLoaded();
+    expect(container.read(communityMapViewModelProvider).demoHasError, isTrue);
+    mapboxMapService.failDemo = false;
+    await viewModel.recenterDemo();
+    expect(mapboxMapService.demoCalls.last.recenter, isTrue);
+    expect(container.read(communityMapViewModelProvider).demoHasError, isFalse);
+  });
+
+  test(
+    'rapid selections finish with the newest level and no concurrent draws',
+    () async {
+      final viewModel = container.read(communityMapViewModelProvider.notifier);
+      await viewModel.onStyleLoaded();
+      await Future.wait([
+        viewModel.selectDemoLevel(DemoWarningLevel.near),
+        viewModel.selectDemoLevel(DemoWarningLevel.danger),
+      ]);
+      expect(mapboxMapService.demoCalls.last.level, DemoWarningLevel.danger);
+      expect(mapboxMapService.maxConcurrentDraws, 1);
+    },
+  );
 
   test('applies the active theme after the Mapbox style has loaded', () async {
     final viewModel = container.read(communityMapViewModelProvider.notifier);
@@ -57,6 +96,10 @@ void main() {
 
 class _FakeMapboxMapService implements MapboxMapService {
   final List<({Brightness brightness, bool is3dEnabled})> appearanceCalls = [];
+  final demoCalls = <({DemoWarningLevel level, bool recenter})>[];
+  bool failDemo = false;
+  int concurrentDraws = 0;
+  int maxConcurrentDraws = 0;
 
   @override
   Future<void> applyAppearance({
@@ -71,4 +114,22 @@ class _FakeMapboxMapService implements MapboxMapService {
 
   @override
   void detach() {}
+
+  @override
+  Future<void> showWarningDemo(
+    DemoWarningLevel level, {
+    bool recenter = false,
+  }) async {
+    demoCalls.add((level: level, recenter: recenter));
+    concurrentDraws++;
+    if (concurrentDraws > maxConcurrentDraws) {
+      maxConcurrentDraws = concurrentDraws;
+    }
+    try {
+      await Future<void>.delayed(Duration.zero);
+      if (failDemo) throw StateError('Unavailable');
+    } finally {
+      concurrentDraws--;
+    }
+  }
 }

@@ -224,6 +224,11 @@ or local machine config. Before committing, review `git status` and
 
 ## Documentation
 
+Profile banners persist in `profiles.banner_asset` (preset asset identifier) or
+`profiles.banner_color` (unsigned 32-bit ARGB stored as bigint), with at most one
+set. Apply `20261028000100_add_profile_banner.sql` before running clients that
+load or save banner preferences. Existing profiles may leave both fields null.
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.

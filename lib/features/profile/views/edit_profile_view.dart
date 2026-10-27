@@ -20,11 +20,12 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
   String? _selectedAvatar;
   String? _selectedBanner;
   int? _selectedColorValue;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    final profile = ref.read(profileViewModelProvider);
+    final profile = ref.read(profileViewModelProvider).requireValue;
     _usernameController = TextEditingController(text: profile.username);
     _bioController = TextEditingController(text: profile.bio);
     _selectedAvatar = profile.presetAvatar;
@@ -40,6 +41,7 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
   }
 
   Future<void> _handleSave() async {
+    if (_isSaving) return;
     final username = _usernameController.text.trim();
     final bio = _bioController.text.trim();
 
@@ -62,10 +64,20 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
           clearColor: _selectedColorValue == null,
         );
 
-    await ref.read(profileViewModelProvider.notifier).save();
+    setState(() => _isSaving = true);
+    final success = await ref.read(profileViewModelProvider.notifier).save();
 
     if (mounted) {
-      Navigator.of(context).pop();
+      setState(() => _isSaving = false);
+      if (success) {
+        Navigator.of(context).pop();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to save profile. Please try again.'),
+          ),
+        );
+      }
     }
   }
 
@@ -99,7 +111,7 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
         ),
         actions: [
           TextButton(
-            onPressed: _handleSave,
+            onPressed: _isSaving ? null : _handleSave,
             child: Text(
               'Save',
               style: GoogleFonts.dmSans(
@@ -174,6 +186,37 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
               ),
             ),
             const SizedBox(height: 12),
+            for (final banner in AppAssets.presetBanners)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Semantics(
+                  button: true,
+                  selected: _selectedBanner == banner,
+                  label:
+                      'Banner ${AppAssets.presetBanners.indexOf(banner) + 1}',
+                  child: GestureDetector(
+                    onTap: () => setState(() {
+                      _selectedBanner = banner;
+                      _selectedColorValue = null;
+                    }),
+                    child: Container(
+                      height: 64,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _selectedBanner == banner
+                              ? AppColors.shellHeaderBlue
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.asset(banner, fit: BoxFit.cover),
+                    ),
+                  ),
+                ),
+              ),
             SizedBox(
               height: 48,
               child: ListView(
