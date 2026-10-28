@@ -1,14 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
+import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
 
 /// The primary Feed screen displaying wildlife sighting posts or an empty state
 /// when no posts are available.
-class FeedView extends StatelessWidget {
+class FeedView extends ConsumerWidget {
   const FeedView({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final post = ref.watch(feedViewModelProvider);
+    if (post != null) {
+      return Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+            child: FeedPostCard(key: ValueKey(post.id), post: post),
+          ),
+        ),
+      );
+    }
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(

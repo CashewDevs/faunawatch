@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/features/auth/services/auth_service.dart';
+import 'package:faunawatch/core/constants/app_assets.dart';
 
 /// Service contract for saving and managing user profile setup data.
 abstract interface class ProfileService {
@@ -23,9 +24,6 @@ abstract interface class ProfileService {
   });
 
   /// Saves the profile banner preference.
-  // TODO(profile-banner): profiles table has no banner column yet.
-  // Add a migration (e.g. banner_asset text, banner_color int) before
-  // implementing this. For now this is a no-op.
   Future<bool> saveProfileBanner({String? bannerAsset, int? colorValue});
 }
 
@@ -95,8 +93,22 @@ class SupabaseProfileService implements ProfileService {
 
   @override
   Future<bool> saveProfileBanner({String? bannerAsset, int? colorValue}) async {
-    // TODO(profile-banner): no-op until a migration adds banner columns.
-    return true;
+    final userId = _userId;
+    if (userId == null) return false;
+    if (bannerAsset != null && colorValue != null) return false;
+    if (bannerAsset != null && !AppAssets.presetBanners.contains(bannerAsset)) {
+      return false;
+    }
+    if (colorValue != null && (colorValue < 0 || colorValue > 0xFFFFFFFF)) {
+      return false;
+    }
+
+    final rows = await _client
+        .from('profiles')
+        .update({'banner_asset': bannerAsset, 'banner_color': colorValue})
+        .eq('id', userId)
+        .select('id');
+    return rows.isNotEmpty;
   }
 }
 

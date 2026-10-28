@@ -1,24 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
+import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 
 /// Coordinates community-map presentation state with the Mapbox service.
 class CommunityMapViewModel extends Notifier<CommunityMapState> {
   late final MapboxMapService _mapboxMapService;
   var _isStyleLoaded = false;
+  var _disposed = false;
+  Future<void> _demoQueue = Future.value();
 
   @override
   CommunityMapState build() {
     _mapboxMapService = ref.watch(mapboxMapServiceProvider);
-    ref.onDispose(_mapboxMapService.detach);
+    _disposed = false;
+    ref.onDispose(() {
+      _disposed = true;
+      _mapboxMapService.detach();
+    });
     return const CommunityMapState();
   }
 
   /// Connects the platform map after it has been created.
   Future<void> onMapCreated(MapboxMap mapboxMap) async {
-    await _mapboxMapService.attach(mapboxMap);
+    await _mapboxMapService.attach(mapboxMap, onPostTap: selectPost);
+  }
+
+  void selectPost(String postId) {
+    if (!_disposed && postId == sampleMapPost.id) {
+      state = state.copyWith(selectedPostId: postId);
+    }
+  }
+
+  void dismissPost() => state = state.copyWith(clearSelectedPost: true);
+
+  void seeMore() {
+    final postId = state.selectedPostId;
+    if (postId == null) return;
+    ref.read(feedViewModelProvider.notifier).openSamplePost(postId);
+    dismissPost();
+    ref
+        .read(shellViewModelProvider.notifier)
+        .selectDestination(ShellDestination.feed);
   }
 
   /// Applies the current appearance only after Mapbox has finished loading the
@@ -26,6 +54,34 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   Future<void> onStyleLoaded() async {
     _isStyleLoaded = true;
     await _applyAppearance();
+    await _renderDemo();
+  }
+
+  Future<void> selectDemoLevel(DemoWarningLevel level) async {
+    state = state.copyWith(demoLevel: level);
+    if (_isStyleLoaded) await _renderDemo();
+  }
+
+  Future<void> recenterDemo() async {
+    if (_isStyleLoaded) await _renderDemo(recenter: true);
+  }
+
+  // Serialize updates so fast selections cannot create duplicate style layers
+  // or leave the marker showing an older selection.
+  Future<void> _renderDemo({bool recenter = false}) {
+    _demoQueue = _demoQueue.then((_) async {
+      if (_disposed) return;
+      try {
+        await _mapboxMapService.showWarningDemo(
+          state.demoLevel,
+          recenter: recenter,
+        );
+        if (!_disposed) state = state.copyWith(demoHasError: false);
+      } catch (_) {
+        if (!_disposed) state = state.copyWith(demoHasError: true);
+      }
+    });
+    return _demoQueue;
   }
 
   /// Keeps Mapbox Standard lighting aligned with the active app theme.
