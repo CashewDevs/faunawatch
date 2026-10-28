@@ -95,7 +95,7 @@ class MapGuideSheet extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Try it now: drag to explore, pinch to zoom, rotate with '
+                      'Try it now: tap the red pin to preview a sample post and see more in the feed. Drag to explore, pinch to zoom, rotate with '
                       'two fingers, and use the 2D/3D button to change perspective.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colors.onPrimaryContainer,

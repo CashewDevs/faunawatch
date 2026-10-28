@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/core/constants/app_assets.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
+import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
+import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +37,60 @@ void main() {
       ),
     );
   }
+
+  testWidgets(
+    'sample pin opens a dismissible preview and see more selects feed',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        buildMap(theme: ThemeData.dark(useMaterial3: true), textScale: 1.5),
+      );
+      await tester.pump();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CommunityMapView)),
+      );
+      final vm = container.read(communityMapViewModelProvider.notifier);
+      vm.selectPost(sampleMapPost.id);
+      await tester.pumpAndSettle();
+      expect(find.text(sampleMapPost.title), findsOneWidget);
+      expect(find.byType(MapPostDialog), findsOneWidget);
+      final image = tester.widget<Image>(find.byType(Image).first);
+      expect((image.image as AssetImage).assetName, AppAssets.avatarGarfield);
+      expect(image.fit, BoxFit.contain);
+      final popup = tester.getRect(find.byType(Dialog));
+      expect(popup.center.dx, closeTo(160, 1));
+      expect(popup.center.dy, closeTo(284, 1));
+      expect(
+        tester.getRect(find.byType(Image).first).bottom,
+        lessThanOrEqualTo(tester.getRect(find.text(sampleMapPost.title)).top),
+      );
+      expect(find.text('1 / 3'), findsOneWidget);
+      await tester.drag(find.byType(PageView), const Offset(-240, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 3'), findsOneWidget);
+      await tester.drag(find.byType(PageView), const Offset(240, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('1 / 3'), findsOneWidget);
+      await tester.tap(find.byTooltip('Close post preview'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(communityMapViewModelProvider).selectedPostId,
+        isNull,
+      );
+      vm.selectPost(sampleMapPost.id);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('See more in feed'));
+      await tester.tap(find.text('See more in feed'));
+      await tester.pumpAndSettle();
+      expect(container.read(feedViewModelProvider), same(sampleMapPost));
+      expect(container.read(shellViewModelProvider), ShellDestination.feed);
+      expect(find.text('See more in feed'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('explains the map purpose and identifies planned features', (
     tester,
@@ -174,7 +234,10 @@ class _FakeMapboxMapService implements MapboxMapService {
   }) async {}
 
   @override
-  Future<void> attach(MapboxMap mapboxMap) async {}
+  Future<void> attach(
+    MapboxMap mapboxMap, {
+    void Function(String)? onPostTap,
+  }) async {}
 
   @override
   void detach() {}

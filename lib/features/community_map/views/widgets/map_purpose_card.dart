@@ -67,7 +67,7 @@ class MapPurposeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Try the Cebu City warning demo. The sample pin, zones, and '
+                      'Try the Cebu City warning demo. Tap the red pin to preview a sample post. The pin, zones, and '
                       'position are simulated; live reports and GPS warnings are still in development.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,

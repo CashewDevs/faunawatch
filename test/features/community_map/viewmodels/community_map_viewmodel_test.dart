@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +21,38 @@ void main() {
   });
 
   tearDown(() => container.dispose());
+
+  test('selects only the sample, dismisses, and opens that post in feed', () {
+    final vm = container.read(communityMapViewModelProvider.notifier);
+    vm.selectPost('unknown');
+    expect(
+      container.read(communityMapViewModelProvider).selectedPostId,
+      isNull,
+    );
+    vm.selectPost(sampleMapPost.id);
+    expect(
+      container.read(communityMapViewModelProvider).selectedPostId,
+      sampleMapPost.id,
+    );
+    vm.dismissPost();
+    expect(
+      container.read(communityMapViewModelProvider).selectedPostId,
+      isNull,
+    );
+    container
+        .read(shellViewModelProvider.notifier)
+        .selectDestination(ShellDestination.map);
+    vm.seeMore();
+    expect(container.read(shellViewModelProvider), ShellDestination.map);
+    vm.selectPost(sampleMapPost.id);
+    vm.seeMore();
+    expect(container.read(feedViewModelProvider), same(sampleMapPost));
+    expect(container.read(shellViewModelProvider), ShellDestination.feed);
+    expect(
+      container.read(communityMapViewModelProvider).selectedPostId,
+      isNull,
+    );
+  });
 
   test('starts in 3D mode using the light appearance', () {
     final state = container.read(communityMapViewModelProvider);
@@ -110,7 +145,10 @@ class _FakeMapboxMapService implements MapboxMapService {
   }
 
   @override
-  Future<void> attach(MapboxMap mapboxMap) async {}
+  Future<void> attach(
+    MapboxMap mapboxMap, {
+    void Function(String)? onPostTap,
+  }) async {}
 
   @override
   void detach() {}

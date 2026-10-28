@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
@@ -25,7 +28,25 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
 
   /// Connects the platform map after it has been created.
   Future<void> onMapCreated(MapboxMap mapboxMap) async {
-    await _mapboxMapService.attach(mapboxMap);
+    await _mapboxMapService.attach(mapboxMap, onPostTap: selectPost);
+  }
+
+  void selectPost(String postId) {
+    if (!_disposed && postId == sampleMapPost.id) {
+      state = state.copyWith(selectedPostId: postId);
+    }
+  }
+
+  void dismissPost() => state = state.copyWith(clearSelectedPost: true);
+
+  void seeMore() {
+    final postId = state.selectedPostId;
+    if (postId == null) return;
+    ref.read(feedViewModelProvider.notifier).openSamplePost(postId);
+    dismissPost();
+    ref
+        .read(shellViewModelProvider.notifier)
+        .selectDestination(ShellDestination.feed);
   }
 
   /// Applies the current appearance only after Mapbox has finished loading the

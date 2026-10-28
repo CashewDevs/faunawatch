@@ -8,6 +8,7 @@ import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late _FakeMapPlatform platform;
   late MapboxCommunityMapService service;
   setUp(() async {
@@ -24,6 +25,7 @@ void main() {
       expect(platform.style.layers.values.map((layer) => layer['type']), [
         'fill',
         'circle',
+        'symbol',
         'symbol',
       ]);
       final zones =
@@ -43,7 +45,7 @@ void main() {
       final originalPosition = points.last['geometry']['coordinates'];
       await service.showWarningDemo(DemoWarningLevel.danger);
       expect(platform.style.sources, hasLength(2));
-      expect(platform.style.layers, hasLength(3));
+      expect(platform.style.layers, hasLength(4));
       final updated =
           platform.style.data['faunawatch-demo-points']['features'] as List;
       expect(
@@ -54,6 +56,15 @@ void main() {
       expect(platform.cameras, isEmpty);
     },
   );
+
+  test('registers only the post pin and removes its tap handler on detach', () {
+    expect(
+      platform.interactions['sample-post-tap']!.featuresetDescriptor!.layerId,
+      'faunawatch-demo-post-pin',
+    );
+    service.detach();
+    expect(platform.interactions, isEmpty);
+  });
 
   test('explicit recenter returns to Cebu and detach stops drawing', () async {
     await service.showWarningDemo(DemoWarningLevel.near, recenter: true);
@@ -73,7 +84,7 @@ void main() {
     platform.style.layers.clear();
     await service.showWarningDemo(DemoWarningLevel.near);
     expect(platform.style.sources, hasLength(2));
-    expect(platform.style.layers, hasLength(3));
+    expect(platform.style.layers, hasLength(4));
   });
 }
 
@@ -81,6 +92,19 @@ class _FakeMapPlatform implements MapboxMapPlatformInterface {
   @override
   final _FakeStyle style = _FakeStyle();
   final cameras = <CameraOptions>[];
+  final interactions = <String, Interaction>{};
+  @override
+  void addInteraction<T extends TypedFeaturesetFeature<FeaturesetDescriptor>>(
+    TypedInteraction<T> interaction, {
+    String? interactionID,
+  }) {
+    interactions[interactionID!] = interaction;
+  }
+
+  @override
+  void removeInteraction(String interactionID) =>
+      interactions.remove(interactionID);
+
   @override
   Future<void> setCamera(CameraOptions cameraOptions) async =>
       cameras.add(cameraOptions);
@@ -92,6 +116,21 @@ class _FakeStyle implements StylePlatformInterface {
   final sources = <String>{};
   final layers = <String, Map<String, dynamic>>{};
   final data = <String, dynamic>{};
+  final images = <String>{};
+  @override
+  Future<bool> hasStyleImage(String imageId) async => images.contains(imageId);
+  @override
+  Future<void> addStyleImage(
+    String imageId,
+    double scale,
+    StyleImage image,
+    bool sdf,
+    List<ImageStretches?> stretchX,
+    List<ImageStretches?> stretchY,
+    ImageContent? content,
+  ) async {
+    images.add(imageId);
+  }
 
   @override
   Future<bool> styleSourceExists(String sourceId) async =>

@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
+import 'package:faunawatch/features/feed/models/feed_post.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +9,7 @@ import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 
 /// Encapsulates imperative Mapbox SDK configuration for the community map.
 abstract interface class MapboxMapService {
-  Future<void> attach(MapboxMap mapboxMap);
+  Future<void> attach(MapboxMap mapboxMap, {void Function(String)? onPostTap});
 
   Future<void> applyAppearance({
     required Brightness brightness,
@@ -58,6 +60,7 @@ class MapboxCommunityMapService implements MapboxMapService {
           'type': 'Feature',
           'properties': {
             'color': '#EF4444',
+            'postId': sampleMapPost.id,
             'label': 'Sample incident',
             'labelOffset': [0, -2.2],
           },
@@ -108,10 +111,57 @@ class MapboxCommunityMapService implements MapboxMapService {
           sourceId: _pointsSource,
           slot: 'top',
           circleColorExpression: ['get', 'color'],
+          filter: [
+            '!',
+            ['has', 'postId'],
+          ],
           circleRadius: 6,
           circleStrokeColor: 0xFFFFFFFF,
           circleStrokeWidth: 2,
           circleEmissiveStrength: 1,
+        ),
+      );
+    }
+    if (!await map.hasStyleImage('sample-post-pin')) {
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+      final path = ui.Path()
+        ..moveTo(32, 84)
+        ..cubicTo(25, 70, 4, 43, 4, 30)
+        ..cubicTo(4, -6, 60, -6, 60, 30)
+        ..cubicTo(60, 43, 39, 70, 32, 84)
+        ..close();
+      canvas.drawPath(path, ui.Paint()..color = const Color(0xFFDC2626));
+      canvas.drawCircle(
+        const ui.Offset(32, 29),
+        12,
+        ui.Paint()..color = const Color(0xFFFFFFFF),
+      );
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(64, 88);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      await map.addImage(
+        'sample-post-pin',
+        2,
+        StyleImage.rgba(
+          width: 64,
+          height: 88,
+          pixels: bytes!.buffer.asUint8List(),
+        ),
+      );
+      image.dispose();
+      picture.dispose();
+    }
+    if (!await map.styleLayerExists('faunawatch-demo-post-pin')) {
+      await map.addLayer(
+        SymbolLayer(
+          id: 'faunawatch-demo-post-pin',
+          sourceId: _pointsSource,
+          slot: 'top',
+          filter: ['has', 'postId'],
+          iconImage: 'sample-post-pin',
+          iconAnchor: IconAnchor.BOTTOM,
+          iconAllowOverlap: true,
         ),
       );
     }
@@ -144,8 +194,19 @@ class MapboxCommunityMapService implements MapboxMapService {
   }
 
   @override
-  Future<void> attach(MapboxMap mapboxMap) async {
+  Future<void> attach(
+    MapboxMap mapboxMap, {
+    void Function(String)? onPostTap,
+  }) async {
     _mapboxMap = mapboxMap;
+    mapboxMap.addInteraction(
+      TapInteraction(
+        FeaturesetDescriptor(layerId: 'faunawatch-demo-post-pin'),
+        (feature, context) => onPostTap?.call(sampleMapPost.id),
+        radius: 12,
+      ),
+      interactionID: 'sample-post-tap',
+    );
   }
 
   @override
@@ -174,6 +235,7 @@ class MapboxCommunityMapService implements MapboxMapService {
 
   @override
   void detach() {
+    _mapboxMap?.removeInteraction('sample-post-tap');
     _mapboxMap = null;
   }
 }

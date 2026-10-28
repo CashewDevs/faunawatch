@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/community_map/models/community_map_state.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
@@ -20,6 +22,24 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   Brightness? _lastBrightness;
   bool _showPurposeCard = true;
   bool _showDemoControls = true;
+  bool _postDialogOpen = false;
+
+  Future<void> _openPost() async {
+    if (_postDialogOpen) return;
+    _postDialogOpen = true;
+    final viewModel = ref.read(communityMapViewModelProvider.notifier);
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => MapPostDialog(
+        onSeeMore: () {
+          Navigator.pop(dialogContext);
+          viewModel.seeMore();
+        },
+      ),
+    );
+    _postDialogOpen = false;
+    if (mounted) viewModel.dismissPost();
+  }
 
   void _openMapGuide() {
     showModalBottomSheet<void>(
@@ -63,6 +83,15 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<CommunityMapState>(communityMapViewModelProvider, (
+      previous,
+      next,
+    ) {
+      if (next.selectedPostId != null &&
+          previous?.selectedPostId != next.selectedPostId) {
+        _openPost();
+      }
+    });
     final state = ref.watch(communityMapViewModelProvider);
     final canvasBuilder = ref.watch(mapboxMapCanvasBuilderProvider);
     final colorScheme = Theme.of(context).colorScheme;
