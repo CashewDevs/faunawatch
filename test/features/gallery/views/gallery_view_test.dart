@@ -45,57 +45,20 @@ void main() {
   }
 
   group('GalleryView', () {
-    testWidgets(
-      'renders background vertical gradient 0% #DCF2FF to 100% #A4DDFF',
-      (tester) async {
-        await tester.pumpWidget(buildTestWidget());
-        await tester.pumpAndSettle();
+    testWidgets('shows through the feed background and keeps the Filter', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pumpAndSettle();
 
-        expect(
-          find.byWidgetPredicate((w) {
-            if (w is Container && w.decoration is BoxDecoration) {
-              final grad = (w.decoration as BoxDecoration).gradient;
-              if (grad is LinearGradient) {
-                return grad.colors.contains(
-                      AppColors.galleryBackgroundGradientStart,
-                    ) &&
-                    grad.colors.contains(
-                      AppColors.galleryBackgroundGradientEnd,
-                    ) &&
-                    grad.begin == Alignment.topCenter &&
-                    grad.end == Alignment.bottomCenter;
-              }
-            }
-            return false;
-          }),
-          findsOneWidget,
-        );
-      },
-    );
-
-    testWidgets(
-      'renders Gallery header with title, underline, and Filter button',
-      (tester) async {
-        await tester.pumpWidget(buildTestWidget());
-        await tester.pumpAndSettle();
-
-        expect(find.byType(GalleryHeader), findsOneWidget);
-        expect(find.text('Gallery'), findsOneWidget);
-        expect(find.text('Filter'), findsOneWidget);
-
-        // Verify yellow underline is present
-        expect(
-          find.byWidgetPredicate(
-            (w) =>
-                w is Container &&
-                w.decoration is BoxDecoration &&
-                (w.decoration as BoxDecoration).color ==
-                    AppColors.galleryTitleUnderline,
-          ),
-          findsOneWidget,
-        );
-      },
-    );
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+        Colors.transparent,
+      );
+      expect(find.byType(GalleryHeader), findsOneWidget);
+      expect(find.text('Filter'), findsOneWidget);
+      expect(find.text('Gallery'), findsNothing);
+    });
 
     testWidgets(
       'renders 3-column grid of GalleryCards with #FFF7D6 details footer',

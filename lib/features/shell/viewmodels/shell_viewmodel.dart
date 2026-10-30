@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Supported destinations in the application bottom navigation bar.
-enum ShellDestination { feed, gallery, map, chats, notifs, profile }
+enum ShellDestination { feed, chats, addPost, notifs, profile }
 
 /// Riverpod Notifier managing the active [ShellDestination] for the application shell.
 class ShellViewModel extends Notifier<ShellDestination> {

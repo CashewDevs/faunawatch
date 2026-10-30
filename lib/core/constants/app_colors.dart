@@ -118,6 +118,11 @@ abstract final class AppColors {
   static const Color galleryFilterButtonBackground = Color(0xFFFFF7D6);
   static const Color galleryFilterButtonBorder = Color(0xFF1A5DC9);
 
+  // Feed Palette
+  static const Color feedLikeRed = Color(0xFFFE2C55);
+  static const Color feedCreatorTeal = Color(0xFF00838F);
+  static const Color feedCreatorTealDark = Color(0xFF4DD0E1);
+
   // Notifications Screen Palette
   static const Color notifsBadgeRed = Color(0xFFE53935);
 

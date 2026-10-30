@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
-import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
 import 'package:faunawatch/features/notifications/views/notifications_view.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
@@ -66,9 +64,13 @@ class _ShellViewState extends ConsumerState<ShellView> {
         index: currentDestination.index,
         children: const [
           FeedView(),
-          GalleryView(),
-          CommunityMapView(),
           MessagesView(),
+          // TODO(team): Decide what Add post opens. The repository has no post
+          // creation flow or requirements yet, so this stays a placeholder.
+          _PlaceholderDestinationView(
+            title: 'Add post',
+            icon: Icons.add_rounded,
+          ),
           NotificationsView(),
           ProfileView(),
           _PlaceholderDestinationView(

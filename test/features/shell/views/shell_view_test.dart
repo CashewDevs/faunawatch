@@ -5,11 +5,14 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
+import 'package:faunawatch/features/community_map/models/warning_demo.dart';
+import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
 import 'package:faunawatch/features/notifications/views/notifications_view.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
+import 'package:faunawatch/features/profile_customization/viewmodels/profile_picture_viewmodel.dart';
 import 'package:faunawatch/features/shell/views/search_view.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
@@ -35,6 +38,10 @@ void main() {
         mapboxMapCanvasBuilderProvider.overrideWithValue(
           const _FakeMapboxMapCanvasBuilder(),
         ),
+        mapboxMapServiceProvider.overrideWithValue(_FakeMapboxMapService()),
+        profilePictureViewModelProvider.overrideWith(
+          _FakeProfilePictureViewModel.new,
+        ),
       ],
       child: const MaterialApp(home: ShellView()),
     );
@@ -57,17 +64,14 @@ void main() {
     ) async {
       await tester.pumpWidget(buildTestShell());
 
-      // Feed view has the header
+      // Feed view and its tabs have the header
+      expect(find.byType(ShellHeader), findsOneWidget);
+      await tester.tap(find.text('Map'));
+      await tester.pumpAndSettle();
       expect(find.byType(ShellHeader), findsOneWidget);
 
-      // Switch to Gallery: header disappears
-      await tester.tap(find.text('Gallery'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ShellHeader), findsNothing);
-      expect(find.byType(GalleryView), findsOneWidget);
-
-      // Switch to Map: header absent
-      await tester.tap(find.text('Map'));
+      // Switch to Chats: header disappears
+      await tester.tap(find.text('Chats'));
       await tester.pumpAndSettle();
       expect(find.byType(ShellHeader), findsNothing);
 
@@ -77,15 +81,25 @@ void main() {
       expect(find.byType(ShellHeader), findsOneWidget);
     });
 
-    testWidgets('renders all six navigation destinations', (tester) async {
+    testWidgets('moves Gallery and Map from the nav bar into feed tabs', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildTestShell());
+      final navBar = find.byType(ShellNavBar);
 
-      expect(find.text('Feed'), findsOneWidget);
-      expect(find.text('Gallery'), findsOneWidget);
-      expect(find.text('Map'), findsOneWidget);
-      expect(find.text('Chats'), findsOneWidget);
-      expect(find.text('Notifs'), findsOneWidget);
-      expect(find.text('Profile'), findsOneWidget);
+      for (final label in ['Feed', 'Chats', 'Notifs', 'Profile']) {
+        expect(
+          find.descendant(of: navBar, matching: find.text(label)),
+          findsOneWidget,
+        );
+      }
+      for (final label in ['Gallery', 'Map']) {
+        expect(
+          find.descendant(of: navBar, matching: find.text(label)),
+          findsNothing,
+        );
+      }
+      expect(find.bySemanticsLabel('Add post'), findsOneWidget);
     });
 
     testWidgets('switches views when navigation items are tapped', (
@@ -93,44 +107,39 @@ void main() {
     ) async {
       await tester.pumpWidget(buildTestShell());
 
-      // Tap Gallery destination
-      await tester.tap(find.text('Gallery'));
+      await tester.tap(find.text('Your Gallery'));
       await tester.pumpAndSettle();
       expect(find.byType(GalleryView), findsOneWidget);
 
-      // Tap Map destination
       await tester.tap(find.text('Map'));
       await tester.pumpAndSettle();
       expect(find.byType(CommunityMapView), findsOneWidget);
       expect(find.text('Community map'), findsOneWidget);
 
-      // Tap Chats destination
       await tester.tap(find.text('Chats'));
       await tester.pumpAndSettle();
       expect(find.byType(MessagesView), findsOneWidget);
       expect(find.text('Messages'), findsOneWidget);
 
-      // Tap Notifs destination
+      await tester.tap(find.bySemanticsLabel('Add post'));
+      await tester.pumpAndSettle();
+      expect(find.text('Feature pending implementation'), findsOneWidget);
+
       await tester.tap(find.text('Notifs'));
       await tester.pumpAndSettle();
       expect(find.byType(NotificationsView), findsOneWidget);
       expect(find.text('Notifications'), findsOneWidget);
 
-      // Tap Profile destination and let its async settings load settle
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
       expect(find.byType(ProfileView), findsOneWidget);
 
-      // Tap back to Feed destination
+      // Returning to Feed keeps the selected tab
       await tester.tap(find.text('Feed'));
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.text('AI provider keys'), findsOneWidget);
-
-      // Tap back to Report destination
-      await tester.tap(find.text('Report'));
       await tester.pumpAndSettle();
       expect(find.byType(FeedView), findsOneWidget);
-      expect(find.text('No posts yet.'), findsOneWidget);
+      expect(find.text('Community map'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets(
@@ -169,7 +178,7 @@ void main() {
       await tester.pumpWidget(buildTestShell());
       await tester.pumpAndSettle();
 
-      // Report tab: not secure
+      // Feed tab: not secure
       expect(windowSecurity.isSecure, isFalse);
       expect(windowSecurity.enableCalls, 0);
 
@@ -179,8 +188,8 @@ void main() {
 
       expect(windowSecurity.isSecure, isTrue);
 
-      // Map tab: not secure again
-      await tester.tap(find.text('Map'));
+      // Chats tab: not secure again
+      await tester.tap(find.text('Chats'));
       await tester.pumpAndSettle();
 
       expect(windowSecurity.isSecure, isFalse);
@@ -253,4 +262,32 @@ class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
   }) {
     return const SizedBox(key: Key('fake_mapbox_map'));
   }
+}
+
+class _FakeMapboxMapService implements MapboxMapService {
+  @override
+  Future<void> applyAppearance({
+    required Brightness brightness,
+    required bool is3dEnabled,
+  }) async {}
+
+  @override
+  Future<void> attach(
+    MapboxMap mapboxMap, {
+    void Function(String)? onPostTap,
+  }) async {}
+
+  @override
+  void detach() {}
+
+  @override
+  Future<void> showWarningDemo(
+    DemoWarningLevel level, {
+    bool recenter = false,
+  }) async {}
+}
+
+class _FakeProfilePictureViewModel extends ProfilePictureViewModel {
+  @override
+  ProfilePictureState build() => const ProfilePictureState();
 }
