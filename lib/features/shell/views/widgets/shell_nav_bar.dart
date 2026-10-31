@@ -8,8 +8,15 @@ import 'package:faunawatch/features/notifications/viewmodels/notifications_viewm
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_picture_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
-/// Custom bottom navigation bar featuring 6 destinations (Feed, Gallery, Map,
-/// Chats, Notifs, Profile) with stateful pressed/unpressed icons and active label borders.
+const double _addButtonSize = 56;
+
+/// How far the Add post button rises above the top edge of the bar.
+const double _addButtonRise = 22;
+const double _notchHalfWidth = 48;
+const double _notchDepth = 38;
+
+/// Custom bottom navigation bar with Feed, Chats, Notifs, and Profile items
+/// around a raised Add post button that sits in a notch at the top of the bar.
 class ShellNavBar extends ConsumerWidget {
   const ShellNavBar({
     super.key,
@@ -26,64 +33,65 @@ class ShellNavBar extends ConsumerWidget {
     final hasUnreadNotifications = ref.watch(hasUnreadNotificationsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFD6E2EE),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-            offset: const Offset(0, 4),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: Stack(
+        alignment: Alignment.topCenter,
         children: [
-          _buildNavItem(
-            destination: ShellDestination.feed,
-            label: 'Feed',
-            unpressedAsset: AppAssets.navFeedUnpressed,
-            pressedAsset: AppAssets.navFeedPressed,
-            isDark: isDark,
+          Padding(
+            padding: const EdgeInsets.only(top: _addButtonRise),
+            child: CustomPaint(
+              painter: _NotchedBarPainter(
+                fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderColor: isDark
+                    ? const Color(0xFF334155)
+                    : const Color(0xFFD6E2EE),
+                shadowColor: Colors.black.withValues(
+                  alpha: isDark ? 0.35 : 0.08,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(
+                      destination: ShellDestination.feed,
+                      label: 'Feed',
+                      unpressedAsset: AppAssets.navFeedUnpressed,
+                      pressedAsset: AppAssets.navFeedPressed,
+                      isDark: isDark,
+                    ),
+                    _buildNavItem(
+                      destination: ShellDestination.chats,
+                      label: 'Chats',
+                      unpressedAsset: AppAssets.navChatsUnpressed,
+                      pressedAsset: AppAssets.navChatsPressed,
+                      isDark: isDark,
+                    ),
+                    // Keeps the items clear of the Add post button.
+                    const SizedBox(width: _notchHalfWidth * 2),
+                    _buildNavItem(
+                      destination: ShellDestination.notifs,
+                      label: 'Notifs',
+                      unpressedAsset: AppAssets.navNotifsUnpressed,
+                      pressedAsset: AppAssets.navNotifsPressed,
+                      hasBadge: hasUnreadNotifications,
+                      isDark: isDark,
+                    ),
+                    _buildProfileItem(pictureState, isDark: isDark),
+                  ],
+                ),
+              ),
+            ),
           ),
-          _buildNavItem(
-            destination: ShellDestination.gallery,
-            label: 'Gallery',
-            unpressedAsset: AppAssets.navPhotosUnpressed,
-            pressedAsset: AppAssets.navPhotosPressed,
-            isDark: isDark,
+          Positioned(
+            top: 0,
+            child: _AddPostButton(
+              isSelected: currentDestination == ShellDestination.addPost,
+              onTap: () => onSelectDestination(ShellDestination.addPost),
+            ),
           ),
-          _buildNavItem(
-            destination: ShellDestination.map,
-            label: 'Map',
-            unpressedAsset: AppAssets.navMapUnpressed,
-            pressedAsset: AppAssets.navMapPressed,
-            isDark: isDark,
-          ),
-          _buildNavItem(
-            destination: ShellDestination.chats,
-            label: 'Chats',
-            unpressedAsset: AppAssets.navChatsUnpressed,
-            pressedAsset: AppAssets.navChatsPressed,
-            isDark: isDark,
-          ),
-          _buildNavItem(
-            destination: ShellDestination.notifs,
-            label: 'Notifs',
-            unpressedAsset: AppAssets.navNotifsUnpressed,
-            pressedAsset: AppAssets.navNotifsPressed,
-            hasBadge: hasUnreadNotifications,
-            isDark: isDark,
-          ),
-          _buildProfileItem(pictureState, isDark: isDark),
         ],
       ),
     );
@@ -274,4 +282,133 @@ class ShellNavBar extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Round brand-colored button for creating a post.
+class _AddPostButton extends StatelessWidget {
+  const _AddPostButton({required this.isSelected, required this.onTap});
+
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      button: true,
+      label: 'Add post',
+      selected: isSelected,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: _addButtonSize,
+          height: _addButtonSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.profileButtonGradientStart,
+                AppColors.profileButtonGradientEnd,
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.profileButtonGradientEnd.withValues(
+                  alpha: 0.45,
+                ),
+                offset: const Offset(0, 4),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.add_rounded,
+            color: AppColors.shellHeaderBlue,
+            size: 36,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Paints the bar's rounded body with a smooth dip for the Add post button.
+class _NotchedBarPainter extends CustomPainter {
+  const _NotchedBarPainter({
+    required this.fillColor,
+    required this.borderColor,
+    required this.shadowColor,
+  });
+
+  final Color fillColor;
+  final Color borderColor;
+  final Color shadowColor;
+
+  static const double _radius = 20;
+
+  Path _barPath(Size size) {
+    final center = size.width / 2;
+    return Path()
+      ..moveTo(_radius, 0)
+      ..lineTo(center - _notchHalfWidth, 0)
+      ..cubicTo(center - 32, 0, center - 44, _notchDepth, center, _notchDepth)
+      ..cubicTo(
+        center + 44,
+        _notchDepth,
+        center + 32,
+        0,
+        center + _notchHalfWidth,
+        0,
+      )
+      ..lineTo(size.width - _radius, 0)
+      ..arcToPoint(
+        Offset(size.width, _radius),
+        radius: const Radius.circular(_radius),
+      )
+      ..lineTo(size.width, size.height - _radius)
+      ..arcToPoint(
+        Offset(size.width - _radius, size.height),
+        radius: const Radius.circular(_radius),
+      )
+      ..lineTo(_radius, size.height)
+      ..arcToPoint(
+        Offset(0, size.height - _radius),
+        radius: const Radius.circular(_radius),
+      )
+      ..lineTo(0, _radius)
+      ..arcToPoint(
+        const Offset(_radius, 0),
+        radius: const Radius.circular(_radius),
+      )
+      ..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = _barPath(size);
+    canvas.drawPath(
+      path.shift(const Offset(0, 4)),
+      Paint()
+        ..color = shadowColor
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.drawPath(path, Paint()..color = fillColor);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_NotchedBarPainter oldDelegate) =>
+      fillColor != oldDelegate.fillColor ||
+      borderColor != oldDelegate.borderColor ||
+      shadowColor != oldDelegate.shadowColor;
 }

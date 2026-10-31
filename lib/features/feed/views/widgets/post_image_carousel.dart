@@ -3,8 +3,20 @@ import 'package:flutter/material.dart';
 
 /// Shared photo presentation for a post's map preview and feed card.
 class PostImageCarousel extends StatefulWidget {
-  const PostImageCarousel({super.key, required this.imageAssets});
+  const PostImageCarousel({
+    super.key,
+    required this.imageAssets,
+    this.counterOnRight = false,
+    this.fit = BoxFit.contain,
+    this.backgroundColor = Colors.black,
+  });
   final List<String> imageAssets;
+
+  /// Moves the page counter to the top-right corner. The map preview keeps it
+  /// on the left because its close button occupies the right.
+  final bool counterOnRight;
+  final BoxFit fit;
+  final Color backgroundColor;
 
   @override
   State<PostImageCarousel> createState() => _PostImageCarouselState();
@@ -22,13 +34,17 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   @override
   Widget build(BuildContext context) {
     final images = widget.imageAssets;
+    final isDarkBackground =
+        ThemeData.estimateBrightnessForColor(widget.backgroundColor) ==
+        Brightness.dark;
+    final indicatorColor = isDarkBackground ? Colors.white : Colors.black;
     return ColoredBox(
-      color: Colors.black,
+      color: widget.backgroundColor,
       child: images.isEmpty
-          ? const Center(
+          ? Center(
               child: Icon(
                 Icons.image_outlined,
-                color: Colors.white54,
+                color: indicatorColor.withValues(alpha: 0.54),
                 size: 48,
                 semanticLabel: 'No post photos',
               ),
@@ -46,7 +62,7 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                     ),
                     child: Image.asset(
                       images[index],
-                      fit: BoxFit.contain,
+                      fit: widget.fit,
                       semanticLabel:
                           'Post photo ${index + 1} of ${images.length}',
                     ),
@@ -55,7 +71,8 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                 if (images.length > 1) ...[
                   Positioned(
                     top: 12,
-                    left: 12,
+                    left: widget.counterOnRight ? null : 12,
+                    right: widget.counterOnRight ? 12 : null,
                     child: IgnorePointer(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -96,13 +113,13 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                                 margin: const EdgeInsets.symmetric(
                                   horizontal: 3,
                                 ),
-                                width: i == _page ? 16 : 6,
-                                height: 6,
+                                width: 7,
+                                height: 7,
                                 decoration: BoxDecoration(
-                                  color: i == _page
-                                      ? Colors.white
-                                      : Colors.white38,
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: indicatorColor.withValues(
+                                    alpha: i == _page ? 1 : 0.38,
+                                  ),
+                                  shape: BoxShape.circle,
                                 ),
                               ),
                           ],

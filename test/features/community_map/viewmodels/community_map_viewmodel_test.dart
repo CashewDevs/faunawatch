@@ -41,13 +41,14 @@ void main() {
     );
     container
         .read(shellViewModelProvider.notifier)
-        .selectDestination(ShellDestination.map);
+        .selectDestination(ShellDestination.chats);
     vm.seeMore();
-    expect(container.read(shellViewModelProvider), ShellDestination.map);
+    expect(container.read(shellViewModelProvider), ShellDestination.chats);
     vm.selectPost(sampleMapPost.id);
     vm.seeMore();
     expect(container.read(feedViewModelProvider), same(sampleMapPost));
     expect(container.read(shellViewModelProvider), ShellDestination.feed);
+    expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
     expect(
       container.read(communityMapViewModelProvider).selectedPostId,
       isNull,

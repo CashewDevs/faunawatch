@@ -7,7 +7,7 @@ import 'package:faunawatch/features/gallery/models/gallery_item.dart';
 ///
 /// Features:
 /// - Rounded rectangular card (BorderRadius.circular(18))
-/// - White photo display / placeholder area
+/// - Blue gradient photo display / placeholder area
 /// - Yellow [#FFF7D6] bottom section for photo details placeholder
 class GalleryCard extends StatelessWidget {
   const GalleryCard({super.key, required this.item, this.onTap});
@@ -25,7 +25,14 @@ class GalleryCard extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.galleryBackgroundGradientStart,
+                AppColors.galleryBackgroundGradientEnd,
+              ],
+            ),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
@@ -39,7 +46,7 @@ class GalleryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Top area: image or white photo placeholder
+              // Top area: image or photo placeholder
               Expanded(
                 child: item.imageAsset != null
                     ? Image.asset(
