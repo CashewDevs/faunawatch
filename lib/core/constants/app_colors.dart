@@ -123,6 +123,24 @@ abstract final class AppColors {
   static const Color feedCreatorTeal = Color(0xFF00838F);
   static const Color feedCreatorTealDark = Color(0xFF4DD0E1);
 
+  // FaunaLens Camera Palette
+  static const Color faunaLensBlue = Color(0xFF1A5DC9);
+  static const Color faunaLensBar = Color(0xFF001840);
+  static const Color faunaLensYellow = Color(0xFFFECE01);
+  static const Color faunaLensPreviewPlaceholder = Color(0xFFADADAD);
+  static const Color faunaLensPhotoEmpty = Color(0xFFD9D9D9);
+  static const Color faunaLensBackButton = Color(0xFFEBF2FF);
+  static const Color faunaLensInk = Color(0xFF011D35);
+  static const Color faunaLensChipLocation = Color(0xFFF0FBDF);
+  static const Color faunaLensChipGallery = Color(0xFFFFF7D7);
+  static const Color faunaLensChipText = Color(0xFF082E0D);
+  static const Color faunaLensChipCheck = Color(0xFF167A1E);
+  static const Color faunaLensNotice = Color(0xFFF5E2B8);
+  static const Color faunaLensNoticeText = Color(0xFF5A3D00);
+  static const Color faunaLensAskGradientEnd = Color(0xFF0D2E64);
+  static const Color faunaLensSkipBorder = Color(0xFF6C8BBE);
+  static const Color faunaLensSkipText = Color(0xFF33445F);
+
   // Notifications Screen Palette
   static const Color notifsBadgeRed = Color(0xFFE53935);
 

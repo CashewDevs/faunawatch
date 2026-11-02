@@ -40,6 +40,11 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   mapbox_maps_flutter: ^3.33.0
   supabase_flutter: ^2.9.1
+  camera: ^0.12.2
+  exif: ^3.3.0
+  geolocator_android: ^5.2.1
+  geolocator_apple: ^2.4.3
+  geolocator_platform_interface: ^4.4.1
 
 dev_dependencies:
   flutter_test:

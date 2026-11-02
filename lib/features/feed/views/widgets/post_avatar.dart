@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/widgets/local_image.dart';
 
 /// Circular profile picture from a local file, URL, or asset, in that order.
 /// Falls back to a person icon.
@@ -28,8 +28,8 @@ class PostAvatar extends StatelessWidget {
 
     final Widget image;
     if (filePath != null) {
-      image = Image.file(
-        File(filePath!),
+      image = LocalImage(
+        filePath!,
         fit: BoxFit.cover,
         errorBuilder: errorBuilder,
       );

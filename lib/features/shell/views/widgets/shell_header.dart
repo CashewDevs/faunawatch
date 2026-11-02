@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:faunawatch/features/shell/views/search_view.dart';
 
 /// Top application bar for the FaunaWatch dashboard.
 ///
 /// Features a height of 60, #1A5DC9 background, app logo and wordmark on the left,
-/// a clickable search bar capsule, and an action button placeholder on the far right.
+/// a clickable search bar capsule, and a FaunaLens camera button on the far right.
 class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
   const ShellHeader({super.key});
 
@@ -17,6 +18,12 @@ class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const SearchView()));
+  }
+
+  void _onCameraTap(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const FaunaLensView()));
   }
 
   @override
@@ -68,14 +75,12 @@ class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
             const SizedBox(width: 10),
-            // Right Placeholder Button
+            // FaunaLens Camera Button
             Semantics(
               button: true,
-              label: 'Header Action Placeholder',
+              label: 'Open camera',
               child: GestureDetector(
-                onTap: () {
-                  // Reserved for future header action
-                },
+                onTap: () => _onCameraTap(context),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   width: 32,
@@ -85,7 +90,7 @@ class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
-                    Icons.tune_rounded,
+                    Icons.camera_alt_rounded,
                     color: Colors.white,
                     size: 18,
                   ),

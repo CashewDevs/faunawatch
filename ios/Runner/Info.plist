@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>FaunaWatch uses the camera to photograph wildlife you want to report.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>FaunaWatch uses your location to record where a wildlife photo was taken.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FaunaWatch uses your photo library so you can choose wildlife photos to report.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
