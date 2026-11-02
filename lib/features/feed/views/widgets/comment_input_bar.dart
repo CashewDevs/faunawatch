@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:faunawatch/core/widgets/local_image.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 
 const _quickEmojis = [
@@ -138,8 +138,8 @@ class _CommentInputBarState extends State<CommentInputBar> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          File(_imagePath!),
+                        child: LocalImage(
+                          _imagePath!,
                           width: 72,
                           height: 72,
                           fit: BoxFit.cover,

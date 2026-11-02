@@ -24,6 +24,13 @@ This repository contains the FaunaWatch mobile application.
 - Mapping: Mapbox Maps SDK for Flutter (`mapbox_maps_flutter`); configure its
   public token through the `MAPBOX_PUBLIC_TOKEN` build-time define. The SDK
   requires iOS 14+.
+- FaunaLens photo capture: `camera` (live preview), `exif` (location of gallery
+  photos), and `geolocator_android` + `geolocator_apple` through
+  `geolocator_platform_interface` (location of captured photos). Their
+  permissions are declared in `AndroidManifest.xml` and `Info.plist`. Do not
+  depend on the `geolocator` package itself: its Linux plugin pulls in
+  `package_info_plus`, which either fails on AGP 9 built-in Kotlin or conflicts
+  with `flutter_secure_storage` 9.
 
 ## Essential Commands
 

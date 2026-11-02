@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/core/widgets/local_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
@@ -191,8 +191,8 @@ class ShellNavBar extends ConsumerWidget {
 
     Widget avatarImage;
     if (pictureState.customImagePath != null) {
-      avatarImage = Image.file(
-        File(pictureState.customImagePath!),
+      avatarImage = LocalImage(
+        pictureState.customImagePath!,
         width: 22,
         height: 22,
         fit: BoxFit.cover,

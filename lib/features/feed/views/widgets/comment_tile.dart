@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/widgets/local_image.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/models/post_comment.dart';
 import 'package:faunawatch/features/feed/views/widgets/animated_heart.dart';
@@ -70,8 +70,8 @@ class CommentTile extends StatelessWidget {
                 const SizedBox(height: 6),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    File(comment.imagePath!),
+                  child: LocalImage(
+                    comment.imagePath!,
                     height: 140,
                     fit: BoxFit.cover,
                     semanticLabel: 'Comment photo',
