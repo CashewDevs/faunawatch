@@ -157,12 +157,13 @@ void main() {
     );
     expect(requests.map((r) => r.$2), [
       '/rest/v1/reports',
-      '/storage/v1/object/report-images/user-a/report-1/photo.webp',
+      '/storage/v1/object/report-images/report-1/photo.webp',
       '/rest/v1/report_images',
       '/rest/v1/report_image_exif',
     ]);
     final image = requests[2].$3 as Map;
-    expect(image['storage_path'], 'user-a/report-1/photo.webp');
+    // No user id in the path, so shared photos don't reveal the reporter.
+    expect(image['storage_path'], 'report-1/photo.webp');
     expect(image['content_type'], 'image/webp');
     expect(latin1.decode(requests[1].$3 as List<int>), contains('image/webp'));
     expect(image['size_bytes'], photos.size);
