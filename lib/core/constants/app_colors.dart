@@ -141,6 +141,34 @@ abstract final class AppColors {
   static const Color faunaLensSkipBorder = Color(0xFF6C8BBE);
   static const Color faunaLensSkipText = Color(0xFF33445F);
 
+  // Terms Consent & AI Keys Setup Palette
+  static const Color consentTitleNavy = Color(0xFF16213E);
+  static const Color consentBodyText = Color(0xFF3B4A63);
+  static const Color consentMutedText = Color(0xFF6B7A90);
+  static const Color consentCardBorder = Color(0xFFE3E8F0);
+  static const Color consentExpandedBackground = Color(0xFFFFF8E1);
+  static const Color consentInfoBackground = Color(0xFFF4F5F0);
+  static const Color consentLogoBlue = Color(0xFF1F4FB5);
+  static const Color consentLinkBlue = Color(0xFF2D6CE3);
+  static const Color consentButtonBorder = Color(0xFFD9A400);
+  static const Color consentBadgeBlueBackground = Color(0xFFE8F0FE);
+  static const Color consentBadgeBlueText = Color(0xFF1A5DC9);
+  static const Color consentBadgeYellowBackground = Color(0xFFFFF1C2);
+  static const Color consentBadgeYellowText = Color(0xFF9A6400);
+  static const Color consentBadgeGreenBackground = Color(0xFFDDF5E3);
+  static const Color consentBadgeGreenText = Color(0xFF2E7D32);
+  static const Color consentBadgeRedBackground = Color(0xFFFDE2DE);
+  static const Color consentBadgeRedText = Color(0xFFC0392B);
+  static const Color aiKeyAddedBackground = Color(0xFFD7F5DD);
+  static const Color aiKeyAddedText = Color(0xFF2E7D32);
+  static const Color aiKeyMissingBackground = Color(0xFFEEF1F6);
+  static const Color aiKeyMissingText = Color(0xFF5B6B82);
+  static const Color aiKeyFieldBackground = Color(0xFFF4F3EF);
+  static const Color aiKeyActiveBorder = Color(0xFF2D5BB5);
+  static const Color aiKeyIconYellow = Color(0xFFFFCE1F);
+  static const Color aiKeyAgreementTag = Color(0xFFFFE9A8);
+  static const Color aiKeyAgreementTagText = Color(0xFF8A5A00);
+
   // Notifications Screen Palette
   static const Color notifsBadgeRed = Color(0xFFE53935);
 

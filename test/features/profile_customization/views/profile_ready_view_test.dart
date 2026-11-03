@@ -7,9 +7,9 @@ import 'package:faunawatch/features/profile_customization/services/profile_servi
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_banner_viewmodel.dart';
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_picture_viewmodel.dart';
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_setup_viewmodel.dart';
-import 'package:faunawatch/features/intro/views/intro_view.dart';
 import 'package:faunawatch/features/profile_customization/views/profile_ready_view.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/profile_preview_card.dart';
+import 'package:faunawatch/features/terms/views/terms_consent_view.dart';
 
 class _FakeProfileService implements ProfileService {
   @override
@@ -116,7 +116,7 @@ void main() {
       expect(find.text('Nature enthusiast'), findsOneWidget);
     });
 
-    testWidgets('tapping proceed button navigates to IntroView', (
+    testWidgets('tapping proceed button navigates to TermsConsentView', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1080, 2200);
@@ -133,9 +133,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.byType(IntroView), findsOneWidget);
-      expect(find.text('Welcome to'), findsOneWidget);
-      expect(find.text('Slide Up'), findsOneWidget);
+      expect(find.byType(TermsConsentView), findsOneWidget);
+      expect(find.text('Before you go exploring'), findsOneWidget);
     });
   });
 }

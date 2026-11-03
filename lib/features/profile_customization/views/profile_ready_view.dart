@@ -7,7 +7,7 @@ import 'package:faunawatch/features/profile_customization/viewmodels/profile_ban
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_picture_viewmodel.dart';
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_setup_viewmodel.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/profile_preview_card.dart';
-import 'package:faunawatch/features/intro/views/intro_view.dart';
+import 'package:faunawatch/features/terms/views/terms_consent_view.dart';
 
 /// The final profile customization screen ("You're all set!") previewing the chosen
 /// banner, profile picture, username, and bio, with a drop-shadowed proceed button.
@@ -17,7 +17,7 @@ class ProfileReadyView extends ConsumerWidget {
   void _handleProceed(BuildContext context) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const IntroView()));
+    ).push(MaterialPageRoute<void>(builder: (_) => const TermsConsentView()));
   }
 
   @override
