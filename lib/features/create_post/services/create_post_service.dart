@@ -53,7 +53,9 @@ class SupabaseCreatePostService implements CreatePostService {
           .single();
       reportId = report['id'] as String;
       if (photo != null) {
-        storagePath = '${user.id}/$reportId/photo.webp';
+        // {report_id}/{filename}: no user id, so shared photos stay anonymous.
+        // Storage only accepts uploads while the report is still pending.
+        storagePath = '$reportId/photo.webp';
         await _client.storage
             .from('report-images')
             .uploadBinary(
