@@ -31,6 +31,9 @@ This repository contains the FaunaWatch mobile application.
   depend on the `geolocator` package itself: its Linux plugin pulls in
   `package_info_plus`, which either fails on AGP 9 built-in Kotlin or conflicts
   with `flutter_secure_storage` 9.
+- External links (provider key consoles and terms): `url_launcher`, already
+  pulled in by `supabase_flutter`, used only through `ExternalLinkService`
+  in `lib/core/services/`.
 
 ## Essential Commands
 

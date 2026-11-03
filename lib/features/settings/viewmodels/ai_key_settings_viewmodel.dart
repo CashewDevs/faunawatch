@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/services/external_link_service.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
@@ -62,6 +63,12 @@ class AiKeySettingsViewModel extends AsyncNotifier<AiKeySettingsState> {
   /// Clears FLAG_SECURE when the key settings screen is no longer visible.
   Future<void> disableWindowSecurity() =>
       ref.read(windowSecurityServiceProvider).disableSecure();
+
+  /// Opens a provider page (key console or terms) outside the app.
+  ///
+  /// Returns `false` when the link could not be opened.
+  Future<bool> openExternalLink(Uri uri) =>
+      ref.read(externalLinkServiceProvider).open(uri);
 
   void selectProvider(AiProvider provider) {
     final current = state.asData?.value;
