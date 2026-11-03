@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
+import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
@@ -12,15 +14,52 @@ import 'package:faunawatch/features/community_map/viewmodels/community_map_viewm
 void main() {
   late ProviderContainer container;
   late _FakeMapboxMapService mapboxMapService;
+  late _Reports reports;
 
   setUp(() {
     mapboxMapService = _FakeMapboxMapService();
+    reports = _Reports();
     container = ProviderContainer(
-      overrides: [mapboxMapServiceProvider.overrideWithValue(mapboxMapService)],
+      overrides: [
+        mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+        communityReportsServiceProvider.overrideWithValue(reports),
+      ],
     );
   });
 
   tearDown(() => container.dispose());
+
+  test(
+    'loads approved reports, opens a report, and can retry a failed refresh',
+    () async {
+      final vm = container.read(communityMapViewModelProvider.notifier);
+      await vm.onStyleLoaded();
+      expect(
+        container.read(communityMapViewModelProvider).reports.single.id,
+        'approved',
+      );
+      vm.selectPost('approved');
+      expect(vm.selectedPost!.author, 'Community spotter');
+      vm.seeMore();
+      expect(container.read(feedViewModelProvider)!.id, 'approved');
+      reports.fail = true;
+      await vm.refreshReports();
+      expect(
+        container.read(communityMapViewModelProvider).reportsHaveError,
+        isTrue,
+      );
+      expect(
+        container.read(communityMapViewModelProvider).reports,
+        hasLength(1),
+      );
+      reports.fail = false;
+      await vm.refreshReports();
+      expect(
+        container.read(communityMapViewModelProvider).reportsHaveError,
+        isFalse,
+      );
+    },
+  );
 
   test('selects only the sample, dismisses, and opens that post in feed', () {
     final vm = container.read(communityMapViewModelProvider.notifier);
@@ -131,6 +170,8 @@ void main() {
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  @override
+  Future<void> showReports(List<CommunityReport> reports) async {}
   final List<({Brightness brightness, bool is3dEnabled})> appearanceCalls = [];
   final demoCalls = <({DemoWarningLevel level, bool recenter})>[];
   bool failDemo = false;
@@ -170,5 +211,22 @@ class _FakeMapboxMapService implements MapboxMapService {
     } finally {
       concurrentDraws--;
     }
+  }
+}
+
+class _Reports implements CommunityReportsService {
+  bool fail = false;
+  @override
+  Future<List<CommunityReport>> load() async {
+    if (fail) throw StateError('offline');
+    return const [
+      CommunityReport(
+        id: 'approved',
+        category: 'animal_in_need',
+        latitude: 10.12,
+        longitude: 123.12,
+        description: 'Bird',
+      ),
+    ];
   }
 }

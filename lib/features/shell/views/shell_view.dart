@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/create_post/views/create_post_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
@@ -20,6 +21,7 @@ class ShellView extends ConsumerStatefulWidget {
 }
 
 class _ShellViewState extends ConsumerState<ShellView> {
+  bool _postOpened = false;
   // Cached because `ref` cannot be used inside dispose().
   late final AiKeySettingsViewModel _aiKeySettingsViewModel;
 
@@ -39,6 +41,7 @@ class _ShellViewState extends ConsumerState<ShellView> {
   @override
   Widget build(BuildContext context) {
     final currentDestination = ref.watch(shellViewModelProvider);
+    if (currentDestination == ShellDestination.addPost) _postOpened = true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Toggle FLAG_SECURE based on whether the Profile (key-settings) tab
@@ -62,22 +65,17 @@ class _ShellViewState extends ConsumerState<ShellView> {
           : null,
       body: IndexedStack(
         index: currentDestination.index,
-        children: const [
-          FeedView(),
-          MessagesView(),
-          // TODO(team): Decide what Add post opens. The repository has no post
-          // creation flow or requirements yet, so this stays a placeholder.
-          _PlaceholderDestinationView(
-            title: 'Add post',
-            icon: Icons.add_rounded,
-          ),
-          NotificationsView(),
-          ProfileView(),
-          _PlaceholderDestinationView(
+        children: [
+          const FeedView(),
+          const MessagesView(),
+          if (_postOpened) const CreatePostView() else const SizedBox.shrink(),
+          const NotificationsView(),
+          const ProfileView(),
+          const _PlaceholderDestinationView(
             title: 'Alerts View',
             icon: Icons.notifications_outlined,
           ),
-          AiKeySettingsView(),
+          const AiKeySettingsView(),
         ],
       ),
       bottomNavigationBar: SafeArea(

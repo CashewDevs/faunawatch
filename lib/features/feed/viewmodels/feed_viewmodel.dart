@@ -5,6 +5,11 @@ class FeedViewModel extends Notifier<FeedPost?> {
   @override
   FeedPost? build() => null;
 
+  void openPost(FeedPost post) {
+    state = post;
+    ref.read(feedTabViewModelProvider.notifier).select(FeedTab.forYou);
+  }
+
   /// Shows the sample post in the For You tab.
   void openSamplePost(String postId) {
     if (postId != sampleMapPost.id) return;

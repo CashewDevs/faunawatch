@@ -4,7 +4,12 @@ import 'package:faunawatch/features/feed/models/feed_post.dart';
 
 /// A media-first preview with swipeable photos and details below them.
 class MapPostDialog extends StatelessWidget {
-  const MapPostDialog({super.key, required this.onSeeMore});
+  const MapPostDialog({
+    super.key,
+    required this.onSeeMore,
+    this.post = sampleMapPost,
+  });
+  final FeedPost post;
   final VoidCallback onSeeMore;
 
   @override
@@ -24,7 +29,7 @@ class MapPostDialog extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  PostImageCarousel(imageAssets: sampleMapPost.imageAssets),
+                  PostImageCarousel(imageAssets: post.imageAssets),
                   Positioned(
                     top: 8,
                     right: 8,
@@ -49,7 +54,9 @@ class MapPostDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Sample post',
+                      post.id == sampleMapPost.id
+                          ? 'Sample post'
+                          : 'Approved wildlife report',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.primary,
                         fontWeight: FontWeight.w700,
@@ -57,24 +64,20 @@ class MapPostDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      sampleMapPost.title,
+                      post.title,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      sampleMapPost.author,
-                      style: theme.textTheme.labelLarge,
-                    ),
+                    Text(post.author, style: theme.textTheme.labelLarge),
                     const SizedBox(height: 4),
-                    Text(
-                      sampleMapPost.location,
-                      style: theme.textTheme.bodySmall,
-                    ),
+                    Text(post.location, style: theme.textTheme.bodySmall),
                     const SizedBox(height: 8),
                     Text(
-                      'Demo only - Not a real wildlife report',
+                      post.id == sampleMapPost.id
+                          ? 'Demo only - Not a real wildlife report'
+                          : post.body,
                       style: theme.textTheme.bodySmall,
                     ),
                   ],

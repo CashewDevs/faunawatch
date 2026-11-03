@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/community_reports_service.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
@@ -32,7 +33,9 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   }
 
   void selectPost(String postId) {
-    if (!_disposed && postId == sampleMapPost.id) {
+    if (!_disposed &&
+        (postId == sampleMapPost.id ||
+            state.reports.any((report) => report.id == postId))) {
       state = state.copyWith(selectedPostId: postId);
     }
   }
@@ -42,7 +45,9 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   void seeMore() {
     final postId = state.selectedPostId;
     if (postId == null) return;
-    ref.read(feedViewModelProvider.notifier).openSamplePost(postId);
+    final post = selectedPost;
+    if (post == null) return;
+    ref.read(feedViewModelProvider.notifier).openPost(post);
     dismissPost();
     ref
         .read(shellViewModelProvider.notifier)
@@ -55,6 +60,35 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     _isStyleLoaded = true;
     await _applyAppearance();
     await _renderDemo();
+    await refreshReports();
+  }
+
+  FeedPost? get selectedPost {
+    if (state.selectedPostId == sampleMapPost.id) return sampleMapPost;
+    return state.reports
+        .where((r) => r.id == state.selectedPostId)
+        .firstOrNull
+        ?.post;
+  }
+
+  Future<void> refreshReports() async {
+    if (!_isStyleLoaded || state.isLoadingReports) return;
+    state = state.copyWith(isLoadingReports: true, reportsHaveError: false);
+    try {
+      final reports = await ref.read(communityReportsServiceProvider).load();
+      if (_disposed) return;
+      await _mapboxMapService.showReports(reports);
+      if (!_disposed) {
+        state = state.copyWith(
+          reports: List.unmodifiable(reports),
+          isLoadingReports: false,
+        );
+      }
+    } catch (_) {
+      if (!_disposed) {
+        state = state.copyWith(reportsHaveError: true, isLoadingReports: false);
+      }
+    }
   }
 
   Future<void> selectDemoLevel(DemoWarningLevel level) async {

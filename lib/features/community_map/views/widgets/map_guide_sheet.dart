@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Describes the planned report-to-map flow without suggesting it is live.
+/// Explains live approved reports and the separate warning demonstration.
 class MapGuideSheet extends StatelessWidget {
   const MapGuideSheet({super.key});
 
@@ -57,17 +57,17 @@ class MapGuideSheet extends StatelessWidget {
               icon: Icons.location_on_outlined,
               title: 'Find reported encounters',
               description:
-                  'Approved reports will appear as pins at approximate '
-                  'locations. Nearby reports can be grouped to make busy areas easier to explore.',
+                  'Approved reports appear as blue dots at approximate locations. '
+                  'Use Refresh to load newly approved posts. New submissions remain pending until reviewed.',
             ),
             const SizedBox(height: 20),
             const _GuideStep(
               icon: Icons.pets_outlined,
               title: 'Understand the incident',
               description:
-                  'Pins will open species suggestions and incident details: '
+                  'Report dots open incident details: '
                   'an animal in need, a potentially dangerous animal, a possible '
-                  'invasive species, or another wildlife incident. AI assessments are preliminary.',
+                  'invasive species, or another wildlife incident. AI suggestions are still in development.',
             ),
             const SizedBox(height: 20),
             const _GuideStep(
