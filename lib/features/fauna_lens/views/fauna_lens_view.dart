@@ -1,4 +1,5 @@
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
+import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/viewmodels/fauna_lens_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_camera_screen.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_review_screen.dart';
@@ -80,8 +81,9 @@ class _FaunaLensViewState extends ConsumerState<FaunaLensView>
   }
 
   void _skipAi() {
-    // TODO(team): Pass the photo and its location to the post form once Add
-    // post has one. The photo is dropped here until then.
+    final photo = ref.read(faunaLensViewModelProvider).photo;
+    if (photo == null) return;
+    ref.read(createPostViewModelProvider.notifier).usePhoto(photo);
     ref
         .read(shellViewModelProvider.notifier)
         .selectDestination(ShellDestination.addPost);

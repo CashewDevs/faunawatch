@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
@@ -421,6 +422,8 @@ class _FakeMapCanvasBuilder implements MapboxMapCanvasBuilder {
 }
 
 class _FakeMapService implements MapboxMapService {
+  @override
+  Future<void> showReports(List<CommunityReport> reports) async {}
   @override
   Future<void> applyAppearance({
     required Brightness brightness,

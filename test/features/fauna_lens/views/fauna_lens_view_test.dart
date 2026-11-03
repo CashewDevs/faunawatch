@@ -1,4 +1,6 @@
 import 'package:camera/camera.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/fauna_lens_camera_service.dart';
@@ -40,6 +42,7 @@ void main() {
     picker = _FakePicker();
     container = ProviderContainer(
       overrides: [
+        currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
         faunaLensCameraServiceProvider.overrideWithValue(camera),
         photoLocationServiceProvider.overrideWithValue(locations),
         imagePickerServiceProvider.overrideWithValue(picker),
@@ -227,6 +230,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FaunaLensView), findsNothing);
     expect(container.read(shellViewModelProvider), ShellDestination.addPost);
+    expect(container.read(createPostViewModelProvider).photoPath, 'camera.jpg');
   });
 
   testWidgets('review fits a short screen without overflowing', (tester) async {

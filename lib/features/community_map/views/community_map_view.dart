@@ -31,6 +31,7 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => MapPostDialog(
+        post: viewModel.selectedPost!,
         onSeeMore: () {
           Navigator.pop(dialogContext);
           viewModel.seeMore();
@@ -143,6 +144,27 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   ),
                 ),
               ),
+              Positioned(
+                top: 120,
+                right: 16,
+                child: SafeArea(
+                  child: ActionChip(
+                    avatar: const Icon(Icons.refresh, size: 18),
+                    label: Text(
+                      state.isLoadingReports
+                          ? 'Loading reports…'
+                          : state.reportsHaveError
+                          ? 'Could not load reports · Retry'
+                          : '${state.reports.length} approved reports · Refresh',
+                    ),
+                    onPressed: state.isLoadingReports
+                        ? null
+                        : ref
+                              .read(communityMapViewModelProvider.notifier)
+                              .refreshReports,
+                  ),
+                ),
+              ),
               Align(
                 alignment: Alignment.bottomCenter,
                 child: SafeArea(
@@ -228,7 +250,7 @@ class _MapTitleCard extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'Cebu City, Philippines · Demo',
+              'Approved reports · Approximate locations',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

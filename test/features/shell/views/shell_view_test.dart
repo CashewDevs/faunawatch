@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/community_map/models/community_report.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -31,6 +33,7 @@ void main() {
   Widget buildTestShell() {
     return ProviderScope(
       overrides: [
+        currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
         windowSecurityServiceProvider.overrideWithValue(windowSecurity),
         aiApiKeyStorageServiceProvider.overrideWithValue(
           _FakeAiApiKeyStorageService(),
@@ -123,7 +126,7 @@ void main() {
 
       await tester.tap(find.bySemanticsLabel('Add post'));
       await tester.pumpAndSettle();
-      expect(find.text('Feature pending implementation'), findsOneWidget);
+      expect(find.text('Create post'), findsOneWidget);
 
       await tester.tap(find.text('Notifs'));
       await tester.pumpAndSettle();
@@ -265,6 +268,8 @@ class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  @override
+  Future<void> showReports(List<CommunityReport> reports) async {}
   @override
   Future<void> applyAppearance({
     required Brightness brightness,

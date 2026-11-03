@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Explains the map before community report layers are connected.
+/// Explains approved reports and the separate warning demonstration.
 class MapPurposeCard extends StatelessWidget {
   const MapPurposeCard({
     super.key,
@@ -67,8 +67,8 @@ class MapPurposeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Try the Cebu City warning demo. Tap the red pin to preview a sample post. The pin, zones, and '
-                      'position are simulated; live reports and GPS warnings are still in development.',
+                      'Blue report dots show approved posts at approximate locations. Tap one for details. '
+                      'The Cebu City red pin, warning zones, and simulated position are a separate demo. GPS warnings are still in development.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),

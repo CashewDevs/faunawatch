@@ -234,6 +234,35 @@ or local machine config. Before committing, review `git status` and
 
 ## Documentation
 
+Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
+View). A category and valid observation coordinates are required; photos and
+description/species/notes are optional. Reports are saved with `status = pending`
+and `ai_status = unavailable` while AI analysis is unimplemented. Approved reports
+are loaded for the map through `community_reports()`, preserving its approximate
+coordinates and anonymous authors. The map refresh action reloads approvals.
+Observation locations are selected in a map picker (tap to pin, city/address
+search, or current GPS); the form does not expose coordinate entry.
+The picker opens in 3D and automatically centers on device GPS when available,
+without changing the observation pin. Denied/unavailable GPS keeps the existing
+location or regional fallback, with search and manual pinning still available.
+Search uses Mapbox Geocoding v6 with `permanent=true` because the chosen coordinates are saved.
+The `MAPBOX_PUBLIC_TOKEN` account must support permanent geocoding (a valid card
+on file or an enterprise contract). `http` is a direct dependency for these
+requests. Search runs on explicit submission; no request is sent per keystroke.
+Photo uploads are re-encoded as WebP at quality 88 without EXIF, with extracted
+GPS/device metadata stored separately in `report_image_exif`. `crypto` provides
+SHA-256 fingerprints of the uploaded WebP bytes. `flutter_image_compress` 2.5.1+
+supplies the Android/iOS WebP
+encoder (including AGP 9 compatibility and iOS Swift Package Manager support).
+Only a resized, metadata-free PNG in memory is passed to the encoder; the
+uploaded file is `photo.webp` with MIME type `image/webp`. The bucket already
+allows WebP, and existing uploaded files keep their original formats.
+Post photos are limited to 5 MB
+(5,242,880 bytes) for both input files and processed uploads. Files are uploaded
+to the private `report-images` bucket; `report_images` stores their Storage paths
+and metadata. Apply `20261103152000_limit_report_images_to_5mb.sql` to enforce
+the same per-file limit in Storage. Existing objects are unaffected.
+
 Profile banners persist in `profiles.banner_asset` (preset asset identifier) or
 `profiles.banner_color` (unsigned 32-bit ARGB stored as bigint), with at most one
 set. Apply `20261028000100_add_profile_banner.sql` before running clients that

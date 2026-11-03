@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../models/community_report.dart';
 import 'dart:ui' as ui;
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 
@@ -17,6 +18,7 @@ abstract interface class MapboxMapService {
   });
 
   Future<void> showWarningDemo(DemoWarningLevel level, {bool recenter = false});
+  Future<void> showReports(List<CommunityReport> reports);
 
   void detach();
 }
@@ -27,6 +29,46 @@ class MapboxCommunityMapService implements MapboxMapService {
 
   static const _zonesSource = 'faunawatch-demo-zones';
   static const _pointsSource = 'faunawatch-demo-points';
+
+  @override
+  Future<void> showReports(List<CommunityReport> reports) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    const source = 'community-reports';
+    final data = jsonEncode({
+      'type': 'FeatureCollection',
+      'features': [
+        for (final report in reports)
+          {
+            'type': 'Feature',
+            'properties': {'postId': report.id},
+            'geometry': {
+              'type': 'Point',
+              'coordinates': [report.longitude, report.latitude],
+            },
+          },
+      ],
+    });
+    if (await map.styleSourceExists(source)) {
+      await map.setStyleSourceProperty(source, 'data', data);
+    } else {
+      await map.addSource(GeoJsonSource(id: source, data: data));
+    }
+    if (!await map.styleLayerExists('community-report-pins')) {
+      await map.addLayer(
+        CircleLayer(
+          id: 'community-report-pins',
+          sourceId: source,
+          slot: 'top',
+          circleColor: 0xFF2563EB,
+          circleRadius: 9,
+          circleStrokeColor: 0xFFFFFFFF,
+          circleStrokeWidth: 2,
+          circleEmissiveStrength: 1,
+        ),
+      );
+    }
+  }
 
   @override
   Future<void> showWarningDemo(
@@ -200,6 +242,16 @@ class MapboxCommunityMapService implements MapboxMapService {
   }) async {
     _mapboxMap = mapboxMap;
     mapboxMap.addInteraction(
+      TapInteraction(FeaturesetDescriptor(layerId: 'community-report-pins'), (
+        feature,
+        context,
+      ) {
+        final id = feature.properties['postId'];
+        if (id is String) onPostTap?.call(id);
+      }, radius: 12),
+      interactionID: 'community-report-tap',
+    );
+    mapboxMap.addInteraction(
       TapInteraction(
         FeaturesetDescriptor(layerId: 'faunawatch-demo-post-pin'),
         (feature, context) => onPostTap?.call(sampleMapPost.id),
@@ -236,6 +288,7 @@ class MapboxCommunityMapService implements MapboxMapService {
   @override
   void detach() {
     _mapboxMap?.removeInteraction('sample-post-tap');
+    _mapboxMap?.removeInteraction('community-report-tap');
     _mapboxMap = null;
   }
 }

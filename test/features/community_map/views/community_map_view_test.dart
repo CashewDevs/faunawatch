@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
@@ -100,7 +101,7 @@ void main() {
     expect(find.byType(MapPurposeCard), findsOneWidget);
     expect(find.text('Wildlife encounters, on one shared map'), findsOneWidget);
     expect(
-      find.textContaining('Try the Cebu City warning demo'),
+      find.textContaining('Blue report dots show approved posts'),
       findsOneWidget,
     );
     await tester.ensureVisible(find.text('How this map works'));
@@ -108,9 +109,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(MapGuideSheet), findsOneWidget);
     expect(find.text('Find reported encounters'), findsOneWidget);
-    expect(find.textContaining('approximate'), findsOneWidget);
     expect(
-      find.textContaining('AI assessments are preliminary'),
+      find.textContaining(
+        'Approved reports appear as blue dots at approximate locations.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('AI suggestions are still in development'),
       findsOneWidget,
     );
     expect(find.textContaining('Danger Zone'), findsNWidgets(2));
@@ -247,4 +253,7 @@ class _FakeMapboxMapService implements MapboxMapService {
     DemoWarningLevel level, {
     bool recenter = false,
   }) async {}
+
+  @override
+  Future<void> showReports(List<CommunityReport> reports) async {}
 }
