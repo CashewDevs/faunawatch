@@ -5,9 +5,11 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/theme/theme_provider.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/widgets/sign_out_dialog.dart';
+import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
+import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
 
-/// The Settings screen featuring Theme Mode (Light/Dark/System), application
-/// preferences, and the docked Sign Out button.
+/// The Settings screen featuring Theme Mode (Light/Dark/System), AI provider
+/// keys, application preferences, and the docked Sign Out button.
 class SettingsView extends ConsumerWidget {
   const SettingsView({super.key});
 
@@ -18,10 +20,24 @@ class SettingsView extends ConsumerWidget {
     );
   }
 
+  void _openAiKeys(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const AiKeySetupView.manage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final settings = ref.watch(settingsViewModelProvider);
+    final savedKeyCount = ref
+        .watch(aiKeySettingsViewModelProvider)
+        .asData
+        ?.value
+        .configuredProviders
+        .values
+        .where((saved) => saved)
+        .length;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -279,6 +295,70 @@ class SettingsView extends ConsumerWidget {
 
                     const SizedBox(height: 20),
 
+                    // AI keys section
+                    _buildSectionHeader('AI KEYS', isDark),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.04,
+                            ),
+                            offset: const Offset(0, 3),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          onTap: () => _openAiKeys(context),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
+                          title: Text(
+                            'AI Provider Keys',
+                            style: GoogleFonts.dmSans(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1E293B),
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Add, replace or remove the keys FaunaLens uses',
+                            style: GoogleFonts.dmSans(
+                              fontSize: 12,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B),
+                            ),
+                          ),
+                          trailing: savedKeyCount == null
+                              ? const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Color(0xFF94A3B8),
+                                )
+                              : _AiKeyStatusChip(savedKeyCount: savedKeyCount),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
                     // About section
                     _buildSectionHeader('ABOUT', isDark),
                     const SizedBox(height: 8),
@@ -424,6 +504,52 @@ class SettingsView extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Trailing chip on the AI keys row: how many keys are saved, or a prompt to
+/// finish setup when none are.
+class _AiKeyStatusChip extends StatelessWidget {
+  const _AiKeyStatusChip({required this.savedKeyCount});
+
+  final int savedKeyCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final needsSetup = savedKeyCount == 0;
+    final label = needsSetup
+        ? 'SET UP'
+        : '$savedKeyCount ${savedKeyCount == 1 ? 'KEY' : 'KEYS'}';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: needsSetup
+                ? const Color(0xFFFEF3C7)
+                : const Color(0xFFDCFCE7),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.dmSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: needsSetup
+                  ? const Color(0xFFB45309)
+                  : const Color(0xFF15803D),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF94A3B8),
+          size: 18,
+        ),
+      ],
     );
   }
 }

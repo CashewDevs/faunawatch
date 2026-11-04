@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
+import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_banner_viewmodel.dart';
@@ -9,7 +11,9 @@ import 'package:faunawatch/features/profile_customization/viewmodels/profile_pic
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_setup_viewmodel.dart';
 import 'package:faunawatch/features/profile_customization/views/profile_ready_view.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/profile_preview_card.dart';
-import 'package:faunawatch/features/terms/views/terms_consent_view.dart';
+import 'package:faunawatch/features/settings/models/ai_provider.dart';
+import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
+import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
 
 class _FakeProfileService implements ProfileService {
   @override
@@ -31,6 +35,32 @@ class _FakeProfileService implements ProfileService {
   }) async => true;
 }
 
+class _EmptyKeyStorage implements AiApiKeyStorageService {
+  @override
+  Future<String?> readKey(String userId, AiProvider provider) async => null;
+
+  @override
+  Future<void> saveKey(
+    String userId,
+    AiProvider provider,
+    String apiKey,
+  ) async {}
+
+  @override
+  Future<void> deleteKey(String userId, AiProvider provider) async {}
+
+  @override
+  Future<void> deleteAllKeys(String userId) async {}
+}
+
+class _NoopWindowSecurity implements WindowSecurityService {
+  @override
+  Future<void> enableSecure() async {}
+
+  @override
+  Future<void> disableSecure() async {}
+}
+
 void main() {
   Widget createWidgetUnderTest({
     String username = 'Tweetie',
@@ -41,6 +71,9 @@ void main() {
     return ProviderScope(
       overrides: [
         profileServiceProvider.overrideWithValue(_FakeProfileService()),
+        aiApiKeyStorageServiceProvider.overrideWithValue(_EmptyKeyStorage()),
+        currentUserIdProvider.overrideWith((ref) => Stream.value('user-1')),
+        windowSecurityServiceProvider.overrideWithValue(_NoopWindowSecurity()),
       ],
       child: Consumer(
         builder: (context, ref, child) {
@@ -116,7 +149,7 @@ void main() {
       expect(find.text('Nature enthusiast'), findsOneWidget);
     });
 
-    testWidgets('tapping proceed button navigates to TermsConsentView', (
+    testWidgets('tapping proceed button navigates to AiKeySetupView', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1080, 2200);
@@ -133,8 +166,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.byType(TermsConsentView), findsOneWidget);
-      expect(find.text('Before you go exploring'), findsOneWidget);
+      expect(find.byType(AiKeySetupView), findsOneWidget);
+      expect(find.text('Power up FaunaLens'), findsOneWidget);
     });
   });
 }

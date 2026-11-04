@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/core/theme/theme_provider.dart';
+import 'package:faunawatch/features/settings/models/ai_provider.dart';
+import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
+import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
 import 'package:faunawatch/features/profile/views/settings_view.dart';
 import 'package:faunawatch/features/welcome/views/welcome_view.dart';
 
@@ -78,4 +83,85 @@ void main() {
       },
     );
   });
+
+  group('SettingsView AI keys', () {
+    Widget buildWithKeys(_FakeKeyStorage keyStorage) {
+      return ProviderScope(
+        overrides: [
+          currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
+          aiApiKeyStorageServiceProvider.overrideWithValue(keyStorage),
+          windowSecurityServiceProvider.overrideWithValue(
+            _FakeWindowSecurity(),
+          ),
+        ],
+        child: const MaterialApp(home: SettingsView()),
+      );
+    }
+
+    testWidgets('prompts setup when no key is saved', (tester) async {
+      await tester.pumpWidget(buildWithKeys(_FakeKeyStorage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('AI Provider Keys'), findsOneWidget);
+      expect(find.text('SET UP'), findsOneWidget);
+    });
+
+    testWidgets('shows how many keys are saved', (tester) async {
+      final keyStorage = _FakeKeyStorage()
+        ..saved.addAll({AiProvider.groq, AiProvider.gemini});
+      await tester.pumpWidget(buildWithKeys(keyStorage));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 KEYS'), findsOneWidget);
+      expect(find.text('SET UP'), findsNothing);
+    });
+
+    testWidgets('tapping AI Provider Keys opens the key manager', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildWithKeys(_FakeKeyStorage()));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('AI Provider Keys'));
+      await tester.tap(find.text('AI Provider Keys'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AiKeySetupView), findsOneWidget);
+      expect(find.text('Your AI keys'), findsOneWidget);
+      expect(find.text('Set up later'), findsNothing);
+    });
+  });
+}
+
+class _FakeKeyStorage implements AiApiKeyStorageService {
+  final Set<AiProvider> saved = {};
+
+  @override
+  Future<String?> readKey(String userId, AiProvider provider) async =>
+      saved.contains(provider) ? 'secret' : null;
+
+  @override
+  Future<void> saveKey(
+    String userId,
+    AiProvider provider,
+    String apiKey,
+  ) async {
+    saved.add(provider);
+  }
+
+  @override
+  Future<void> deleteKey(String userId, AiProvider provider) async {
+    saved.remove(provider);
+  }
+
+  @override
+  Future<void> deleteAllKeys(String userId) async => saved.clear();
+}
+
+class _FakeWindowSecurity implements WindowSecurityService {
+  @override
+  Future<void> enableSecure() async {}
+
+  @override
+  Future<void> disableSecure() async {}
 }
