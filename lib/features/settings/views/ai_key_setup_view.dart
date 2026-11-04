@@ -205,21 +205,25 @@ class _AiKeySetupViewState extends ConsumerState<AiKeySetupView> {
     }
   }
 
-  /// Saves a typed but unsaved key (after agreement) before moving on.
-  Future<bool> _savePendingDraft() async {
-    final pending = _providerWithDraft;
-    if (pending == null) return true;
-    setState(() => _expandedProvider = pending);
-    return _saveDraft(pending);
+  /// Saves every typed but unsaved key, one agreement per provider, in card
+  /// order. Stops at the first one that is declined or fails, so the keys
+  /// still typed stay on screen. Returns true when none is left unsaved.
+  Future<bool> _savePendingDrafts() async {
+    for (final provider in AiKeySetupView.providers) {
+      if (_controllers[provider]!.text.trim().isEmpty) continue;
+      setState(() => _expandedProvider = provider);
+      if (!await _saveDraft(provider) || !mounted) return false;
+    }
+    return true;
   }
 
   Future<void> _handleContinue() async {
-    if (!await _savePendingDraft()) return;
+    if (!await _savePendingDrafts()) return;
     if (mounted) await _goToTerms();
   }
 
   Future<void> _handleDone() async {
-    if (!await _savePendingDraft()) return;
+    if (!await _savePendingDrafts()) return;
     if (mounted) Navigator.of(context).pop();
   }
 

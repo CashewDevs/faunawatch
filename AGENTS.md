@@ -193,6 +193,16 @@ A user's AI API key is runtime user data, not application configuration.
   make live calls to Gemini, Groq, or OpenRouter.
 - API keys must never be logged or included in error messages, exception
   messages, debug output, crash reports, or analytics.
+- Provider clients live in `lib/core/services/ai/` behind `AiVisionClient`.
+  Gemini has its own client; Groq and OpenRouter share the OpenAI-compatible
+  client. Each client can list its models and has a `defaultModel`, used
+  until the user picks a model in Settings › AI Integration.
+- The chosen provider and model (`AiPreferences`) are not secret but are
+  stored per user in the same secure store as the keys, under
+  `faunawatch.ai_pref.<userId>.*`.
+- Photos sent to a provider are resized and have EXIF (including GPS)
+  removed first (`AiPhotoService`). The possible-invasive hint comes only
+  from the curated `species_reference` table, never from the AI.
 
 ## Security
 

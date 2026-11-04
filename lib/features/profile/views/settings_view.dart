@@ -6,7 +6,7 @@ import 'package:faunawatch/core/theme/theme_provider.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/widgets/sign_out_dialog.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
-import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
+import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 
 /// The Settings screen featuring Theme Mode (Light/Dark/System), AI provider
 /// keys, application preferences, and the docked Sign Out button.
@@ -21,9 +21,9 @@ class SettingsView extends ConsumerWidget {
   }
 
   void _openAiKeys(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const AiKeySetupView.manage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AiIntegrationView()));
   }
 
   @override
@@ -296,7 +296,7 @@ class SettingsView extends ConsumerWidget {
                     const SizedBox(height: 20),
 
                     // AI keys section
-                    _buildSectionHeader('AI KEYS', isDark),
+                    _buildSectionHeader('AI', isDark),
                     const SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
@@ -329,7 +329,7 @@ class SettingsView extends ConsumerWidget {
                             vertical: 4,
                           ),
                           title: Text(
-                            'AI Provider Keys',
+                            'AI Integration',
                             style: GoogleFonts.dmSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -339,7 +339,7 @@ class SettingsView extends ConsumerWidget {
                             ),
                           ),
                           subtitle: Text(
-                            'Add, replace or remove the keys FaunaLens uses',
+                            'Provider, model, API keys and connection test',
                             style: GoogleFonts.dmSans(
                               fontSize: 12,
                               color: isDark

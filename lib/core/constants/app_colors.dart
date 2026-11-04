@@ -141,6 +141,17 @@ abstract final class AppColors {
   static const Color faunaLensSkipBorder = Color(0xFF6C8BBE);
   static const Color faunaLensSkipText = Color(0xFF33445F);
 
+  // FaunaLens AI Result Palette
+  static const Color aiResultHeader = Color(0xFFDDF1FC);
+  static const Color aiResultBackChevron = Color(0xFFF2B705);
+  static const Color aiResultCardBorder = Color(0xFFE6EAF0);
+  static const Color aiResultInfoBackground = Color(0xFFEEF4FD);
+  static const Color aiResultInfoBorder = Color(0xFFD7E3F5);
+  static const Color aiResultInvasiveBackground = Color(0xFFFCE3D8);
+  static const Color aiResultInvasiveText = Color(0xFF6E2A10);
+  static const Color aiResultSkeleton = Color(0xFFE2E2E2);
+  static const Color aiResultRankBackground = Color(0xFFE8EEF8);
+
   // Terms Consent & AI Keys Setup Palette
   static const Color consentTitleNavy = Color(0xFF16213E);
   static const Color consentBodyText = Color(0xFF3B4A63);

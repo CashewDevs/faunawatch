@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../fauna_lens/ai_fakes.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/core/theme/theme_provider.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
-import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
+import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
+import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 import 'package:faunawatch/features/profile/views/settings_view.dart';
 import 'package:faunawatch/features/welcome/views/welcome_view.dart';
 
@@ -90,6 +93,9 @@ void main() {
         overrides: [
           currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
           aiApiKeyStorageServiceProvider.overrideWithValue(keyStorage),
+          aiPreferencesServiceProvider.overrideWithValue(
+            FakePreferencesService(),
+          ),
           windowSecurityServiceProvider.overrideWithValue(
             _FakeWindowSecurity(),
           ),
@@ -102,7 +108,7 @@ void main() {
       await tester.pumpWidget(buildWithKeys(_FakeKeyStorage()));
       await tester.pumpAndSettle();
 
-      expect(find.text('AI Provider Keys'), findsOneWidget);
+      expect(find.text('AI Integration'), findsOneWidget);
       expect(find.text('SET UP'), findsOneWidget);
     });
 
@@ -116,19 +122,19 @@ void main() {
       expect(find.text('SET UP'), findsNothing);
     });
 
-    testWidgets('tapping AI Provider Keys opens the key manager', (
+    testWidgets('tapping AI Integration opens the AI Integration screen', (
       tester,
     ) async {
       await tester.pumpWidget(buildWithKeys(_FakeKeyStorage()));
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text('AI Provider Keys'));
-      await tester.tap(find.text('AI Provider Keys'));
+      await tester.ensureVisible(find.text('AI Integration'));
+      await tester.tap(find.text('AI Integration'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AiKeySetupView), findsOneWidget);
-      expect(find.text('Your AI keys'), findsOneWidget);
-      expect(find.text('Set up later'), findsNothing);
+      expect(find.byType(AiIntegrationView), findsOneWidget);
+      expect(find.text('AI provider'), findsOneWidget);
+      expect(find.text('Test API'), findsOneWidget);
     });
   });
 }
