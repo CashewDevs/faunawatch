@@ -9,10 +9,16 @@ import 'package:faunawatch/features/messages/models/chat_message.dart';
 /// - Current user: horizontal gradient from 0% [#A4DDFF] to 100% [#DCF2FF]
 /// - Other user: horizontal gradient from 0% [#D5D5D5] to 100% [#E8E8E8]
 class ChatBubble extends StatelessWidget {
-  const ChatBubble({super.key, required this.message, this.showTail = true});
+  const ChatBubble({
+    super.key,
+    required this.message,
+    this.showTail = true,
+    this.onReloadPhoto,
+  });
 
   final ChatMessage message;
   final bool showTail;
+  final VoidCallback? onReloadPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +78,24 @@ class ChatBubble extends StatelessWidget {
               : CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (message.imageUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  message.imageUrl!,
+                  height: 200,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => TextButton(
+                    onPressed: onReloadPhoto,
+                    child: const Text('Reload photo'),
+                  ),
+                ),
+              )
+            else if (message.imagePath != null)
+              TextButton(
+                onPressed: onReloadPhoto,
+                child: const Text('Reload photo'),
+              ),
             if (message.text.isNotEmpty)
               Text(
                 message.text,

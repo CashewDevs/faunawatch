@@ -1,15 +1,17 @@
+import '../fake_messages_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/features/messages/models/message_thread.dart';
 import 'package:faunawatch/features/messages/services/messages_service.dart';
 import 'package:faunawatch/features/messages/viewmodels/chat_conversation_viewmodel.dart';
 
-class MockChatMessagesService implements MessagesService {
+class MockChatMessagesService extends FakeMessagesService {
   @override
   Future<List<MessageThread>> fetchMessageThreads() async => const [];
 
   @override
-  Future<bool> markAsRead(String threadId) async => true;
+  Future<bool> markAsRead(String threadId, {String? throughMessageId}) async =>
+      true;
 
   @override
   Future<bool> markAsUnread(String threadId) async => true;
@@ -18,7 +20,10 @@ class MockChatMessagesService implements MessagesService {
   Future<bool> deleteThread(String threadId) async => true;
 
   @override
-  Future<List<ChatMessage>> fetchChatMessages(String threadId) async {
+  Future<List<ChatMessage>> fetchChatMessages(
+    String threadId, {
+    ChatMessage? before,
+  }) async {
     return const [
       ChatMessage(
         id: 'msg-1',
@@ -33,14 +38,13 @@ class MockChatMessagesService implements MessagesService {
   Future<ChatMessage> sendMessage({
     required String threadId,
     required String text,
-    String? imageUrl,
+    ChatPhoto? photo,
   }) async {
     return ChatMessage(
       id: 'msg-new',
       text: text,
       isUser: true,
       timestamp: 'Just now',
-      imageUrl: imageUrl,
     );
   }
 }

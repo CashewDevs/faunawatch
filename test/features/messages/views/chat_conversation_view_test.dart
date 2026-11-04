@@ -1,3 +1,4 @@
+import '../fake_messages_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,12 +12,14 @@ import 'package:faunawatch/features/messages/views/widgets/chat_bubble.dart';
 import 'package:faunawatch/features/messages/views/widgets/chat_header.dart';
 import 'package:faunawatch/features/messages/views/widgets/chat_input_bar.dart';
 
-class TestChatService implements MessagesService {
+class TestChatService extends FakeMessagesService {
+  bool failSend = false;
   @override
   Future<List<MessageThread>> fetchMessageThreads() async => const [];
 
   @override
-  Future<bool> markAsRead(String threadId) async => true;
+  Future<bool> markAsRead(String threadId, {String? throughMessageId}) async =>
+      true;
 
   @override
   Future<bool> markAsUnread(String threadId) async => true;
@@ -25,7 +28,10 @@ class TestChatService implements MessagesService {
   Future<bool> deleteThread(String threadId) async => true;
 
   @override
-  Future<List<ChatMessage>> fetchChatMessages(String threadId) async {
+  Future<List<ChatMessage>> fetchChatMessages(
+    String threadId, {
+    ChatMessage? before,
+  }) async {
     return const [
       ChatMessage(
         id: 'msg-1',
@@ -46,14 +52,14 @@ class TestChatService implements MessagesService {
   Future<ChatMessage> sendMessage({
     required String threadId,
     required String text,
-    String? imageUrl,
+    ChatPhoto? photo,
   }) async {
+    if (failSend) throw StateError('test send failure');
     return ChatMessage(
       id: 'msg-${DateTime.now().millisecondsSinceEpoch}',
       text: text,
       isUser: true,
       timestamp: 'Just now',
-      imageUrl: imageUrl,
     );
   }
 }
@@ -67,14 +73,40 @@ void main() {
     isUnread: false,
   );
 
-  Widget buildTestWidget() {
+  Widget buildTestWidget({TestChatService? service}) {
     return ProviderScope(
-      overrides: [messagesServiceProvider.overrideWithValue(TestChatService())],
+      overrides: [
+        messagesServiceProvider.overrideWithValue(service ?? TestChatService()),
+      ],
       child: const MaterialApp(home: ChatConversationView(thread: testThread)),
     );
   }
 
   group('ChatConversationView', () {
+    testWidgets(
+      'failed send preserves typed text and successful retry clears it',
+      (tester) async {
+        final service = TestChatService()..failSend = true;
+        await tester.pumpWidget(buildTestWidget(service: service));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'Keep this draft');
+        await tester.tap(find.bySemanticsLabel('Send message'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          'Keep this draft',
+        );
+        expect(find.textContaining('Message not sent'), findsOneWidget);
+        service.failSend = false;
+        await tester.tap(find.bySemanticsLabel('Send message'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          isEmpty,
+        );
+        expect(find.text('Keep this draft'), findsOneWidget);
+      },
+    );
     testWidgets(
       'renders header with #FFFBE9, left.webp, pfp circle, and DM Sans extrabold username',
       (tester) async {

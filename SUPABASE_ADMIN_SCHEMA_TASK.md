@@ -37,7 +37,7 @@ The decisions below were agreed by the project owner. Do not change them without
 | Species origin | `endemic`, `native`, `introduced` |
 | AI results | Users cannot edit AI results. Users can submit their own identification and notes (`user_species`, `user_notes`); admins see both side by side. |
 | Location captured | Reported coordinates plus device elevation. EXIF data from the photo. Field notes. |
-| Comments | Users can comment on posts (the only user-to-user interaction; no messaging). Admins can flag or remove comments with a note. |
+| Comments | Users can comment on posts. Admins can flag or remove comments with a note. Private one-to-one messaging was subsequently added in `20261104133813_create_private_chats.sql`; it grants no admin access to chats. |
 | Avatars | Preset avatars use a distinguishable value: `preset:<name>` (for example `preset:bunny`). Uploaded avatars keep the storage path `{user_id}/{filename}`. |
 | Emails for admins | Admin-only RPC (not an Edge Function). |
 | Verified badge | Means the email is confirmed (`auth.users.email_confirmed_at`). Turn on **Confirm email** in the hosted Auth settings. |

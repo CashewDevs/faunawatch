@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/features/messages/viewmodels/messages_viewmodel.dart';
 import 'package:faunawatch/features/messages/views/chat_conversation_view.dart';
+import 'package:faunawatch/features/messages/views/new_chat_view.dart';
 import 'package:faunawatch/features/messages/views/widgets/message_action_sheet.dart';
 import 'package:faunawatch/features/messages/views/widgets/message_tile.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_filter_chips.dart';
@@ -27,16 +28,21 @@ class MessagesView extends ConsumerStatefulWidget {
 
 class _MessagesViewState extends ConsumerState<MessagesView> {
   late final TextEditingController _searchController;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _lifecycle = AppLifecycleListener(
+      onResume: () => ref.read(messagesViewModelProvider.notifier).refresh(),
+    );
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _lifecycle.dispose();
     super.dispose();
   }
 
@@ -53,6 +59,43 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
         children: [
           // Header with gradient and DM Sans extrabold title
           const MessagesHeader(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                icon: const Icon(Icons.add_comment_outlined),
+                label: const Text('New chat'),
+                onPressed: () async {
+                  final thread = await Navigator.of(context)
+                      .push<MessageThread>(
+                        MaterialPageRoute(builder: (_) => const NewChatView()),
+                      );
+                  if (!context.mounted || thread == null) return;
+                  await Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => ChatConversationView(thread: thread),
+                    ),
+                  );
+                  if (mounted) {
+                    ref.read(messagesViewModelProvider.notifier).refresh();
+                  }
+                },
+              ),
+              IconButton(
+                tooltip: 'Refresh messages',
+                onPressed: viewModel.refresh,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+          if (state.error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Text(
+                state.error!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
 
           // Search bar and filter pills
           Padding(
@@ -91,7 +134,9 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
                         Text(
                           state.searchQuery.isNotEmpty
                               ? 'No messages found for "${state.searchQuery}"'
-                              : 'No unread messages',
+                              : state.activeFilter == MessagesFilter.unread
+                              ? 'No unread messages'
+                              : 'No conversations yet. Start a new chat.',
                           style: GoogleFonts.dmSans(
                             fontSize: 15,
                             color: const Color(0xFF78909C),
@@ -108,16 +153,18 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
                       final thread = filteredThreads[index];
                       return MessageTile(
                         thread: thread,
-                        onTap: () {
-                          if (thread.isUnread) {
-                            viewModel.markThreadRead(thread.id);
-                          }
-                          Navigator.of(context).push(
+                        onTap: () async {
+                          await Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (context) =>
                                   ChatConversationView(thread: thread),
                             ),
                           );
+                          if (mounted) {
+                            ref
+                                .read(messagesViewModelProvider.notifier)
+                                .refresh();
+                          }
                         },
                         onLongPress: () {
                           MessageActionSheet.show(

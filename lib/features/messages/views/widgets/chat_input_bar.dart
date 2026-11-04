@@ -6,10 +6,18 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 /// Bottom typing input bar with add image button (`addIM.webp`),
 /// "Type something" input, and send message button (`sendM.webp`).
 class ChatInputBar extends StatefulWidget {
-  const ChatInputBar({super.key, required this.onSend, this.onAddImage});
+  const ChatInputBar({
+    super.key,
+    required this.onSend,
+    this.onAddImage,
+    this.isBusy = false,
+    this.hasPhoto = false,
+  });
 
-  final ValueChanged<String> onSend;
+  final Future<bool> Function(String) onSend;
   final VoidCallback? onAddImage;
+  final bool isBusy;
+  final bool hasPhoto;
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -30,11 +38,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
     super.dispose();
   }
 
-  void _handleSend() {
+  Future<void> _handleSend() async {
+    if (widget.isBusy) return;
     final text = _textController.text.trim();
-    if (text.isEmpty) return;
-    widget.onSend(text);
-    _textController.clear();
+    if (text.isEmpty && !widget.hasPhoto) return;
+    final sent = await widget.onSend(text);
+    if (mounted && sent) _textController.clear();
   }
 
   @override
@@ -62,7 +71,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 button: true,
                 label: 'Add image',
                 child: GestureDetector(
-                  onTap: widget.onAddImage,
+                  onTap: widget.isBusy ? null : widget.onAddImage,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.all(4.0),
@@ -85,6 +94,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
               // "Type something" input field
               Expanded(
                 child: TextField(
+                  enabled: !widget.isBusy,
+                  maxLength: 4000,
                   controller: _textController,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _handleSend(),
@@ -96,6 +107,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   ),
                   decoration: InputDecoration(
                     hintText: 'Type something',
+                    counterText: '',
                     hintStyle: GoogleFonts.dmSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
@@ -114,7 +126,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 button: true,
                 label: 'Send message',
                 child: GestureDetector(
-                  onTap: _handleSend,
+                  onTap: widget.isBusy ? null : _handleSend,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.all(4.0),

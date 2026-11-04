@@ -6,6 +6,7 @@ import 'package:faunawatch/features/auth/views/login_view.dart';
 import 'package:faunawatch/features/auth/views/widgets/auth_text_field.dart';
 import 'package:faunawatch/features/auth/views/widgets/login_action_button.dart';
 import 'package:faunawatch/features/shell/views/shell_view.dart';
+import 'package:faunawatch/features/messages/services/messages_service.dart';
 
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/auth/services/auth_service.dart';
@@ -46,6 +47,9 @@ void main() {
   Widget createWidgetUnderTest() {
     return ProviderScope(
       overrides: [
+        messagesServiceProvider.overrideWithValue(
+          const SignedOutMessagesService(),
+        ),
         authServiceProvider.overrideWithValue(_FakeAuthService()),
         currentUserIdProvider.overrideWith((ref) => Stream.value('user-123')),
         profileServiceProvider.overrideWithValue(_FakeProfileService()),

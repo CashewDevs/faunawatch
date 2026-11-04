@@ -244,6 +244,28 @@ or local machine config. Before committing, review `git status` and
 
 ## Documentation
 
+Private one-to-one Chats live in `lib/features/messages/`
+(Model → Service → ViewModel → View). `SupabaseMessagesService` replaces the
+sample inbox and conversations. Registered users can search community profile
+names/handles and open the unique conversation for a pair. Only the two
+participants can read its messages and private photos. Read/unread and inbox
+deletion are per user; deletion hides the inbox entry, preserves history for
+both users, and a new message restores the entry. Suspended users cannot open
+chats, send messages, or upload chat photos. There is no admin message access.
+
+Apply `20261104133813_create_private_chats.sql` before using Chats. It creates
+the tables, checked RPCs, participant RLS, private `chat-images` bucket, and
+Realtime publication entries. The user applies these scripts manually in the
+Supabase SQL editor; agents must leave them in `supabase/migrations/` and must
+not apply hosted changes. Existing prerequisite migrations must already be
+applied. Chat photos have a 5 MB input/upload limit and are re-encoded from
+pixels to WebP without EXIF/GPS through `ChatPhotoService`. Existing packages
+cover gallery picking and encoding; no new dependency is needed. Private photo
+URLs expire after one hour. Messages load in pages of 50; live subscriptions
+refresh the active inbox/conversation and reconnect fetches missed messages.
+Service replacement on account changes clears private state and cancels old
+subscriptions. A failed send retains the current draft and selected photo.
+
 Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
 View). A category and valid observation coordinates are required; photos and
 description/species/notes are optional. Reports are saved with `status = pending`

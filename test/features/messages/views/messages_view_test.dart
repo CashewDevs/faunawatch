@@ -1,9 +1,11 @@
+import '../fake_messages_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/messages/models/chat_message.dart';
+import 'package:faunawatch/features/messages/models/chat_user.dart';
 import 'package:faunawatch/features/messages/models/message_thread.dart';
 import 'package:faunawatch/features/messages/services/messages_service.dart';
 import 'package:faunawatch/features/messages/views/chat_conversation_view.dart';
@@ -14,7 +16,7 @@ import 'package:faunawatch/features/messages/views/widgets/messages_filter_chips
 import 'package:faunawatch/features/messages/views/widgets/messages_header.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_search_bar.dart';
 
-class ImmediateTestMessagesService implements MessagesService {
+class ImmediateTestMessagesService extends FakeMessagesService {
   @override
   Future<List<MessageThread>> fetchMessageThreads() async {
     return const [
@@ -36,7 +38,8 @@ class ImmediateTestMessagesService implements MessagesService {
   }
 
   @override
-  Future<bool> markAsRead(String threadId) async => true;
+  Future<bool> markAsRead(String threadId, {String? throughMessageId}) async =>
+      true;
 
   @override
   Future<bool> markAsUnread(String threadId) async => true;
@@ -45,14 +48,16 @@ class ImmediateTestMessagesService implements MessagesService {
   Future<bool> deleteThread(String threadId) async => true;
 
   @override
-  Future<List<ChatMessage>> fetchChatMessages(String threadId) async =>
-      const [];
+  Future<List<ChatMessage>> fetchChatMessages(
+    String threadId, {
+    ChatMessage? before,
+  }) async => const [];
 
   @override
   Future<ChatMessage> sendMessage({
     required String threadId,
     required String text,
-    String? imageUrl,
+    ChatPhoto? photo,
   }) async {
     return ChatMessage(
       id: 'msg-mock',
@@ -76,6 +81,32 @@ void main() {
   }
 
   group('MessagesView', () {
+    testWidgets(
+      'suggests matching people while typing and opens the selected chat',
+      (tester) async {
+        final service = _NewChatService();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [messagesServiceProvider.overrideWithValue(service)],
+            child: const MaterialApp(home: MessagesView()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('New chat'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'Bob');
+        await tester.pump(const Duration(milliseconds: 299));
+        expect(service.queries, isEmpty);
+        await tester.pump(const Duration(milliseconds: 1));
+        await tester.pumpAndSettle();
+        expect(service.queries, ['Bob']);
+        await tester.tap(find.widgetWithText(ListTile, 'Bob'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatConversationView), findsOneWidget);
+        expect(find.text('Bob'), findsOneWidget);
+        expect(service.opened, 'user-b');
+      },
+    );
     testWidgets(
       'renders header, search bar with where.webp, and filter chips',
       (tester) async {
@@ -212,4 +243,25 @@ void main() {
       },
     );
   });
+}
+
+class _NewChatService extends ImmediateTestMessagesService {
+  final queries = <String>[];
+  String? opened;
+  @override
+  Future<List<ChatUser>> searchUsers(String query) async {
+    queries.add(query);
+    return const [ChatUser(id: 'user-b', name: 'Bob')];
+  }
+
+  @override
+  Future<MessageThread> openChat(ChatUser user) async {
+    opened = user.id;
+    return MessageThread(
+      id: 'new-private-thread',
+      senderName: user.name,
+      lastMessage: '',
+      timestamp: '',
+    );
+  }
 }
