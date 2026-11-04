@@ -59,7 +59,7 @@ faunawatch/
     ├── migrations/          # Timestamped SQL migrations (append-only)
     │   └── 20261016120000_create_profiles.sql
     ├── seed.sql             # Local/dev seed data only
-    └── templates/           # Auth email templates (local; hosted copies live in the Dashboard)
+    └── templates/           # Auth email templates (unused until hosted has custom SMTP; see config.toml)
 ```
 
 Do not scaffold other folders unless a feature needs them. This folder lives at the repo root, outside `lib/`.
