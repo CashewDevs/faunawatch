@@ -246,6 +246,10 @@ The picker opens in 3D and automatically centers on device GPS when available,
 without changing the observation pin. Denied/unavailable GPS keeps the existing
 location or regional fallback, with search and manual pinning still available.
 Search uses Mapbox Geocoding v6 with `permanent=true` because the chosen coordinates are saved.
+On submit, `PlaceNameService` makes one more permanent request, a reverse lookup of the
+final point, to save its area in `reports.place_name` (barangay or locality, city, province;
+never a street address). If it fails, the name stays null and the post still submits.
+`place_name` is owner and admin only: `community_reports()` must not return it.
 The `MAPBOX_PUBLIC_TOKEN` account must support permanent geocoding (a valid card
 on file or an enterprise contract). `http` is a direct dependency for these
 requests. Search runs on explicit submission; no request is sent per keystroke.
