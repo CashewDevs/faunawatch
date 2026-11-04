@@ -49,7 +49,7 @@ List<(IconData, String, String)> aiKeysAgreementPoints(AiProvider provider) {
       Icons.lock_outline_rounded,
       "You're in control.",
       ' Your key stays encrypted on this phone. Remove it anytime in '
-          'Profile › AI Keys.',
+          'Settings › AI Integration.',
     ),
   ];
 }

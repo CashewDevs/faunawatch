@@ -1,6 +1,8 @@
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/viewmodels/fauna_lens_viewmodel.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_camera_screen.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_review_screen.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
@@ -74,16 +76,50 @@ class _FaunaLensViewState extends ConsumerState<FaunaLensView>
     }
   }
 
-  void _askAi() {
-    // TODO(team): Decide what Ask AI opens. The repository has no AI provider
-    // client or suggestion result screen yet, so nothing can be identified.
-    _showMessage("AI suggestions aren't available yet.");
+  Future<void> _askAi() async {
+    final photo = ref.read(faunaLensViewModelProvider).photo;
+    if (photo == null) return;
+    final choice = await Navigator.of(context).push<AiResultChoice>(
+      MaterialPageRoute(builder: (_) => FaunaLensAiResultScreen(photo: photo)),
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case UseAiResults(:final result):
+        // TODO(team): Save the analysis to ai_analyses when the post is
+        // submitted. For now only the suggestion is carried into the draft.
+        _startPost(
+          photo,
+          species: result.topGuess?.displayName,
+          category: result.possibleInvasive
+              ? ReportCategory.possibleInvasiveSpecies
+              : null,
+        );
+      case RetakeFromAiResult():
+        await (photo.source == FaunaLensPhotoSource.gallery
+            ? _viewModel.pickFromGallery()
+            : _viewModel.discardPhoto());
+      case null:
+        break;
+    }
   }
 
   void _skipAi() {
     final photo = ref.read(faunaLensViewModelProvider).photo;
     if (photo == null) return;
-    ref.read(createPostViewModelProvider.notifier).usePhoto(photo);
+    _startPost(photo);
+  }
+
+  /// Hands [photo] (and any AI suggestion) to Create Post and closes FaunaLens.
+  void _startPost(
+    FaunaLensPhoto photo, {
+    String? species,
+    ReportCategory? category,
+  }) {
+    final createPost = ref.read(createPostViewModelProvider.notifier)
+      ..usePhoto(photo);
+    if (species != null || category != null) {
+      createPost.edit(species: species, category: category);
+    }
     ref
         .read(shellViewModelProvider.notifier)
         .selectDestination(ShellDestination.addPost);

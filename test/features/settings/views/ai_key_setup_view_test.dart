@@ -157,6 +157,74 @@ void main() {
     });
   });
 
+  group('several typed keys', () {
+    Future<void> typeKey(WidgetTester tester, String card, String key) async {
+      await tester.tap(find.text(card));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), key);
+      await tester.pump();
+    }
+
+    Future<void> agree(WidgetTester tester, String provider) async {
+      expect(find.text('Before we save your $provider key'), findsOneWidget);
+      await tester.tap(find.text('I agree to the AI Keys Agreement'));
+      await tester.pump();
+      await tester.tap(find.text('Agree & save key'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Continue saves every typed key, one agreement each', (
+      tester,
+    ) async {
+      await pumpSetup(tester);
+      await typeKey(tester, 'OpenRouter', 'sk-or-test');
+      await typeKey(tester, 'Groq', 'gsk_test');
+      await typeKey(tester, 'Gemini', 'AIza-test');
+
+      await tester.tap(continueButton());
+      await tester.pumpAndSettle();
+      await agree(tester, 'OpenRouter');
+      await agree(tester, 'Groq');
+      await agree(tester, 'Gemini');
+
+      expect(storage.keys, {
+        (userId, AiProvider.openRouter): 'sk-or-test',
+        (userId, AiProvider.groq): 'gsk_test',
+        (userId, AiProvider.gemini): 'AIza-test',
+      });
+      expect(find.byType(TermsConsentView), findsOneWidget);
+    });
+
+    testWidgets('declining one keeps the unsaved keys on screen', (
+      tester,
+    ) async {
+      await pumpSetup(tester);
+      await typeKey(tester, 'OpenRouter', 'sk-or-test');
+      await typeKey(tester, 'Gemini', 'AIza-test');
+
+      await tester.tap(continueButton());
+      await tester.pumpAndSettle();
+      await agree(tester, 'OpenRouter');
+      expect(find.text('Before we save your Gemini key'), findsOneWidget);
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+
+      expect(storage.keys, {(userId, AiProvider.openRouter): 'sk-or-test'});
+      expect(find.byType(TermsConsentView), findsNothing);
+      // The Gemini card is open with its typed key still there.
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'AIza-test',
+      );
+
+      await tester.tap(continueButton());
+      await tester.pumpAndSettle();
+      await agree(tester, 'Gemini');
+      expect(storage.keys[(userId, AiProvider.gemini)], 'AIza-test');
+      expect(find.byType(TermsConsentView), findsOneWidget);
+    });
+  });
+
   group('AiKeySetupView.manage', () {
     /// Pushes the manage screen on top of a placeholder so popping can be
     /// observed.

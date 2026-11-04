@@ -1,16 +1,21 @@
 import 'package:camera/camera.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/fauna_lens_camera_service.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
+import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
 import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../ai_fakes.dart';
 
 const _here = GeoCoordinates(latitude: 14.6, longitude: 121.0);
 const _noLocationNotice =
@@ -20,6 +25,7 @@ void main() {
   late _FakeCamera camera;
   late _FakeLocations locations;
   late _FakePicker picker;
+  late FakeIdentificationService identification;
   late ProviderContainer container;
 
   Future<void> openFromHeader(WidgetTester tester) async {
@@ -40,9 +46,11 @@ void main() {
     camera = _FakeCamera();
     locations = _FakeLocations();
     picker = _FakePicker();
+    identification = FakeIdentificationService();
     container = ProviderContainer(
       overrides: [
-        currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
+        currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
+        speciesIdentificationServiceProvider.overrideWithValue(identification),
         faunaLensCameraServiceProvider.overrideWithValue(camera),
         photoLocationServiceProvider.overrideWithValue(locations),
         imagePickerServiceProvider.overrideWithValue(picker),
@@ -210,16 +218,73 @@ void main() {
     expect(find.text('Fit the whole animal inside the frame.'), findsOneWidget);
   });
 
-  testWidgets('Ask AI says plainly that it is not available yet', (
+  testWidgets('Ask AI opens the AI result for the photo', (tester) async {
+    await openFromHeader(tester);
+    await tester.tap(find.bySemanticsLabel('Take photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ask AI'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FaunaLensAiResultScreen), findsOneWidget);
+    expect(identification.photoPaths, ['camera.jpg']);
+    expect(find.text('Red-eared Slider'), findsOneWidget);
+
+    // Back keeps the photo under review.
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Happy with this photo?'), findsOneWidget);
+  });
+
+  testWidgets('Use these results starts a post with the top guess', (
+    tester,
+  ) async {
+    identification.result = sampleIdentification(invasive: true);
+    await openFromHeader(tester);
+    await tester.tap(find.bySemanticsLabel('Take photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ask AI'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use these results'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FaunaLensView), findsNothing);
+    expect(container.read(shellViewModelProvider), ShellDestination.addPost);
+    final draft = container.read(createPostViewModelProvider);
+    expect(draft.photoPath, 'camera.jpg');
+    expect(draft.species, 'Red-eared Slider (Trachemys scripta elegans)');
+    expect(draft.category, ReportCategory.possibleInvasiveSpecies);
+  });
+
+  testWidgets('a result without an invasive match leaves the category', (
     tester,
   ) async {
     await openFromHeader(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ask AI'));
-    await tester.pump();
-    expect(find.text("AI suggestions aren't available yet."), findsOneWidget);
-    expect(find.text('Happy with this photo?'), findsOneWidget);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use these results'));
+    await tester.pumpAndSettle();
+
+    final draft = container.read(createPostViewModelProvider);
+    expect(draft.species, 'Red-eared Slider (Trachemys scripta elegans)');
+    expect(draft.category, isNull);
+  });
+
+  testWidgets('Retake photo from the AI result reopens the camera', (
+    tester,
+  ) async {
+    await openFromHeader(tester);
+    await tester.tap(find.bySemanticsLabel('Take photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ask AI'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Retake photo'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FaunaLensAiResultScreen), findsNothing);
+    expect(find.text('Fit the whole animal inside the frame.'), findsOneWidget);
+    expect(camera.isOpen, isTrue);
   });
 
   testWidgets('Skip AI closes FaunaLens and goes to Add post', (tester) async {

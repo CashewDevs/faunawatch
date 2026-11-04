@@ -1,4 +1,21 @@
-enum AiProvider { gemini, groq, openRouter }
+enum AiProvider {
+  gemini,
+  groq,
+  openRouter;
+
+  /// Order used to pick a provider when the user hasn't chosen one: the first
+  /// with a saved key. Gemini first, as it is described as strongest with
+  /// photos.
+  static const fallbackOrder = [gemini, openRouter, groq];
+
+  /// Reads [name] back from storage, or null when it is unknown.
+  static AiProvider? tryParse(String? name) {
+    for (final provider in values) {
+      if (provider.name == name) return provider;
+    }
+    return null;
+  }
+}
 
 extension AiProviderDetails on AiProvider {
   String get displayName => switch (this) {
