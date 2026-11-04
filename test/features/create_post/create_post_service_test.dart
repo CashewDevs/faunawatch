@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/create_post/services/create_post_service.dart';
+import 'package:faunawatch/features/create_post/services/place_name_service.dart';
 import 'package:faunawatch/features/create_post/services/post_photo_service.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
 
@@ -16,6 +17,16 @@ class _Photos implements PostPhotoService {
     fingerprint: 'test-fingerprint',
     exif: {'gps_latitude': 10.1234, 'gps_longitude': 123.1234},
   );
+}
+
+class _PlaceNames implements PlaceNameService {
+  String? name = 'Lusod, Kabayan, Benguet';
+  final lookups = <(double, double)>[];
+  @override
+  Future<String?> lookup(double latitude, double longitude) async {
+    lookups.add((latitude, longitude));
+    return name;
+  }
 }
 
 List<int> _uploadedPhotoBytes(dynamic body) {
@@ -33,6 +44,7 @@ void main() {
   late SupabaseClient client;
   late SupabaseCreatePostService service;
   late _Photos photos;
+  late _PlaceNames placeNames;
   late List<(String, String, dynamic)> requests;
   String? failPath;
   const draft = PostDraft(
@@ -108,7 +120,8 @@ void main() {
     });
     client = SupabaseClient('http://127.0.0.1:${server.port}', 'test-anon-key');
     photos = _Photos();
-    service = SupabaseCreatePostService(client, photos);
+    placeNames = _PlaceNames();
+    service = SupabaseCreatePostService(client, photos, placeNames);
   });
   tearDown(() async {
     await client.dispose();
@@ -129,6 +142,7 @@ void main() {
       throwsA(isA<PostSubmissionException>()),
     );
     expect(requests, isEmpty);
+    expect(placeNames.lookups, isEmpty);
   });
 
   test(
@@ -144,6 +158,25 @@ void main() {
       expect(row['ai_status'], 'unavailable');
     },
   );
+
+  test('looks up the final point once and saves its area name', () async {
+    await signIn();
+    await service.submit(draft);
+    expect(placeNames.lookups, [(10.1234, 123.1234)]);
+    expect(
+      (requests.single.$3 as Map)['place_name'],
+      'Lusod, Kabayan, Benguet',
+    );
+  });
+
+  test('still submits the post when the area is unknown', () async {
+    await signIn();
+    placeNames.name = null;
+    expect(await service.submit(draft), 'report-1');
+    final row = requests.single.$3 as Map;
+    expect(row.containsKey('place_name'), isTrue);
+    expect(row['place_name'], isNull);
+  });
 
   test('uploads private processed photo and stores EXIF separately', () async {
     await signIn();
@@ -217,6 +250,7 @@ void main() {
         ),
       );
       expect(requests, isEmpty);
+      expect(placeNames.lookups, isEmpty);
     },
   );
 
@@ -256,6 +290,7 @@ void main() {
         throwsArgumentError,
       );
       expect(requests, isEmpty);
+      expect(placeNames.lookups, isEmpty);
     },
   );
 

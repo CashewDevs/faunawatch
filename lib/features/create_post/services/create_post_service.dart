@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/features/auth/services/auth_service.dart';
 import '../models/post_draft.dart';
+import 'place_name_service.dart';
 import 'post_photo_service.dart';
 
 abstract interface class CreatePostService {
@@ -14,9 +15,10 @@ class PostSubmissionException implements Exception {
 }
 
 class SupabaseCreatePostService implements CreatePostService {
-  const SupabaseCreatePostService(this._client, this._photos);
+  const SupabaseCreatePostService(this._client, this._photos, this._placeNames);
   final SupabaseClient _client;
   final PostPhotoService _photos;
+  final PlaceNameService _placeNames;
 
   @override
   Future<String> submit(PostDraft draft) async {
@@ -43,12 +45,14 @@ class SupabaseCreatePostService implements CreatePostService {
         'Could not read this photo. Choose another photo.',
       );
     }
+    // Each lookup is billed, so it waits until the post has passed every check.
+    final placeName = await _placeNames.lookup(draft.latitude, draft.longitude);
     String? reportId;
     String? storagePath;
     try {
       final report = await _client
           .from('reports')
-          .insert(row)
+          .insert({...row, 'place_name': placeName})
           .select('id')
           .single();
       reportId = report['id'] as String;
@@ -112,5 +116,6 @@ final createPostServiceProvider = Provider<CreatePostService>(
   (ref) => SupabaseCreatePostService(
     ref.read(supabaseClientProvider),
     ref.read(postPhotoServiceProvider),
+    ref.read(placeNameServiceProvider),
   ),
 );
