@@ -4,14 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/pill_button.dart';
-import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
+import 'package:faunawatch/features/intro/views/intro_view.dart';
 import 'package:faunawatch/features/terms/models/terms_section.dart';
 import 'package:faunawatch/features/terms/viewmodels/terms_consent_viewmodel.dart';
 import 'package:faunawatch/features/terms/views/widgets/consent_checkbox_row.dart';
 import 'package:faunawatch/features/terms/views/widgets/terms_section_tile.dart';
 
 /// "Before you go exploring": the short-form terms the user must accept
-/// after finishing profile setup, before adding AI keys.
+/// after adding AI keys, before the welcome intro.
 class TermsConsentView extends ConsumerWidget {
   const TermsConsentView({super.key});
 
@@ -19,7 +19,7 @@ class TermsConsentView extends ConsumerWidget {
     if (!ref.read(termsConsentViewModelProvider.notifier).accept()) return;
     Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const AiKeySetupView()));
+    ).push(MaterialPageRoute<void>(builder: (_) => const IntroView()));
   }
 
   Future<void> _handleDecline(BuildContext context) async {

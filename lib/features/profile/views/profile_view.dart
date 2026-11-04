@@ -161,7 +161,7 @@ class ProfileView extends ConsumerWidget {
               iconBackgroundColor: const Color(0xFFCCFBF1),
               iconColor: const Color(0xFF0D9488),
               title: 'Settings',
-              subtitle: 'Dark / Light mode, preferences & account',
+              subtitle: 'Dark / Light mode, AI keys, preferences & account',
               onTap: () => _openSettings(context),
             ),
 

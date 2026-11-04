@@ -5,17 +5,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/pill_button.dart';
-import 'package:faunawatch/features/intro/views/intro_view.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_keys_agreement_sheet.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_provider_key_card.dart';
+import 'package:faunawatch/features/terms/views/terms_consent_view.dart';
 
-/// "Power up FaunaLens": onboarding step where the user adds their own AI
-/// provider key. Every key is saved only after accepting the AI Keys
-/// Agreement for that provider.
+/// "Power up FaunaLens": onboarding step after profile setup where the user
+/// adds their own AI provider key. Every key is saved only after accepting
+/// the AI Keys Agreement for that provider.
+///
+/// [AiKeySetupView.manage] opens the same screen from the profile so the user
+/// can add, replace or remove keys later (e.g. after choosing "Set up later").
 class AiKeySetupView extends ConsumerStatefulWidget {
-  const AiKeySetupView({super.key});
+  const AiKeySetupView({super.key}) : isManaging = false;
+
+  /// Profile entry point: back button and "Done" instead of the onboarding
+  /// Continue / Set up later actions, plus removing saved keys.
+  const AiKeySetupView.manage({super.key}) : isManaging = true;
+
+  final bool isManaging;
 
   /// Display order of the provider cards.
   static const providers = [
@@ -155,23 +164,73 @@ class _AiKeySetupViewState extends ConsumerState<AiKeySetupView> {
     return saved;
   }
 
-  Future<void> _handleContinue() async {
-    final pending = _providerWithDraft;
-    if (pending != null) {
-      setState(() => _expandedProvider = pending);
-      if (!await _saveDraft(pending)) return;
+  Future<void> _removeKey(AiProvider provider) async {
+    FocusScope.of(context).unfocus();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Remove ${provider.displayName} key?'),
+        content: const Text(
+          "FaunaLens won't be able to use this provider until you add a "
+          'key again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _viewModel.selectProvider(provider);
+    final removed = await _viewModel.removeKey();
+    if (!mounted) return;
+    if (removed) {
+      setState(() {
+        _controllers[provider]!.clear();
+        _obscureKey = true;
+      });
+      _showMessage('${provider.displayName} key removed.');
+    } else {
+      _showMessage(
+        ref.read(aiKeySettingsViewModelProvider).asData?.value.errorMessage ??
+            'Could not remove the key. Please try again.',
+      );
     }
-    if (mounted) await _goToIntro();
   }
 
-  Future<void> _goToIntro() async {
-    // The intro screens never show keys, so lift the screenshot block while
-    // they are on top and restore it if the user comes back.
+  /// Saves a typed but unsaved key (after agreement) before moving on.
+  Future<bool> _savePendingDraft() async {
+    final pending = _providerWithDraft;
+    if (pending == null) return true;
+    setState(() => _expandedProvider = pending);
+    return _saveDraft(pending);
+  }
+
+  Future<void> _handleContinue() async {
+    if (!await _savePendingDraft()) return;
+    if (mounted) await _goToTerms();
+  }
+
+  Future<void> _handleDone() async {
+    if (!await _savePendingDraft()) return;
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _goToTerms() async {
+    // The following screens never show keys, so lift the screenshot block
+    // while they are on top and restore it if the user comes back.
     await _viewModel.disableWindowSecurity();
     if (!mounted) return;
     await Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const IntroView()));
+    ).push(MaterialPageRoute<void>(builder: (_) => const TermsConsentView()));
     if (mounted) await _viewModel.enableWindowSecurity();
   }
 
@@ -184,6 +243,7 @@ class _AiKeySetupViewState extends ConsumerState<AiKeySetupView> {
         settings?.configuredProviders.values.any((saved) => saved) ?? false;
     final canContinue =
         !isSaving && (hasSavedKey || _providerWithDraft != null);
+    final isManaging = widget.isManaging;
 
     return Scaffold(
       body: Container(
@@ -206,10 +266,25 @@ class _AiKeySetupViewState extends ConsumerState<AiKeySetupView> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                   children: [
+                    if (isManaging)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          tooltip: 'Back',
+                          onPressed: isSaving
+                              ? null
+                              : () => Navigator.of(context).maybePop(),
+                          icon: const Icon(
+                            Icons.chevron_left_rounded,
+                            color: AppColors.consentTitleNavy,
+                            size: 32,
+                          ),
+                        ),
+                      ),
                     const _KeyBadge(),
                     const SizedBox(height: 16),
                     Text(
-                      'Power up FaunaLens',
+                      isManaging ? 'Your AI keys' : 'Power up FaunaLens',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.dmSans(
                         color: AppColors.consentTitleNavy,
@@ -221,8 +296,11 @@ class _AiKeySetupViewState extends ConsumerState<AiKeySetupView> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
-                        'Add your own AI key so FaunaLens can identify the '
-                        'animals you spot. You only need one.',
+                        isManaging
+                            ? 'Add, replace or remove the keys FaunaLens uses '
+                                  'to identify animals. You only need one.'
+                            : 'Add your own AI key so FaunaLens can identify '
+                                  'the animals you spot. You only need one.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.dmSans(
                           color: AppColors.consentBodyText,
@@ -263,6 +341,9 @@ class _AiKeySetupViewState extends ConsumerState<AiKeySetupView> {
                               onKeyChanged: (_) => setState(() {}),
                               onSubmitted: () => _saveDraft(provider),
                               onGetKey: () => _openLink(provider.keyConsoleUri),
+                              onRemove: isManaging
+                                  ? () => _removeKey(provider)
+                                  : null,
                             ),
                           ),
                       ],
@@ -292,21 +373,27 @@ class _AiKeySetupViewState extends ConsumerState<AiKeySetupView> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                child: Column(
-                  children: [
-                    PillButton(
-                      label: 'Continue  >',
-                      isLoading: isSaving,
-                      onPressed: canContinue ? _handleContinue : null,
-                    ),
-                    const SizedBox(height: 12),
-                    PillButton(
-                      label: 'Set up later',
-                      isPrimary: false,
-                      onPressed: isSaving ? null : _goToIntro,
-                    ),
-                  ],
-                ),
+                child: isManaging
+                    ? PillButton(
+                        label: 'Done',
+                        isLoading: isSaving,
+                        onPressed: isSaving ? null : _handleDone,
+                      )
+                    : Column(
+                        children: [
+                          PillButton(
+                            label: 'Continue  >',
+                            isLoading: isSaving,
+                            onPressed: canContinue ? _handleContinue : null,
+                          ),
+                          const SizedBox(height: 12),
+                          PillButton(
+                            label: 'Set up later',
+                            isPrimary: false,
+                            onPressed: isSaving ? null : _goToTerms,
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),

@@ -19,6 +19,7 @@ class AiProviderKeyCard extends StatelessWidget {
     required this.onKeyChanged,
     required this.onSubmitted,
     required this.onGetKey,
+    this.onRemove,
   });
 
   final AiProvider provider;
@@ -32,6 +33,9 @@ class AiProviderKeyCard extends StatelessWidget {
   final ValueChanged<String> onKeyChanged;
   final VoidCallback onSubmitted;
   final VoidCallback onGetKey;
+
+  /// Shown as "Remove key" when a key is saved. Null hides the action.
+  final VoidCallback? onRemove;
 
   static (Color, Color) badgeColors(AiProvider provider) => switch (provider) {
     AiProvider.openRouter => (
@@ -227,35 +231,62 @@ class AiProviderKeyCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          InkWell(
-            onTap: onGetKey,
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      'Where do I get a ${provider.displayName} key?',
-                      style: GoogleFonts.dmSans(
-                        color: AppColors.consentLinkBlue,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
+          Row(
+            children: [
+              Expanded(child: _buildGetKeyLink()),
+              if (isConfigured && onRemove != null)
+                TextButton.icon(
+                  onPressed: enabled ? onRemove : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.signOutButtonRed,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                  label: Text(
+                    'Remove key',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.north_east_rounded,
-                    size: 14,
-                    color: AppColors.consentLinkBlue,
-                  ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGetKeyLink() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: onGetKey,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  'Where do I get a ${provider.displayName} key?',
+                  style: GoogleFonts.dmSans(
+                    color: AppColors.consentLinkBlue,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.north_east_rounded,
+                size: 14,
+                color: AppColors.consentLinkBlue,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

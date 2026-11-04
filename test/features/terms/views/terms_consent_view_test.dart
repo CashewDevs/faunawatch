@@ -1,22 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:faunawatch/core/auth/current_user_provider.dart';
-import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
-import 'package:faunawatch/features/settings/models/ai_provider.dart';
-import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
-import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
+import 'package:faunawatch/features/intro/views/intro_view.dart';
 import 'package:faunawatch/features/terms/views/terms_consent_view.dart';
 
 void main() {
   Widget createWidgetUnderTest() {
     return ProviderScope(
-      overrides: [
-        aiApiKeyStorageServiceProvider.overrideWithValue(_EmptyKeyStorage()),
-        currentUserIdProvider.overrideWith((ref) => Stream.value('user-1')),
-        windowSecurityServiceProvider.overrideWithValue(_NoopWindowSecurity()),
-      ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
         home: Builder(
@@ -87,7 +78,7 @@ void main() {
 
       await tester.tap(continueButton());
       await tester.pumpAndSettle();
-      expect(find.byType(AiKeySetupView), findsNothing);
+      expect(find.byType(IntroView), findsNothing);
 
       await tapCheckbox(
         tester,
@@ -95,16 +86,16 @@ void main() {
       );
       await tester.tap(continueButton());
       await tester.pumpAndSettle();
-      expect(find.byType(AiKeySetupView), findsNothing);
+      expect(find.byType(IntroView), findsNothing);
 
       await tapCheckbox(
         tester,
         find.textContaining('I understand AI results are preliminary'),
       );
       await tester.tap(continueButton());
-      await tester.pumpAndSettle();
-      expect(find.byType(AiKeySetupView), findsOneWidget);
-      expect(find.text('Power up FaunaLens'), findsOneWidget);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(IntroView), findsOneWidget);
     });
 
     testWidgets('decline asks for confirmation before going back', (
@@ -128,30 +119,4 @@ void main() {
       expect(find.text('Open terms'), findsOneWidget);
     });
   });
-}
-
-class _EmptyKeyStorage implements AiApiKeyStorageService {
-  @override
-  Future<String?> readKey(String userId, AiProvider provider) async => null;
-
-  @override
-  Future<void> saveKey(
-    String userId,
-    AiProvider provider,
-    String apiKey,
-  ) async {}
-
-  @override
-  Future<void> deleteKey(String userId, AiProvider provider) async {}
-
-  @override
-  Future<void> deleteAllKeys(String userId) async {}
-}
-
-class _NoopWindowSecurity implements WindowSecurityService {
-  @override
-  Future<void> enableSecure() async {}
-
-  @override
-  Future<void> disableSecure() async {}
 }

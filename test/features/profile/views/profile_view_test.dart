@@ -11,11 +11,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/features/profile/views/edit_profile_view.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
 import 'package:faunawatch/features/profile/views/settings_view.dart';
+import 'package:faunawatch/core/services/window_security_service.dart';
+import 'package:faunawatch/features/settings/models/ai_provider.dart';
+import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 
 void main() {
-  Widget buildTestProfile({_FakeReader? reader, FakeProfileService? writer}) {
+  Widget buildTestProfile({
+    _FakeReader? reader,
+    FakeProfileService? writer,
+    _FakeKeyStorage? keyStorage,
+  }) {
     return ProviderScope(
       overrides: [
+        aiApiKeyStorageServiceProvider.overrideWithValue(
+          keyStorage ?? _FakeKeyStorage(),
+        ),
+        windowSecurityServiceProvider.overrideWithValue(_FakeWindowSecurity()),
         currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
         profileReaderServiceProvider.overrideWithValue(reader ?? _FakeReader()),
         profileServiceProvider.overrideWithValue(
@@ -164,4 +175,37 @@ class _FakeReader implements ProfileReaderService {
           presetAvatar: AppAssets.avatarBunny,
           bannerAsset: AppAssets.bannerDay,
         );
+}
+
+class _FakeKeyStorage implements AiApiKeyStorageService {
+  final Set<AiProvider> saved = {};
+
+  @override
+  Future<String?> readKey(String userId, AiProvider provider) async =>
+      saved.contains(provider) ? 'secret' : null;
+
+  @override
+  Future<void> saveKey(
+    String userId,
+    AiProvider provider,
+    String apiKey,
+  ) async {
+    saved.add(provider);
+  }
+
+  @override
+  Future<void> deleteKey(String userId, AiProvider provider) async {
+    saved.remove(provider);
+  }
+
+  @override
+  Future<void> deleteAllKeys(String userId) async => saved.clear();
+}
+
+class _FakeWindowSecurity implements WindowSecurityService {
+  @override
+  Future<void> enableSecure() async {}
+
+  @override
+  Future<void> disableSecure() async {}
 }
