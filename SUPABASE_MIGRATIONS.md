@@ -58,7 +58,8 @@ faunawatch/
     ├── config.toml          # Supabase CLI config (commit; contains no secrets)
     ├── migrations/          # Timestamped SQL migrations (append-only)
     │   └── 20261016120000_create_profiles.sql
-    └── seed.sql             # Local/dev seed data only
+    ├── seed.sql             # Local/dev seed data only
+    └── templates/           # Auth email templates (local; hosted copies live in the Dashboard)
 ```
 
 Do not scaffold other folders unless a feature needs them. This folder lives at the repo root, outside `lib/`.
