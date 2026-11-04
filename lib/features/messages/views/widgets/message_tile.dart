@@ -144,6 +144,14 @@ class MessageTile extends StatelessWidget {
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             )
+          : thread.avatarUrl != null
+          ? ClipOval(
+              child: Image.network(
+                thread.avatarUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            )
           : null,
     );
   }

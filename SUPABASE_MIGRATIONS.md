@@ -6,9 +6,40 @@ This file extends `AGENTS.md`. Where the two overlap, `AGENTS.md` wins. Read bot
 
 **The `supabase/migrations/` folder is the single source of truth for the database schema.**
 
-Every schema change must be written as a SQL migration file committed to Git. Never describe, suggest, or assume changes made by hand in the Supabase Dashboard (Table Editor, SQL Editor, Storage UI, Auth UI). If a change is not in a migration file, it does not exist as far as the project is concerned.
+Every schema change must be written as a SQL migration file tracked in Git.
+The user applies these scripts manually in the Supabase SQL editor. Agents
+prepare the scripts and document their prerequisites; they must not apply
+hosted database changes. Do not assume a script has been applied until the
+user confirms it. Schema changes must still be recorded here even when
+applied manually.
 
 This keeps the schema documented, reviewable in PRs, and reproducible by every teammate.
+
+## Private Chats setup
+
+`20261104133813_create_private_chats.sql` adds private one-to-one messaging.
+After the earlier migrations have been applied, copy the **whole script** into
+the Supabase SQL editor and run it once as the database owner. It includes an
+explicit transaction so a failing statement rolls back this script. It creates
+the chat tables/RPCs, participant access policies, private `chat-images` bucket
+(WebP, 5 MB), and adds the message/inbox tables to the existing
+`supabase_realtime` publication. No separate Dashboard storage policy setup is
+required. The app uses its existing signed-in Supabase session and client key;
+no new build configuration or service-role key is needed.
+
+After applying, use two signed-in accounts to check user search, simultaneous
+chat creation, text/photo delivery, unread status, and deleting from one inbox.
+Deleting hides only that person's inbox entry; a new message restores it and
+history is retained. A third account must not be able to read either the thread
+or its photos. No SQL has been applied automatically by the agent.
+
+The Dart tests mock Supabase and native photo encoding. The optional
+`test/features/messages/chat_security_test.cjs` runs the migration in an isolated
+PGlite PostgreSQL with auth/storage fixtures. Install `@electric-sql/pglite` in
+a temporary directory and pass its module path to the Node script. It tests
+RPCs, RLS, inbox state, and attachment policies without touching hosted data;
+it does not replace the two-account Realtime smoke test above or a complete
+Supabase migration replay.
 
 ## What Must Go Through Migrations
 

@@ -15,11 +15,13 @@ class ChatHeader extends StatelessWidget {
     super.key,
     required this.username,
     this.avatarAsset,
+    this.avatarUrl,
     required this.onBack,
   });
 
   final String username;
   final String? avatarAsset;
+  final String? avatarUrl;
   final VoidCallback onBack;
 
   @override
@@ -78,6 +80,14 @@ class ChatHeader extends StatelessWidget {
                     ? ClipOval(
                         child: Image.asset(
                           avatarAsset!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        ),
+                      )
+                    : avatarUrl != null
+                    ? ClipOval(
+                        child: Image.network(
+                          avatarUrl!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
