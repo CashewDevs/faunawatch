@@ -55,11 +55,13 @@ enabled = true
 double_confirm_changes = true
 enable_confirmations = false
 
-# Local only. Hosted has its own copy: paste this file into
-# Dashboard > Authentication > Emails > Reset password when it changes.
-[auth.email.template.recovery]
-subject = "Reset your FaunaWatch password"
-content_path = "./supabase/templates/recovery.html"
+# Off so local sends the same email as hosted. Free-plan projects on Supabase's
+# built-in email can't use custom templates (since 2026-06-03). When hosted has
+# custom SMTP, uncomment this and paste the file into
+# Dashboard > Authentication > Emails > Reset password.
+# [auth.email.template.recovery]
+# subject = "Reset your FaunaWatch password"
+# content_path = "./supabase/templates/recovery.html"
 
 [auth.sms]
 enabled = false
