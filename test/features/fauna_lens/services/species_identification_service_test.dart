@@ -168,10 +168,34 @@ void main() {
     expect(result.possibleInvasive, isFalse);
   });
 
-  test('no reference lookup when there is no animal', () async {
+  test(
+    'a photo without an animal fails as notAnimal with its subject',
+    () async {
+      keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
+      clients[AiProvider.gemini]!.reply =
+          '{"animal_present": false, "photo_subject": "a coffee mug", '
+          '"possible_species": []}';
+
+      await expectLater(
+        identify(),
+        throwsA(
+          isA<IdentificationException>()
+              .having(
+                (e) => e.failure,
+                'failure',
+                IdentificationFailure.notAnimal,
+              )
+              .having((e) => e.photoSubject, 'photoSubject', 'a coffee mug')
+              .having((e) => e.provider, 'provider', AiProvider.gemini),
+        ),
+      );
+      expect(references.asked, isEmpty);
+    },
+  );
+
+  test('no reference lookup when the AI suggests no species', () async {
     keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
-    clients[AiProvider.gemini]!.reply =
-        '{"animal_present": false, "possible_species": []}';
+    clients[AiProvider.gemini]!.reply = '{"possible_species": []}';
 
     final result = await identify();
 

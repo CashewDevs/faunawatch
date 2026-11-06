@@ -22,14 +22,15 @@ class SpeciesIdentificationService {
   });
 
   /// Bump whenever [instructions] change, so stored results can be told apart.
-  static const promptVersion = 'fauna_lens_identify_v1';
+  static const promptVersion = 'fauna_lens_identify_v2';
 
   static const instructions = '''
 You are helping a wildlife reporting app. Look at the photo and reply with only a JSON object, no other text, in exactly this shape:
-{"animal_present": true, "possible_species": [{"common_name": "", "scientific_name": "", "confidence": "high"}], "visible_condition": "", "severity": "low", "severity_reason": "", "what_to_do": ""}
+{"animal_present": true, "photo_subject": "", "possible_species": [{"common_name": "", "scientific_name": "", "confidence": "high"}], "visible_condition": "", "severity": "low", "severity_reason": "", "what_to_do": ""}
 
 Rules:
-- animal_present: false if no animal is visible. Then possible_species must be [].
+- animal_present: false if no animal is visible (for example a person only, an object, food, a plant, a landscape, a screenshot or a drawing). Then possible_species must be [].
+- photo_subject: a few plain words on what the photo mainly shows, such as "a coffee mug on a desk". Never name or identify a person.
 - possible_species: at most 3 guesses, most likely first. confidence is one of "high", "medium", "low", "uncertain". Never give percentages.
 - visible_condition: one or two short sentences about any injury or distress you can see. Say what a single photo cannot show.
 - severity: one of "low", "moderate", "high", "critical", "uncertain": how urgently the animal or people nearby may need help, based only on the photo.
@@ -44,7 +45,9 @@ Rules:
   final SpeciesReferenceService _references;
   final AiPreferencesService _preferences;
 
-  /// Throws [IdentificationException] when no result can be produced.
+  /// Throws [IdentificationException] when no result can be produced,
+  /// including [IdentificationFailure.notAnimal] when the photo shows no
+  /// animal.
   Future<AiIdentification> identify({
     required String userId,
     required String photoPath,
@@ -99,6 +102,14 @@ Rules:
       throw IdentificationException(
         IdentificationFailure.badResponse,
         provider: provider,
+      );
+    }
+
+    if (result.animalPresent == false) {
+      throw IdentificationException(
+        IdentificationFailure.notAnimal,
+        provider: provider,
+        photoSubject: result.photoSubject,
       );
     }
 

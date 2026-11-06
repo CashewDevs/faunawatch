@@ -92,6 +92,19 @@ void main() {
       expect(result.topGuess, isNull);
     });
 
+    test('keeps a short, single-line photo subject', () {
+      expect(
+        parse(
+          '{"animal_present": false, "photo_subject": " a red\\n mug. "}',
+        ).photoSubject,
+        'a red mug',
+      );
+      expect(parse('{}').photoSubject, isEmpty);
+      final long = parse('{"photo_subject": "${'x' * 200}"}').photoSubject;
+      expect(long.length, AiIdentification.maxSubjectLength + 1);
+      expect(long, endsWith('…'));
+    });
+
     test('throws FormatException when there is no JSON object', () {
       expect(() => parse('I cannot help with that.'), throwsFormatException);
       expect(() => parse('{not json}'), throwsFormatException);

@@ -50,6 +50,21 @@ void main() {
     expect(state.canUseResults, isFalse);
   });
 
+  test('a photo without an animal fails with what it showed', () async {
+    service
+      ..failure = IdentificationFailure.notAnimal
+      ..photoSubject = 'a coffee mug';
+    final container = makeContainer();
+
+    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg');
+
+    final state = container.read(aiResultViewModelProvider);
+    expect(state.status, AiResultStatus.failed);
+    expect(state.failure, IdentificationFailure.notAnimal);
+    expect(state.photoSubject, 'a coffee mug');
+    expect(state.canUseResults, isFalse);
+  });
+
   test('reports the failure from the service', () async {
     service.failure = IdentificationFailure.noKey;
     final container = makeContainer();
