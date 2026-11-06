@@ -87,6 +87,7 @@ class _FaunaLensAiResultScreenState
                     AiResultStatus.failed => [
                       _FailureCard(
                         failure: state.failure!,
+                        photoSubject: state.photoSubject,
                         onRetry: _analyze,
                         onOpenKeySettings: _openKeySettings,
                       ),
@@ -388,11 +389,13 @@ class _LoadingBodyState extends State<_LoadingBody>
 class _FailureCard extends StatelessWidget {
   const _FailureCard({
     required this.failure,
+    required this.photoSubject,
     required this.onRetry,
     required this.onOpenKeySettings,
   });
 
   final IdentificationFailure failure;
+  final String photoSubject;
   final VoidCallback onRetry;
   final VoidCallback onOpenKeySettings;
 
@@ -431,6 +434,11 @@ class _FailureCard extends StatelessWidget {
         "Couldn't read the AI's answer",
         'Please try again.',
       ),
+      IdentificationFailure.notAnimal => (
+        'FaunaLens only identifies animals',
+        '${photoSubject.isEmpty ? 'No animal was found in this photo.' : 'This photo seems to show $photoSubject, not an animal.'} '
+            'Retake it or choose a photo with an animal in it.',
+      ),
       IdentificationFailure.signedOut => (
         'Sign in again',
         'Sign in to use AI suggestions.',
@@ -441,6 +449,7 @@ class _FailureCard extends StatelessWidget {
         failure == IdentificationFailure.invalidKey;
     final canRetry =
         failure != IdentificationFailure.unreadablePhoto &&
+        failure != IdentificationFailure.notAnimal &&
         failure != IdentificationFailure.signedOut;
 
     return AiResultCard(
@@ -450,7 +459,11 @@ class _FailureCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                opensKeys ? Icons.key_rounded : Icons.error_outline_rounded,
+                opensKeys
+                    ? Icons.key_rounded
+                    : failure == IdentificationFailure.notAnimal
+                    ? Icons.pets_rounded
+                    : Icons.error_outline_rounded,
                 color: AppColors.faunaLensBlue,
                 size: 20,
               ),

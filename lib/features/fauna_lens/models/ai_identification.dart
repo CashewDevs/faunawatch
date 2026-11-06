@@ -81,11 +81,15 @@ class AiIdentification {
     required this.provider,
     required this.model,
     required this.promptVersion,
+    this.photoSubject = '',
     this.invasiveMatch,
   });
 
   /// The most guesses the app shows (and the database accepts).
   static const maxSpecies = 3;
+
+  /// The longest photo description kept from the AI reply.
+  static const maxSubjectLength = 80;
 
   static const _defaultCondition =
       "The photo doesn't show enough to judge the animal's condition.";
@@ -103,6 +107,10 @@ class AiIdentification {
   final AiProvider provider;
   final String model;
   final String promptVersion;
+
+  /// A few words on what the photo shows (e.g. "a coffee mug"). Only asked
+  /// for so a photo without an animal can be explained; may be empty.
+  final String photoSubject;
 
   /// Name of the reference entry the top guess matched, if any.
   final String? invasiveMatch;
@@ -123,6 +131,7 @@ class AiIdentification {
     provider: provider,
     model: model,
     promptVersion: promptVersion,
+    photoSubject: photoSubject,
     invasiveMatch: match,
   );
 
@@ -195,7 +204,19 @@ class AiIdentification {
       provider: provider,
       model: model,
       promptVersion: promptVersion,
+      photoSubject: _subject(json['photo_subject']),
     );
+  }
+
+  /// One line of at most [maxSubjectLength] characters, without a trailing
+  /// full stop, so it reads well inside a sentence.
+  static String _subject(Object? raw) {
+    if (raw is! String) return '';
+    var subject = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (subject.length > maxSubjectLength) {
+      subject = '${subject.substring(0, maxSubjectLength).trimRight()}…';
+    }
+    return subject.replaceAll(RegExp(r'[.!]+$'), '');
   }
 }
 
@@ -209,17 +230,28 @@ enum IdentificationFailure {
   network,
   unreadablePhoto,
   badResponse,
+
+  /// The AI saw no animal in the photo; FaunaLens only handles animals.
+  notAnimal,
 }
 
 /// Thrown by the identification service. Never carries the key or the raw
 /// provider response.
 class IdentificationException implements Exception {
-  const IdentificationException(this.failure, {this.provider});
+  const IdentificationException(
+    this.failure, {
+    this.provider,
+    this.photoSubject = '',
+  });
 
   final IdentificationFailure failure;
 
   /// The provider that was used, when one was.
   final AiProvider? provider;
+
+  /// For [IdentificationFailure.notAnimal]: what the AI saw instead, already
+  /// shortened by [AiIdentification.fromModelReply]. May be empty.
+  final String photoSubject;
 
   @override
   String toString() => 'IdentificationException(${failure.name})';

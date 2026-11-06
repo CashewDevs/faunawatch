@@ -65,9 +65,8 @@ class PossibleSpeciesCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                result.animalPresent == false
-                    ? 'No animal was found in this photo. Try a closer, clearer shot.'
-                    : "The AI couldn't suggest a species for this photo.",
+                "The AI couldn't suggest a species for this photo. "
+                'Try a closer, clearer shot.',
                 style: aiResultBodyStyle(),
               ),
             )

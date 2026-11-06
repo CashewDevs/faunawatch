@@ -12,11 +12,15 @@ class AiResultState {
     this.status = AiResultStatus.analyzing,
     this.result,
     this.failure,
+    this.photoSubject = '',
   });
 
   final AiResultStatus status;
   final AiIdentification? result;
   final IdentificationFailure? failure;
+
+  /// What the photo showed instead, for [IdentificationFailure.notAnimal].
+  final String photoSubject;
 
   bool get isAnalyzing => status == AiResultStatus.analyzing;
 
@@ -57,6 +61,7 @@ class AiResultViewModel extends AutoDisposeNotifier<AiResultState> {
       next = AiResultState(
         status: AiResultStatus.failed,
         failure: error.failure,
+        photoSubject: error.photoSubject,
       );
     } catch (error) {
       // Only the error type is logged: never a key or provider response.

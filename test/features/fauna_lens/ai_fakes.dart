@@ -150,6 +150,7 @@ class FakeSpeciesReference implements SpeciesReferenceService {
 class FakeIdentificationService implements SpeciesIdentificationService {
   AiIdentification? result;
   IdentificationFailure? failure;
+  String photoSubject = '';
   final List<String> photoPaths = [];
 
   /// When set, identify waits for it, holding the screen in its loading state.
@@ -162,7 +163,9 @@ class FakeIdentificationService implements SpeciesIdentificationService {
   }) async {
     photoPaths.add(photoPath);
     await gate?.future;
-    if (failure != null) throw IdentificationException(failure!);
+    if (failure != null) {
+      throw IdentificationException(failure!, photoSubject: photoSubject);
+    }
     return result ?? sampleIdentification();
   }
 }

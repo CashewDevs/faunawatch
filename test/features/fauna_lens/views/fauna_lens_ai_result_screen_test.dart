@@ -192,14 +192,34 @@ void main() {
     expect(choice, isNull);
   });
 
-  testWidgets('no animal found cannot be used for a post', (tester) async {
+  testWidgets('no species suggested cannot be used for a post', (tester) async {
     service.result = sampleIdentification(noAnimal: true);
     await open(tester);
 
-    expect(find.textContaining('No animal was found'), findsOneWidget);
+    expect(find.textContaining("couldn't suggest a species"), findsOneWidget);
     await tester.tap(find.text('Use these results'));
     await tester.pumpAndSettle();
     expect(popped, isFalse);
+  });
+
+  testWidgets('a non-animal photo says FaunaLens only handles animals', (
+    tester,
+  ) async {
+    service
+      ..failure = IdentificationFailure.notAnimal
+      ..photoSubject = 'a coffee mug';
+    await open(tester);
+
+    expect(find.text('FaunaLens only identifies animals'), findsOneWidget);
+    expect(find.textContaining('a coffee mug, not an animal'), findsOneWidget);
+    expect(find.text('Try again'), findsNothing);
+    await tester.tap(find.text('Use these results'));
+    await tester.pumpAndSettle();
+    expect(popped, isFalse);
+
+    await tester.tap(find.text('Retake photo'));
+    await tester.pumpAndSettle();
+    expect(choice, isA<RetakeFromAiResult>());
   });
 
   testWidgets('without a key, adding one retries the analysis', (tester) async {
