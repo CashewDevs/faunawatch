@@ -7,31 +7,29 @@ This file extends `AGENTS.md`. Where the two overlap, `AGENTS.md` wins. Read bot
 **The `supabase/migrations/` folder is the single source of truth for the database schema.**
 
 Every schema change must be written as a SQL migration file tracked in Git.
-The user applies these scripts manually in the Supabase SQL editor. Agents
-prepare the scripts and document their prerequisites; they must not apply
-hosted database changes. Do not assume a script has been applied until the
-user confirms it. Schema changes must still be recorded here even when
-applied manually.
+A team member applies merged migrations to the hosted project with the Supabase
+CLI (see "Applying to the Hosted Project"). Agents prepare the scripts and
+document their prerequisites; they must not apply hosted database changes. Do
+not assume a script has been applied until a team member confirms it.
 
 This keeps the schema documented, reviewable in PRs, and reproducible by every teammate.
 
 ## Private Chats setup
 
-`20261104133813_create_private_chats.sql` adds private one-to-one messaging.
-After the earlier migrations have been applied, copy the **whole script** into
-the Supabase SQL editor and run it once as the database owner. It includes an
-explicit transaction so a failing statement rolls back this script. It creates
-the chat tables/RPCs, participant access policies, private `chat-images` bucket
-(WebP, 5 MB), and adds the message/inbox tables to the existing
-`supabase_realtime` publication. No separate Dashboard storage policy setup is
-required. The app uses its existing signed-in Supabase session and client key;
-no new build configuration or service-role key is needed.
+`20261104133813_create_private_chats.sql` adds private one-to-one messaging. It
+is already applied and recorded on the hosted project, so do not run it again.
+It includes an explicit transaction so a failing statement rolls back this
+script. It creates the chat tables/RPCs, participant access policies, private
+`chat-images` bucket (WebP, 5 MB), and adds the message/inbox tables to the
+existing `supabase_realtime` publication. No separate Dashboard storage policy
+setup is required. The app uses its existing signed-in Supabase session and
+client key; no new build configuration or service-role key is needed.
 
 After applying, use two signed-in accounts to check user search, simultaneous
 chat creation, text/photo delivery, unread status, and deleting from one inbox.
 Deleting hides only that person's inbox entry; a new message restores it and
 history is retained. A third account must not be able to read either the thread
-or its photos. No SQL has been applied automatically by the agent.
+or its photos.
 
 The Dart tests mock Supabase and native photo encoding. The optional
 `test/features/messages/chat_security_test.cjs` runs the migration in an isolated
@@ -80,7 +78,28 @@ Do not scaffold other folders unless a feature needs them. This folder lives at 
 5. **Update the Dart side** if needed: models in `lib/features/<feature>/models/`, service access in the Service layer only. Views and ViewModels never talk to Supabase directly.
 6. **Commit** the migration together with the related Dart changes on a feature branch. Never push to `main`.
 
-Applying to the hosted project (`supabase db push`) is a **deliberate, human-approved step**. Do not run it, and do not run anything that targets the remote/production project, unless the user explicitly asks.
+## Applying to the Hosted Project
+
+Applying to the hosted project is a **deliberate, human-approved step** that a team member runs after the migration's PR is merged. Agents must not run it, or anything else that targets the remote/production project, unless the user explicitly asks.
+
+Use the CLI. Do not paste migrations into the SQL editor: a pasted script runs but is not recorded in the migration history, so the next `db push` tries to run it again.
+
+From the repo root, on an up-to-date `main`:
+
+```bash
+supabase migration list --remote      # Check that local and hosted history line up
+supabase db push --remote --dry-run   # See what would be applied
+supabase db push --remote             # Apply it
+supabase migration list --remote      # Confirm it is recorded
+```
+
+- **Always pass `--remote`.** Supabase CLI v3 targets the local database by default.
+- **Rollout order:** merge the migration PR, push it, and only then merge app or admin code that needs it. Otherwise that code breaks against hosted.
+- **If a push fails,** stop and share the output with the team. Do not re-run it or repair the history until the cause is understood.
+- **If a script ever had to be pasted,** first confirm it matches the committed file, then record it straight away. This updates the history only; it does not run the SQL:
+  ```bash
+  supabase migration repair --status applied <version> --remote
+  ```
 
 ## Migration Rules
 
@@ -125,7 +144,7 @@ Buckets and their policies are created in migrations (via SQL on `storage.bucket
 If the user says they (or a teammate) changed something in the Dashboard, do not ignore it and do not guess the SQL. Suggest capturing it:
 
 ```bash
-supabase db pull          # or: supabase db diff -f <name>
+supabase db pull --remote          # or: supabase db diff --remote -f <name>
 ```
 
 Then review the generated file, clean it up, and commit it as a normal migration.
@@ -155,9 +174,10 @@ supabase start                              # Start local stack (needs Docker)
 supabase migration new <name>               # Create a new migration file
 supabase db reset                           # Rebuild local DB from all migrations + seed
 supabase db diff -f <name>                  # Generate a migration from local schema changes
-supabase db pull                            # Capture remote/Dashboard changes as a migration
-supabase migration list                     # Compare local vs remote migration history
-supabase db push                            # Apply to hosted project (human-approved only)
+supabase db pull --remote                   # Capture remote/Dashboard changes as a migration
+supabase migration list --remote            # Compare local vs remote migration history
+supabase db push --remote --dry-run         # Preview what would be applied to hosted
+supabase db push --remote                   # Apply to hosted project (human-approved only)
 ```
 
 ## Definition of Done for a Schema Change

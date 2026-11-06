@@ -253,12 +253,12 @@ deletion are per user; deletion hides the inbox entry, preserves history for
 both users, and a new message restores the entry. Suspended users cannot open
 chats, send messages, or upload chat photos. There is no admin message access.
 
-Apply `20261104133813_create_private_chats.sql` before using Chats. It creates
-the tables, checked RPCs, participant RLS, private `chat-images` bucket, and
-Realtime publication entries. The user applies these scripts manually in the
-Supabase SQL editor; agents must leave them in `supabase/migrations/` and must
-not apply hosted changes. Existing prerequisite migrations must already be
-applied. Chat photos have a 5 MB input/upload limit and are re-encoded from
+`20261104133813_create_private_chats.sql` creates the tables, checked RPCs,
+participant RLS, private `chat-images` bucket, and Realtime publication entries.
+A team member applies migrations to hosted with `supabase db push --remote`, as
+described in `SUPABASE_MIGRATIONS.md`; agents must leave them in
+`supabase/migrations/` and must not apply hosted changes.
+Chat photos have a 5 MB input/upload limit and are re-encoded from
 pixels to WebP without EXIF/GPS through `ChatPhotoService`. Existing packages
 cover gallery picking and encoding; no new dependency is needed. Private photo
 URLs expire after one hour. Messages load in pages of 50; live subscriptions
