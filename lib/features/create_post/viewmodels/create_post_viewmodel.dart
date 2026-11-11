@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
+import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
 import '../models/create_post_state.dart';
@@ -40,7 +41,8 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
     if (state.isBusy || state.submittedId != null) return;
     _request++;
     state = state.copyWith(
-      category: category,
+      // The category comes from the attached analysis until it is detached.
+      category: state.aiResult == null ? category : null,
       latitude: latitude,
       longitude: longitude,
       description: description,
@@ -49,15 +51,19 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
     );
   }
 
-  void usePhoto(FaunaLensPhoto photo) {
+  /// Starts the draft from a FaunaLens [photo], with its [aiResult] when the
+  /// user chose to use it. The result is saved with the post, and its category
+  /// becomes the post's category.
+  void usePhoto(FaunaLensPhoto photo, {AiIdentification? aiResult}) {
     if (state.isBusy) return;
     _request++;
     state = CreatePostState(
-      category: state.category,
+      category: aiResult?.category ?? state.category,
       description: state.description,
       species: state.species,
       notes: state.notes,
       photoPath: photo.path,
+      aiResult: aiResult,
       latitude: photo.coordinates?.latitude.toString() ?? '',
       longitude: photo.coordinates?.longitude.toString() ?? '',
       locationLabel: 'Photo location',
@@ -79,6 +85,14 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
       _request++;
       state = state.copyWith(clearPhoto: true);
     }
+  }
+
+  /// Leaves the FaunaLens analysis out of the post. The photo and any
+  /// species or category already in the form stay as they are.
+  void removeAiResult() {
+    if (state.isBusy || state.submittedId != null) return;
+    _request++;
+    state = state.copyWith(clearAiResult: true);
   }
 
   void reset() {
@@ -107,6 +121,8 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
         if (_disposed || request != _request) return;
         state = state.copyWith(
           photoPath: path,
+          // An analysis of the previous photo doesn't describe this one.
+          clearAiResult: true,
           latitude: gps?.latitude.toString(),
           longitude: gps?.longitude.toString(),
           locationLabel: gps == null ? null : 'Photo location',
@@ -156,13 +172,14 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
     }
     final request = ++_request;
     final draft = PostDraft(
-      category: state.category!,
+      category: state.aiResult?.category ?? state.category!,
       latitude: double.parse(state.latitude),
       longitude: double.parse(state.longitude),
       description: state.description,
       species: state.species,
       notes: state.notes,
       photoPath: state.photoPath,
+      aiResult: state.aiResult,
     );
     state = state.copyWith(isBusy: true);
     try {

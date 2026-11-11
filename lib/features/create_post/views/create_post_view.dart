@@ -7,6 +7,7 @@ import '../models/post_draft.dart';
 import '../models/post_location.dart';
 import '../viewmodels/create_post_viewmodel.dart';
 import 'screens/location_picker_screen.dart';
+import 'widgets/attached_ai_analysis_card.dart';
 
 class CreatePostView extends ConsumerStatefulWidget {
   const CreatePostView({super.key});
@@ -128,6 +129,11 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
                             label: const Text('Remove photo'),
                           ),
                         ],
+                        if (state.aiResult != null)
+                          AttachedAiAnalysisCard(
+                            result: state.aiResult!,
+                            onDetach: state.isBusy ? null : vm.removeAiResult,
+                          ),
                         Wrap(
                           spacing: 12,
                           children: [
@@ -164,9 +170,13 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
                           key: ValueKey(state.category),
                           initialValue: state.category,
                           isExpanded: true,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Category *',
-                            border: OutlineInputBorder(),
+                            helperText: state.aiResult == null
+                                ? null
+                                : 'Set by FaunaLens AI. Tap "Don\'t attach analysis" to choose it yourself.',
+                            helperMaxLines: 3,
+                            border: const OutlineInputBorder(),
                           ),
                           items: [
                             for (final category in ReportCategory.values)
@@ -178,7 +188,7 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
                                 ),
                               ),
                           ],
-                          onChanged: state.isBusy
+                          onChanged: state.isBusy || state.aiResult != null
                               ? null
                               : (value) => vm.edit(category: value),
                         ),
@@ -259,8 +269,10 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
                           onChanged: (value) => vm.edit(notes: value),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Posts are reviewed before appearing on the community map. Shared coordinates are approximate. AI analysis is currently unavailable.',
+                        Text(
+                          state.aiResult == null
+                              ? 'Posts are reviewed before appearing on the community map. Shared coordinates are approximate. No AI analysis attached.'
+                              : 'Posts are reviewed before appearing on the community map. Shared coordinates are approximate.',
                         ),
                         if (state.error != null)
                           Padding(

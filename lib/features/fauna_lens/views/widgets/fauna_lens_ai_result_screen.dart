@@ -171,6 +171,16 @@ class _FaunaLensAiResultScreenState
         ),
       ),
       const SizedBox(height: 12),
+      AiResultInfoCard(
+        label: 'SUGGESTED REPORT CATEGORY',
+        children: [
+          Text(
+            result.category.label,
+            style: aiResultBodyStyle().copyWith(fontSize: 12.5),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
       AiResultCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

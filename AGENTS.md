@@ -281,8 +281,22 @@ subscriptions. A failed send retains the current draft and selected photo.
 
 Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
 View). A category and valid observation coordinates are required; photos and
-description/species/notes are optional. Reports are saved with `status = pending`
-and `ai_status = unavailable` while AI analysis is unimplemented. Approved reports
+description/species/notes are optional. Reports are saved with `status = pending`.
+When the user chooses "use AI results" in FaunaLens, the analysis is carried into
+Create Post with its photo, shown in a card that states it will be saved, and can
+be detached there (`removeAiResult`; the form's species/category are kept). It is
+dropped whenever the photo is removed or changed. On submit it is inserted into
+`ai_analyses` as one write-once `completed` row while the report is still
+`pending`, and the report gets `ai_status = completed`; without an attached
+analysis `ai_status = unavailable`. If the insert fails, the report is rolled back.
+The report category comes from the AI result: prompt `fauna_lens_identify_v3`
+picks among `animal_in_need`, `potentially_dangerous_animal` and
+`other_wildlife_incident` (unknown or missing falls back to the last), and a
+`species_reference` match forces "Possible invasive species" (never the AI).
+`ai_analyses` has no category column; it is saved on `reports.category`. The
+category is read-only while the analysis is attached, keeps its value when the
+analysis is detached, and is then editable again.
+Approved reports
 are loaded for the map through `community_reports()`, preserving its approximate
 coordinates and anonymous authors. The map refresh action reloads approvals.
 Observation locations are selected in a map picker (tap to pin, city/address

@@ -9,6 +9,8 @@ import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
 
+import '../fauna_lens/ai_fakes.dart';
+
 class FakeCreatePostService implements CreatePostService {
   final drafts = <PostDraft>[];
   Completer<String>? pending;
@@ -157,6 +159,216 @@ void main() {
       expect(container.read(createPostViewModelProvider).hasLocation, isFalse);
     },
   );
+
+  group('FaunaLens analysis', () {
+    const photo = FaunaLensPhoto(
+      path: 'bird.jpg',
+      source: FaunaLensPhotoSource.camera,
+      coordinates: GeoCoordinates(latitude: 10.3, longitude: 123.9),
+    );
+
+    test('is submitted with the photo it describes', () async {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      final result = sampleIdentification();
+      vm.usePhoto(photo, aiResult: result);
+      vm.edit(description: 'Turtle');
+      expect(container.read(createPostViewModelProvider).aiResult, result);
+      expect(await vm.submit(), isTrue);
+      expect(service.drafts.single.aiResult, same(result));
+      expect(service.drafts.single.photoPath, 'bird.jpg');
+    });
+
+    test('is dropped when the photo is removed', () async {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(photo, aiResult: sampleIdentification());
+      vm.removePhoto();
+      expect(container.read(createPostViewModelProvider).aiResult, isNull);
+    });
+
+    test('is dropped when another photo is picked', () async {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(photo, aiResult: sampleIdentification());
+      picker.path = 'other.jpg';
+      await vm.pickPhoto();
+      final state = container.read(createPostViewModelProvider);
+      expect(state.photoPath, 'other.jpg');
+      expect(state.aiResult, isNull);
+    });
+
+    test('is kept when a picker is cancelled', () async {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      final result = sampleIdentification();
+      vm.usePhoto(photo, aiResult: result);
+      await vm.pickPhoto();
+      expect(container.read(createPostViewModelProvider).aiResult, result);
+    });
+
+    test('is dropped when FaunaLens hands over a photo without one', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(photo, aiResult: sampleIdentification());
+      vm.usePhoto(photo);
+      expect(container.read(createPostViewModelProvider).aiResult, isNull);
+    });
+
+    test('is dropped when FaunaLens hands over a different photo', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(photo, aiResult: sampleIdentification());
+      vm.usePhoto(
+        const FaunaLensPhoto(
+          path: 'other.jpg',
+          source: FaunaLensPhotoSource.gallery,
+        ),
+      );
+      final state = container.read(createPostViewModelProvider);
+      expect(state.photoPath, 'other.jpg');
+      expect(state.aiResult, isNull);
+    });
+
+    test('is dropped when a picked photo has GPS too', () async {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(photo, aiResult: sampleIdentification());
+      picker.path = 'other.jpg';
+      locations.location = const GeoCoordinates(latitude: 1, longitude: 2);
+      await vm.pickPhoto();
+      expect(container.read(createPostViewModelProvider).aiResult, isNull);
+    });
+
+    test('is dropped by reset', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(photo, aiResult: sampleIdentification());
+      vm.reset();
+      expect(container.read(createPostViewModelProvider).aiResult, isNull);
+    });
+
+    test('removeAiResult detaches it and keeps the rest of the form', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(
+        photo,
+        aiResult: sampleIdentification(category: ReportCategory.animalInNeed),
+      );
+      vm.edit(species: 'Red-eared Slider');
+      vm.removeAiResult();
+      final state = container.read(createPostViewModelProvider);
+      expect(state.aiResult, isNull);
+      expect(state.photoPath, 'bird.jpg');
+      expect(state.category, ReportCategory.animalInNeed);
+      expect(state.species, 'Red-eared Slider');
+      expect(state.latitude, '10.3');
+    });
+
+    test('a post submitted after removeAiResult carries no analysis', () async {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(photo, aiResult: sampleIdentification());
+      vm.removeAiResult();
+      vm.edit(category: ReportCategory.animalInNeed);
+      expect(await vm.submit(), isTrue);
+      expect(service.drafts.single.aiResult, isNull);
+      expect(service.drafts.single.photoPath, 'bird.jpg');
+      expect(service.drafts.single.category, ReportCategory.animalInNeed);
+    });
+
+    test('usePhoto sets the category from the AI result', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.edit(category: ReportCategory.animalInNeed);
+      vm.usePhoto(
+        photo,
+        aiResult: sampleIdentification(
+          category: ReportCategory.potentiallyDangerousAnimal,
+        ),
+      );
+      expect(
+        container.read(createPostViewModelProvider).category,
+        ReportCategory.potentiallyDangerousAnimal,
+      );
+      vm.usePhoto(photo, aiResult: sampleIdentification(invasive: true));
+      expect(
+        container.read(createPostViewModelProvider).category,
+        ReportCategory.possibleInvasiveSpecies,
+      );
+    });
+
+    test('usePhoto without a result keeps the chosen category', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.edit(category: ReportCategory.animalInNeed);
+      vm.usePhoto(photo);
+      expect(
+        container.read(createPostViewModelProvider).category,
+        ReportCategory.animalInNeed,
+      );
+    });
+
+    test('edit ignores the category while attached, other fields work', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(
+        photo,
+        aiResult: sampleIdentification(category: ReportCategory.animalInNeed),
+      );
+      vm.edit(category: ReportCategory.otherWildlifeIncident, notes: 'Near');
+      final state = container.read(createPostViewModelProvider);
+      expect(state.category, ReportCategory.animalInNeed);
+      expect(state.notes, 'Near');
+    });
+
+    test('the category is editable again after removeAiResult', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(
+        photo,
+        aiResult: sampleIdentification(category: ReportCategory.animalInNeed),
+      );
+      vm.removeAiResult();
+      expect(
+        container.read(createPostViewModelProvider).category,
+        ReportCategory.animalInNeed,
+      );
+      vm.edit(category: ReportCategory.otherWildlifeIncident);
+      expect(
+        container.read(createPostViewModelProvider).category,
+        ReportCategory.otherWildlifeIncident,
+      );
+    });
+
+    test('the submitted draft carries the AI category', () async {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      vm.usePhoto(
+        photo,
+        aiResult: sampleIdentification(
+          category: ReportCategory.potentiallyDangerousAnimal,
+        ),
+      );
+      expect(await vm.submit(), isTrue);
+      expect(
+        service.drafts.single.category,
+        ReportCategory.potentiallyDangerousAnimal,
+      );
+    });
+
+    test(
+      'a photo picked over an analysis leaves the category editable',
+      () async {
+        final vm = container.read(createPostViewModelProvider.notifier);
+        vm.usePhoto(photo, aiResult: sampleIdentification());
+        picker.path = 'other.jpg';
+        await vm.pickPhoto();
+        vm.edit(category: ReportCategory.animalInNeed);
+        expect(
+          container.read(createPostViewModelProvider).category,
+          ReportCategory.animalInNeed,
+        );
+      },
+    );
+
+    test('removeAiResult is ignored while busy', () async {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      final result = sampleIdentification();
+      vm.usePhoto(photo, aiResult: result);
+      service.pending = Completer();
+      final submission = vm.submit();
+      vm.removeAiResult();
+      expect(container.read(createPostViewModelProvider).aiResult, result);
+      service.pending!.complete('saved');
+      expect(await submission, isTrue);
+    });
+  });
 
   test(
     'picker cancellation preserves draft and gallery GPS prefills coordinates',

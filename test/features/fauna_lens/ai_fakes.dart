@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:faunawatch/core/services/ai/ai_vision_client.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/services/ai_photo_service.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
@@ -11,10 +12,17 @@ import 'package:faunawatch/features/settings/models/ai_preferences.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
 
+/// The curated reference entry used for invasive results in tests.
+const sampleInvasiveMatch = SpeciesReferenceMatch(
+  id: '00000000-0000-0000-0000-00000000000a',
+  commonName: 'Red-eared Slider',
+);
+
 /// A finished result for view and ViewModel tests.
 AiIdentification sampleIdentification({
   bool invasive = false,
   bool noAnimal = false,
+  ReportCategory category = ReportCategory.otherWildlifeIncident,
 }) {
   final result = AiIdentification(
     animalPresent: !noAnimal,
@@ -39,8 +47,9 @@ AiIdentification sampleIdentification({
     provider: AiProvider.gemini,
     model: 'test-model',
     promptVersion: 'v-test',
+    aiCategory: category,
   );
-  return invasive ? result.withInvasiveMatch('Red-eared Slider') : result;
+  return invasive ? result.withInvasiveMatch(sampleInvasiveMatch) : result;
 }
 
 class FakeKeyStorage implements AiApiKeyStorageService {
@@ -134,12 +143,12 @@ class FakePreferencesService implements AiPreferencesService {
 }
 
 class FakeSpeciesReference implements SpeciesReferenceService {
-  String? match;
+  SpeciesReferenceMatch? match;
   bool fails = false;
   final List<PossibleSpecies> asked = [];
 
   @override
-  Future<String?> invasiveMatch(PossibleSpecies species) async {
+  Future<SpeciesReferenceMatch?> invasiveMatch(PossibleSpecies species) async {
     asked.add(species);
     if (fails) throw Exception('offline');
     return match;

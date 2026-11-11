@@ -1,4 +1,5 @@
 import 'package:faunawatch/core/services/ai/ai_vision_client.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
 import 'package:faunawatch/features/settings/models/ai_preferences.dart';
@@ -62,6 +63,21 @@ void main() {
     expect(result.promptVersion, SpeciesIdentificationService.promptVersion);
     expect(result.topGuess!.commonName, 'Red-eared Slider');
     expect(result.possibleInvasive, isFalse);
+  });
+
+  test('prompt v3 asks for a category but not the invasive one', () async {
+    keys.keys[(_user, AiProvider.groq)] = 'groq-key';
+    await identify();
+    expect(
+      SpeciesIdentificationService.promptVersion,
+      'fauna_lens_identify_v3',
+    );
+    const prompt = SpeciesIdentificationService.instructions;
+    expect(prompt, contains('"category"'));
+    expect(prompt, contains('animal_in_need'));
+    expect(prompt, contains('potentially_dangerous_animal'));
+    expect(prompt, contains('other_wildlife_incident'));
+    expect(prompt, isNot(contains('possible_invasive_species')));
   });
 
   test('prefers Gemini, then OpenRouter, then Groq', () async {
@@ -149,14 +165,31 @@ void main() {
 
   test('flags a possible invasive species from the reference list', () async {
     keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
-    references.match = 'Red-eared Slider';
+    references.match = sampleInvasiveMatch;
 
     final result = await identify();
 
     expect(references.asked.single.scientificName, 'Trachemys scripta elegans');
     expect(result.possibleInvasive, isTrue);
-    expect(result.invasiveMatch, 'Red-eared Slider');
+    expect(result.invasiveMatch, sampleInvasiveMatch);
   });
+
+  test(
+    'the category comes from the reply, and a match forces invasive',
+    () async {
+      keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
+      clients[AiProvider.gemini]!.reply = _reply.replaceFirst(
+        '"severity"',
+        '"category": "animal_in_need", "severity"',
+      );
+      expect((await identify()).category, ReportCategory.animalInNeed);
+
+      references.match = sampleInvasiveMatch;
+      final matched = await identify();
+      expect(matched.category, ReportCategory.possibleInvasiveSpecies);
+      expect(matched.aiCategory, ReportCategory.animalInNeed);
+    },
+  );
 
   test('a failed reference lookup still returns the result', () async {
     keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';

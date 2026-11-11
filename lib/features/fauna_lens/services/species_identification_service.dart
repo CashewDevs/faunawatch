@@ -22,11 +22,11 @@ class SpeciesIdentificationService {
   });
 
   /// Bump whenever [instructions] change, so stored results can be told apart.
-  static const promptVersion = 'fauna_lens_identify_v2';
+  static const promptVersion = 'fauna_lens_identify_v3';
 
   static const instructions = '''
 You are helping a wildlife reporting app. Look at the photo and reply with only a JSON object, no other text, in exactly this shape:
-{"animal_present": true, "photo_subject": "", "possible_species": [{"common_name": "", "scientific_name": "", "confidence": "high"}], "visible_condition": "", "severity": "low", "severity_reason": "", "what_to_do": ""}
+{"animal_present": true, "photo_subject": "", "possible_species": [{"common_name": "", "scientific_name": "", "confidence": "high"}], "visible_condition": "", "severity": "low", "severity_reason": "", "category": "other_wildlife_incident", "what_to_do": ""}
 
 Rules:
 - animal_present: false if no animal is visible (for example a person only, an object, food, a plant, a landscape, a screenshot or a drawing). Then possible_species must be [].
@@ -35,6 +35,7 @@ Rules:
 - visible_condition: one or two short sentences about any injury or distress you can see. Say what a single photo cannot show.
 - severity: one of "low", "moderate", "high", "critical", "uncertain": how urgently the animal or people nearby may need help, based only on the photo.
 - severity_reason: one short sentence explaining the severity.
+- category: one of "animal_in_need" (the animal looks injured or distressed and needs help), "potentially_dangerous_animal" (an animal that may endanger people nearby), "other_wildlife_incident" (anything else).
 - what_to_do: one to three short sentences of safe, practical advice for a member of the public. Never tell them to touch, pick up, feed or handle a wild animal.
 - Do not say whether the species is invasive.
 - Use plain, simple English.''';

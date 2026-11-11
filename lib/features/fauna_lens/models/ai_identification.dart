@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 
 /// How sure the AI is about one possible species. Qualitative only: the app
@@ -66,6 +67,15 @@ class PossibleSpecies {
       scientificName.isEmpty ? commonName : '$commonName ($scientificName)';
 }
 
+/// The curated `species_reference` entry an AI guess matched.
+class SpeciesReferenceMatch {
+  const SpeciesReferenceMatch({required this.id, required this.commonName});
+
+  /// `species_reference.id`, saved as `ai_analyses.invasive_match_species_id`.
+  final String id;
+  final String commonName;
+}
+
 /// A preliminary AI assessment of a FaunaLens photo.
 ///
 /// Every field is a suggestion. The invasive hint is never decided by the AI:
@@ -83,6 +93,7 @@ class AiIdentification {
     required this.promptVersion,
     this.photoSubject = '',
     this.invasiveMatch,
+    this.aiCategory = ReportCategory.otherWildlifeIncident,
   });
 
   /// The most guesses the app shows (and the database accepts).
@@ -112,8 +123,35 @@ class AiIdentification {
   /// for so a photo without an animal can be explained; may be empty.
   final String photoSubject;
 
-  /// Name of the reference entry the top guess matched, if any.
-  final String? invasiveMatch;
+  /// The invasive reference entry the top guess matched, if any.
+  final SpeciesReferenceMatch? invasiveMatch;
+
+  /// The category the AI chose. Never [ReportCategory.possibleInvasiveSpecies]:
+  /// the AI is not offered it.
+  final ReportCategory aiCategory;
+
+  /// The report category for this result: "possible invasive species" when
+  /// the top guess matched the curated reference list, otherwise the AI's
+  /// choice.
+  ReportCategory get category =>
+      possibleInvasive ? ReportCategory.possibleInvasiveSpecies : aiCategory;
+
+  /// The categories the AI may choose from, by their `reports.category` value.
+  static const aiCategories = [
+    ReportCategory.animalInNeed,
+    ReportCategory.potentiallyDangerousAnimal,
+    ReportCategory.otherWildlifeIncident,
+  ];
+
+  /// Reads a category from the AI reply. Anything unknown, including the
+  /// invasive category the AI is not offered, counts as other.
+  static ReportCategory parseCategory(Object? raw) {
+    final text = raw?.toString().trim().toLowerCase();
+    return aiCategories.firstWhere(
+      (category) => category.value == text,
+      orElse: () => ReportCategory.otherWildlifeIncident,
+    );
+  }
 
   bool get possibleInvasive => invasiveMatch != null;
 
@@ -121,19 +159,56 @@ class AiIdentification {
 
   PossibleSpecies? get topGuess => hasSpecies ? possibleSpecies.first : null;
 
-  AiIdentification withInvasiveMatch(String? match) => AiIdentification(
-    animalPresent: animalPresent,
-    possibleSpecies: possibleSpecies,
-    visibleCondition: visibleCondition,
-    severity: severity,
-    severityReason: severityReason,
-    whatToDo: whatToDo,
-    provider: provider,
-    model: model,
-    promptVersion: promptVersion,
-    photoSubject: photoSubject,
-    invasiveMatch: match,
-  );
+  /// The `ai_analyses` row for this result, attached to [reportId].
+  ///
+  /// Only existing columns are written. [severityReason] and [photoSubject]
+  /// have no column and are not saved. Columns the prompt doesn't ask for
+  /// (validation, summaries, species_origin) are left null.
+  /// `input_fingerprint` is also left null: its unique cache index spans
+  /// every report, so the same photo posted twice with the same model would
+  /// be rejected, and the AI saw a resized copy rather than the uploaded file.
+  Map<String, dynamic> toAnalysisRow(String reportId) {
+    String? optional(String value) => value.isEmpty ? null : value;
+    return {
+      'report_id': reportId,
+      'status': 'completed',
+      'animal_present': animalPresent,
+      // Shape agreed in 20261027000700_harden_ai_analyses.sql; at most 3.
+      'possible_species': [
+        for (final species in possibleSpecies.take(maxSpecies))
+          {
+            'common_name': species.commonName,
+            'scientific_name': optional(species.scientificName),
+            'confidence': species.confidence.value,
+          },
+      ],
+      'visual_condition_assessment': visibleCondition,
+      'severity': severity.value,
+      'safety_recommendations': whatToDo,
+      'possible_invasive': possibleInvasive,
+      'invasive_match_species_id': invasiveMatch?.id,
+      'provider': provider.name,
+      'model': model,
+      'prompt_version': promptVersion,
+      'is_preliminary': true,
+    };
+  }
+
+  AiIdentification withInvasiveMatch(SpeciesReferenceMatch? match) =>
+      AiIdentification(
+        animalPresent: animalPresent,
+        possibleSpecies: possibleSpecies,
+        visibleCondition: visibleCondition,
+        severity: severity,
+        severityReason: severityReason,
+        whatToDo: whatToDo,
+        provider: provider,
+        model: model,
+        promptVersion: promptVersion,
+        photoSubject: photoSubject,
+        invasiveMatch: match,
+        aiCategory: aiCategory,
+      );
 
   /// Parses the JSON object the AI was asked to reply with.
   ///
@@ -205,6 +280,7 @@ class AiIdentification {
       model: model,
       promptVersion: promptVersion,
       photoSubject: _subject(json['photo_subject']),
+      aiCategory: parseCategory(json['category']),
     );
   }
 
