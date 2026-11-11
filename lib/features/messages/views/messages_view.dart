@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/messages/viewmodels/messages_viewmodel.dart';
 import 'package:faunawatch/features/messages/views/chat_conversation_view.dart';
@@ -52,9 +53,10 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
     final state = ref.watch(messagesViewModelProvider);
     final viewModel = ref.read(messagesViewModelProvider.notifier);
     final filteredThreads = state.filteredThreads;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -94,7 +96,9 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
               padding: const EdgeInsets.symmetric(horizontal: 18),
               child: Text(
                 state.error!,
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(
+                  color: isDark ? AppColors.darkErrorText : Colors.red,
+                ),
               ),
             ),
 
@@ -128,10 +132,12 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.chat_bubble_outline_rounded,
                             size: 48,
-                            color: Color(0xFFB0BEC5),
+                            color: isDark
+                                ? AppColors.darkIconMuted
+                                : const Color(0xFFB0BEC5),
                           ),
                           const SizedBox(height: 12),
                           Text(
@@ -143,7 +149,9 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
                             textAlign: TextAlign.center,
                             style: GoogleFonts.dmSans(
                               fontSize: 15,
-                              color: const Color(0xFF78909C),
+                              color: isDark
+                                  ? AppColors.darkTextSecondary
+                                  : const Color(0xFF78909C),
                               fontWeight: FontWeight.w500,
                             ),
                           ),

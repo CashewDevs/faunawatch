@@ -25,6 +25,7 @@ class NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUnread = item.isUnread;
 
     return Semantics(
@@ -37,7 +38,9 @@ class NotificationTile extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Container(
           color: isUnread
-              ? AppColors.messagesUnreadBackground
+              ? (isDark
+                    ? AppColors.darkUnreadBackground
+                    : AppColors.messagesUnreadBackground)
               : Colors.transparent,
           child: IntrinsicHeight(
             child: Row(
@@ -57,7 +60,7 @@ class NotificationTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Circular icon placeholder: gray #D9D9D9
-                        _buildLeadingIcon(),
+                        _buildLeadingIcon(isDark),
                         const SizedBox(width: 14),
 
                         // Notification details
@@ -76,9 +79,13 @@ class NotificationTile extends StatelessWidget {
                                         fontWeight: isUnread
                                             ? FontWeight.w700
                                             : FontWeight.w600,
-                                        color: isUnread
-                                            ? Colors.black87
-                                            : const Color(0xFF263238),
+                                        color: isDark
+                                            ? (isUnread
+                                                  ? AppColors.darkTextPrimary
+                                                  : AppColors.darkTextBody)
+                                            : (isUnread
+                                                  ? Colors.black87
+                                                  : const Color(0xFF263238)),
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -92,9 +99,13 @@ class NotificationTile extends StatelessWidget {
                                       fontWeight: isUnread
                                           ? FontWeight.w600
                                           : FontWeight.w400,
-                                      color: isUnread
-                                          ? AppColors.messagesHeaderBlue
-                                          : const Color(0xFF90A4AE),
+                                      color: isDark
+                                          ? (isUnread
+                                                ? AppColors.darkAccentBlue
+                                                : AppColors.darkTextSecondary)
+                                          : (isUnread
+                                                ? AppColors.messagesHeaderBlue
+                                                : const Color(0xFF90A4AE)),
                                     ),
                                   ),
                                 ],
@@ -107,9 +118,13 @@ class NotificationTile extends StatelessWidget {
                                   fontWeight: isUnread
                                       ? FontWeight.w600
                                       : FontWeight.w400,
-                                  color: isUnread
-                                      ? const Color(0xFF1E293B)
-                                      : const Color(0xFF64748B),
+                                  color: isDark
+                                      ? (isUnread
+                                            ? AppColors.darkTextBody
+                                            : AppColors.darkTextSecondary)
+                                      : (isUnread
+                                            ? const Color(0xFF1E293B)
+                                            : const Color(0xFF64748B)),
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -129,46 +144,46 @@ class NotificationTile extends StatelessWidget {
     );
   }
 
-  Widget _buildLeadingIcon() {
+  Widget _buildLeadingIcon(bool isDark) {
     IconData iconData;
     Color iconColor;
 
     switch (item.type) {
       case NotificationType.sighting:
         iconData = Icons.pets_rounded;
-        iconColor = const Color(0xFF1A5DC9);
+        iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF1A5DC9);
         break;
       case NotificationType.alert:
         iconData = Icons.warning_amber_rounded;
-        iconColor = const Color(0xFFE65100);
+        iconColor = isDark ? AppColors.darkIconOrange : const Color(0xFFE65100);
         break;
       case NotificationType.community:
         iconData = Icons.verified_outlined;
-        iconColor = const Color(0xFF2E7D32);
+        iconColor = isDark ? AppColors.darkIconGreen : const Color(0xFF2E7D32);
         break;
       case NotificationType.system:
         iconData = Icons.notifications_none_rounded;
-        iconColor = const Color(0xFF005A97);
+        iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF005A97);
         break;
       case NotificationType.reportStatus:
         iconData = Icons.fact_check_outlined;
-        iconColor = const Color(0xFF2E7D32);
+        iconColor = isDark ? AppColors.darkIconGreen : const Color(0xFF2E7D32);
         break;
       case NotificationType.comment:
         iconData = Icons.chat_bubble_outline_rounded;
-        iconColor = const Color(0xFF1A5DC9);
+        iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF1A5DC9);
         break;
       case NotificationType.chat:
         iconData = Icons.mail_outline_rounded;
-        iconColor = const Color(0xFF005A97);
+        iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF005A97);
         break;
     }
 
     return Container(
       width: 52,
       height: 52,
-      decoration: const BoxDecoration(
-        color: AppColors.messagesPfpPlaceholder,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkBorder : AppColors.messagesPfpPlaceholder,
         shape: BoxShape.circle,
       ),
       child: item.avatarAsset != null

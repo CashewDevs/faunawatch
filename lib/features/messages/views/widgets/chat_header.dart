@@ -26,12 +26,13 @@ class ChatHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.chatHeaderBackground,
+        color: isDark ? AppColors.darkSurface : AppColors.chatHeaderBackground,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
             offset: const Offset(0, 2),
             blurRadius: 6,
           ),
@@ -58,10 +59,14 @@ class ChatHeader extends StatelessWidget {
                       width: 32,
                       height: 32,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Icon(
+                      color: isDark ? AppColors.darkAccentBlue : null,
+                      colorBlendMode: isDark ? BlendMode.srcIn : null,
+                      errorBuilder: (_, _, _) => Icon(
                         Icons.chevron_left_rounded,
                         size: 36,
-                        color: AppColors.messagesHeaderBlue,
+                        color: isDark
+                            ? AppColors.darkAccentBlue
+                            : AppColors.messagesHeaderBlue,
                       ),
                     ),
                   ),
@@ -72,8 +77,10 @@ class ChatHeader extends StatelessWidget {
               Container(
                 width: 48,
                 height: 48,
-                decoration: const BoxDecoration(
-                  color: AppColors.messagesPfpPlaceholder,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.darkBorder
+                      : AppColors.messagesPfpPlaceholder,
                   shape: BoxShape.circle,
                 ),
                 child: avatarAsset != null
@@ -103,7 +110,7 @@ class ChatHeader extends StatelessWidget {
                   style: GoogleFonts.dmSans(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
-                    color: Colors.black87,
+                    color: isDark ? AppColors.darkTextPrimary : Colors.black87,
                     letterSpacing: -0.3,
                   ),
                   maxLines: 1,

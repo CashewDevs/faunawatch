@@ -48,12 +48,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
             offset: const Offset(0, -2),
             blurRadius: 8,
           ),
@@ -80,10 +81,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       width: 34,
                       height: 34,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Icon(
+                      errorBuilder: (_, _, _) => Icon(
                         Icons.add_photo_alternate_outlined,
                         size: 34,
-                        color: AppColors.chatInputHintColor,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.chatInputHintColor,
                       ),
                     ),
                   ),
@@ -99,11 +102,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   controller: _textController,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _handleSend(),
-                  cursorColor: AppColors.messagesHeaderBlue,
+                  cursorColor: isDark
+                      ? AppColors.darkAccentBlue
+                      : AppColors.messagesHeaderBlue,
                   style: GoogleFonts.dmSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: isDark ? AppColors.darkTextPrimary : Colors.black87,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Type something',
@@ -111,7 +116,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     hintStyle: GoogleFonts.dmSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
-                      color: AppColors.chatInputHintColor,
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.chatInputHintColor,
                     ),
                     border: InputBorder.none,
                     isDense: true,
@@ -135,10 +142,14 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       width: 32,
                       height: 32,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Icon(
+                      color: isDark ? AppColors.darkAccentBlue : null,
+                      colorBlendMode: isDark ? BlendMode.srcIn : null,
+                      errorBuilder: (_, _, _) => Icon(
                         Icons.send_rounded,
                         size: 32,
-                        color: AppColors.messagesHeaderBlue,
+                        color: isDark
+                            ? AppColors.darkAccentBlue
+                            : AppColors.messagesHeaderBlue,
                       ),
                     ),
                   ),

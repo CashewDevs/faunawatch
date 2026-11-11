@@ -23,25 +23,36 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.isUser;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final gradient = isUser
-        ? const LinearGradient(
+        ? LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            stops: [0.0, 1.0],
-            colors: [
-              AppColors.chatUserBubbleGradientStart,
-              AppColors.chatUserBubbleGradientEnd,
-            ],
+            stops: const [0.0, 1.0],
+            colors: isDark
+                ? const [
+                    AppColors.darkChatUserBubbleGradientStart,
+                    AppColors.darkChatUserBubbleGradientEnd,
+                  ]
+                : const [
+                    AppColors.chatUserBubbleGradientStart,
+                    AppColors.chatUserBubbleGradientEnd,
+                  ],
           )
-        : const LinearGradient(
+        : LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            stops: [0.0, 1.0],
-            colors: [
-              AppColors.chatOtherBubbleGradientStart,
-              AppColors.chatOtherBubbleGradientEnd,
-            ],
+            stops: const [0.0, 1.0],
+            colors: isDark
+                ? const [
+                    AppColors.darkChatOtherBubbleGradientStart,
+                    AppColors.darkChatOtherBubbleGradientEnd,
+                  ]
+                : const [
+                    AppColors.chatOtherBubbleGradientStart,
+                    AppColors.chatOtherBubbleGradientEnd,
+                  ],
           );
 
     return Align(
@@ -102,7 +113,9 @@ class ChatBubble extends StatelessWidget {
                 style: GoogleFonts.dmSans(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFF0F1A3C),
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : const Color(0xFF0F1A3C),
                   height: 1.35,
                 ),
               ),
@@ -112,7 +125,9 @@ class ChatBubble extends StatelessWidget {
               style: GoogleFonts.dmSans(
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
-                color: Colors.black45,
+                color: isDark
+                    ? AppColors.darkTextPrimary.withValues(alpha: 0.7)
+                    : Colors.black45,
               ),
             ),
           ],

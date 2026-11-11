@@ -32,9 +32,10 @@ class NotificationsView extends ConsumerWidget {
     final viewModel = ref.read(notificationsViewModelProvider.notifier);
     final filteredItems = state.filteredItems;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -51,7 +52,7 @@ class NotificationsView extends ConsumerWidget {
           ),
 
           if (state.error != null && state.items.isNotEmpty)
-            _ErrorBanner(message: state.error!),
+            _ErrorBanner(message: state.error!, isDark: isDark),
 
           // Notifications list
           Expanded(
@@ -59,6 +60,7 @@ class NotificationsView extends ConsumerWidget {
                 ? const Center(child: CircularProgressIndicator())
                 : state.error != null && state.items.isEmpty
                 ? _MessageState(
+                    isDark: isDark,
                     icon: Icons.cloud_off_outlined,
                     subtitle: state.error!,
                     actionLabel: 'Try again',
@@ -67,6 +69,7 @@ class NotificationsView extends ConsumerWidget {
                   )
                 : filteredItems.isEmpty
                 ? _MessageState(
+                    isDark: isDark,
                     icon: Icons.notifications_off_outlined,
                     title: state.activeFilter == NotificationsFilter.unread
                         ? 'No unread notifications'
@@ -132,6 +135,7 @@ class NotificationsView extends ConsumerWidget {
 /// Centred in the area above the shell's nav bar (see [InsetCenteredScroll]).
 class _MessageState extends StatelessWidget {
   const _MessageState({
+    required this.isDark,
     required this.icon,
     required this.onRefresh,
     this.title,
@@ -140,6 +144,7 @@ class _MessageState extends StatelessWidget {
     this.onAction,
   });
 
+  final bool isDark;
   final IconData icon;
   final String? title;
   final String? subtitle;
@@ -160,10 +165,18 @@ class _MessageState extends StatelessWidget {
               width: 88,
               height: 88,
               decoration: BoxDecoration(
-                color: AppColors.messagesPfpPlaceholder.withValues(alpha: 0.5),
+                color: isDark
+                    ? AppColors.darkSurface
+                    : AppColors.messagesPfpPlaceholder.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 40, color: const Color(0xFF78909C)),
+              child: Icon(
+                icon,
+                size: 40,
+                color: isDark
+                    ? AppColors.darkIconMuted
+                    : const Color(0xFF78909C),
+              ),
             ),
             const SizedBox(height: 20),
             if (title != null)
@@ -173,7 +186,9 @@ class _MessageState extends StatelessWidget {
                 style: GoogleFonts.dmSans(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF263238),
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : const Color(0xFF263238),
                 ),
               ),
             if (title != null && subtitle != null) const SizedBox(height: 6),
@@ -184,7 +199,9 @@ class _MessageState extends StatelessWidget {
                 style: GoogleFonts.dmSans(
                   fontSize: 14,
                   height: 1.4,
-                  color: const Color(0xFF78909C),
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : const Color(0xFF78909C),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -201,22 +218,23 @@ class _MessageState extends StatelessWidget {
 
 /// Error line above a list that is still showing.
 class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
+  const _ErrorBanner({required this.message, required this.isDark});
 
   final String message;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: const Color(0xFFFFEBEE),
+      color: isDark ? AppColors.darkErrorBackground : const Color(0xFFFFEBEE),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       child: Text(
         message,
         style: GoogleFonts.dmSans(
           fontSize: 13,
           fontWeight: FontWeight.w500,
-          color: const Color(0xFFB71C1C),
+          color: isDark ? AppColors.darkErrorText : const Color(0xFFB71C1C),
         ),
       ),
     );
