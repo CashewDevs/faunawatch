@@ -85,6 +85,16 @@ class SupabaseCreatePostService implements CreatePostService {
           });
         }
       }
+      // Must happen while the report is still pending: only its owner may
+      // insert, and only then (ai_analyses_insert_own_pending). Rows are
+      // write-once, so the whole result goes in one insert. A failure falls
+      // through to the cleanup below, which also keeps ai_status honest.
+      final analysis = draft.analysis;
+      if (analysis != null) {
+        await _client
+            .from('ai_analyses')
+            .insert(analysis.toAnalysisRow(reportId));
+      }
       return reportId;
     } catch (_) {
       // Storage and Postgres do not share a transaction. Remove partial writes.

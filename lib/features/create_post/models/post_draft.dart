@@ -1,3 +1,5 @@
+import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+
 enum ReportCategory {
   animalInNeed('animal_in_need', 'Animal in need'),
   potentiallyDangerousAnimal(
@@ -25,12 +27,20 @@ class PostDraft {
     this.species = '',
     this.notes = '',
     this.photoPath,
+    this.aiResult,
   });
 
   final ReportCategory category;
   final double latitude, longitude;
   final String description, species, notes;
   final String? photoPath;
+
+  /// The FaunaLens analysis of [photoPath], saved to `ai_analyses` with the
+  /// report. Only kept with the photo it describes.
+  final AiIdentification? aiResult;
+
+  /// The analysis to save, if any. Ignored without its photo.
+  AiIdentification? get analysis => photoPath == null ? null : aiResult;
 
   static bool validCoordinates(double latitude, double longitude) =>
       latitude.isFinite &&
@@ -55,7 +65,9 @@ class PostDraft {
       'user_species': optional(species),
       'user_notes': optional(notes),
       'status': 'pending',
-      'ai_status': 'unavailable',
+      // The analysis row is inserted in the same submission; if that fails
+      // the report is removed, so 'completed' never lacks its row.
+      'ai_status': analysis == null ? 'unavailable' : 'completed',
     };
   }
 }

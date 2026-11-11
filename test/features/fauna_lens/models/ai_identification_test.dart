@@ -1,3 +1,4 @@
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,6 +41,78 @@ void main() {
       expect(result.model, 'test-model');
       expect(result.promptVersion, 'v-test');
       expect(result.possibleInvasive, isFalse);
+    });
+
+    group('category', () {
+      AiIdentification withCategory(String json) =>
+          parse('{"possible_species": [{"common_name": "A"}], $json}');
+
+      test('reads each category the AI may choose', () {
+        for (final category in [
+          ReportCategory.animalInNeed,
+          ReportCategory.potentiallyDangerousAnimal,
+          ReportCategory.otherWildlifeIncident,
+        ]) {
+          final result = withCategory('"category": "${category.value}"');
+          expect(result.aiCategory, category);
+          expect(result.category, category);
+        }
+      });
+
+      test('is tolerant of case and spaces', () {
+        expect(
+          withCategory('"category": " Animal_In_Need "').category,
+          ReportCategory.animalInNeed,
+        );
+      });
+
+      test('missing, unknown or non-text becomes other', () {
+        expect(
+          parse('{"possible_species": []}').category,
+          ReportCategory.otherWildlifeIncident,
+        );
+        for (final raw in ['"stray_dog"', '42', 'null', '""']) {
+          expect(
+            withCategory('"category": $raw').category,
+            ReportCategory.otherWildlifeIncident,
+          );
+        }
+      });
+
+      test('invasive from the AI is not accepted and becomes other', () {
+        final result = withCategory('"category": "possible_invasive_species"');
+        expect(result.aiCategory, ReportCategory.otherWildlifeIncident);
+        expect(result.category, ReportCategory.otherWildlifeIncident);
+      });
+
+      test('a reference match overrides the AI choice', () {
+        final result = withCategory('"category": "animal_in_need"')
+            .withInvasiveMatch(
+              const SpeciesReferenceMatch(id: 'id-1', commonName: 'Slider'),
+            );
+        expect(result.category, ReportCategory.possibleInvasiveSpecies);
+        expect(result.aiCategory, ReportCategory.animalInNeed);
+      });
+
+      test('removing the match restores the AI choice', () {
+        final matched =
+            withCategory(
+              '"category": "potentially_dangerous_animal"',
+            ).withInvasiveMatch(
+              const SpeciesReferenceMatch(id: 'id-1', commonName: 'Slider'),
+            );
+        expect(
+          matched.withInvasiveMatch(null).category,
+          ReportCategory.potentiallyDangerousAnimal,
+        );
+      });
+
+      test('is not part of the ai_analyses row', () {
+        final row = withCategory(
+          '"category": "animal_in_need"',
+        ).toAnalysisRow('report-1');
+        expect(row.containsKey('category'), isFalse);
+      });
     });
 
     test('accepts a reply wrapped in a Markdown code fence', () {
@@ -113,12 +186,79 @@ void main() {
   });
 
   test('withInvasiveMatch sets the hint and keeps everything else', () {
+    const match = SpeciesReferenceMatch(id: 'ref-1', commonName: 'B');
     final result = parse(
       '{"possible_species": [{"common_name": "A"}], "what_to_do": "Wait."}',
-    ).withInvasiveMatch('Red-eared Slider');
+    ).withInvasiveMatch(match);
     expect(result.possibleInvasive, isTrue);
-    expect(result.invasiveMatch, 'Red-eared Slider');
+    expect(result.invasiveMatch, match);
     expect(result.topGuess!.commonName, 'A');
     expect(result.whatToDo, 'Wait.');
+  });
+
+  group('toAnalysisRow', () {
+    test('maps the result onto existing ai_analyses columns', () {
+      const match = SpeciesReferenceMatch(id: 'ref-1', commonName: 'B');
+      final row = parse(
+        '''
+{"animal_present": true,
+ "possible_species": [
+   {"common_name": "Red-eared Slider", "scientific_name": "Trachemys scripta elegans", "confidence": "medium"},
+   {"common_name": "Box Turtle", "confidence": "nonsense"}
+ ],
+ "visible_condition": "No injury seen.",
+ "severity": "moderate",
+ "severity_reason": "Near a road.",
+ "what_to_do": "Keep your distance.",
+ "photo_subject": "a turtle"}''',
+      ).withInvasiveMatch(match).toAnalysisRow('report-1');
+
+      expect(row, {
+        'report_id': 'report-1',
+        'status': 'completed',
+        'animal_present': true,
+        'possible_species': [
+          {
+            'common_name': 'Red-eared Slider',
+            'scientific_name': 'Trachemys scripta elegans',
+            'confidence': 'medium',
+          },
+          {
+            'common_name': 'Box Turtle',
+            'scientific_name': null,
+            'confidence': 'uncertain',
+          },
+        ],
+        'visual_condition_assessment': 'No injury seen.',
+        'severity': 'moderate',
+        'safety_recommendations': 'Keep your distance.',
+        'possible_invasive': true,
+        'invasive_match_species_id': 'ref-1',
+        'provider': 'gemini',
+        'model': 'test-model',
+        'prompt_version': 'v-test',
+        'is_preliminary': true,
+      });
+    });
+
+    test('without a reference match the invasive flag stays false', () {
+      final row = parse(
+        '{"animal_present": null, "possible_species": [{"common_name": "A"}]}',
+      ).toAnalysisRow('report-1');
+      expect(row['possible_invasive'], isFalse);
+      expect(row['invasive_match_species_id'], isNull);
+      expect(row['animal_present'], isNull);
+      expect(row['severity'], 'uncertain');
+    });
+
+    test('never writes columns outside the agreed shape', () {
+      final row = parse(
+        '{"possible_species": [{"common_name": "A"}]}',
+      ).toAnalysisRow('report-1');
+      // A shared fingerprint would collide in the cross-report cache index.
+      expect(row.containsKey('input_fingerprint'), isFalse);
+      expect(row.containsKey('severity_reason'), isFalse);
+      expect(row.containsKey('photo_subject'), isFalse);
+    });
   });
 }

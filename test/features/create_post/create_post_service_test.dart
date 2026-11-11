@@ -9,6 +9,8 @@ import 'package:faunawatch/features/create_post/services/place_name_service.dart
 import 'package:faunawatch/features/create_post/services/post_photo_service.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
 
+import '../fauna_lens/ai_fakes.dart';
+
 class _Photos implements PostPhotoService {
   int size = 3;
   @override
@@ -225,6 +227,70 @@ void main() {
       '/storage/v1/object/report-images',
       '/rest/v1/reports',
     ]);
+  });
+
+  group('FaunaLens analysis', () {
+    final withAnalysis = PostDraft(
+      category: ReportCategory.possibleInvasiveSpecies,
+      latitude: 10,
+      longitude: 123,
+      photoPath: 'original.jpg',
+      aiResult: sampleIdentification(invasive: true),
+    );
+
+    test('is saved to ai_analyses after the report and its photo', () async {
+      await signIn();
+      expect(await service.submit(withAnalysis), 'report-1');
+      expect(requests.map((r) => r.$2), [
+        '/rest/v1/reports',
+        '/storage/v1/object/report-images/report-1/photo.webp',
+        '/rest/v1/report_images',
+        '/rest/v1/report_image_exif',
+        '/rest/v1/ai_analyses',
+      ]);
+      final report = requests.first.$3 as Map;
+      expect(report['status'], 'pending');
+      expect(report['ai_status'], 'completed');
+      final analysis = requests.last.$3 as Map;
+      expect(analysis['report_id'], 'report-1');
+      expect(analysis['status'], 'completed');
+      expect(analysis['severity'], 'low');
+      expect(analysis['possible_invasive'], isTrue);
+      expect(analysis['invasive_match_species_id'], sampleInvasiveMatch.id);
+      expect((analysis['possible_species'] as List).first, {
+        'common_name': 'Red-eared Slider',
+        'scientific_name': 'Trachemys scripta elegans',
+        'confidence': 'medium',
+      });
+    });
+
+    test('a failed analysis insert removes the photo and report', () async {
+      await signIn();
+      failPath = '/rest/v1/ai_analyses';
+      await expectLater(
+        service.submit(withAnalysis),
+        throwsA(isA<PostSubmissionException>()),
+      );
+      final deletes = requests.where((r) => r.$1 == 'DELETE').toList();
+      expect(deletes.map((r) => r.$2), [
+        '/storage/v1/object/report-images',
+        '/rest/v1/reports',
+      ]);
+    });
+
+    test('is not saved without the photo it describes', () async {
+      await signIn();
+      await service.submit(
+        PostDraft(
+          category: ReportCategory.animalInNeed,
+          latitude: 10,
+          longitude: 123,
+          aiResult: sampleIdentification(),
+        ),
+      );
+      expect(requests.map((r) => r.$2), ['/rest/v1/reports']);
+      expect((requests.single.$3 as Map)['ai_status'], 'unavailable');
+    });
   });
 
   test(

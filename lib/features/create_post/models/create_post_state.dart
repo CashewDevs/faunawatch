@@ -1,3 +1,4 @@
+import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'post_draft.dart';
 import 'post_location.dart';
 
@@ -11,6 +12,7 @@ class CreatePostState {
     this.species = '',
     this.notes = '',
     this.photoPath,
+    this.aiResult,
     this.isBusy = false,
     this.error,
     this.submittedId,
@@ -19,6 +21,9 @@ class CreatePostState {
   final ReportCategory? category;
   final String latitude, longitude, description, species, notes;
   final String? photoPath, error, submittedId;
+
+  /// The FaunaLens analysis of [photoPath], if the user chose to use it.
+  final AiIdentification? aiResult;
   final bool isBusy;
   final String locationLabel;
 
@@ -49,6 +54,7 @@ class CreatePostState {
     String? notes,
     String? photoPath,
     bool clearPhoto = false,
+    bool clearAiResult = false,
     bool? isBusy,
     String? error,
     String? submittedId,
@@ -61,6 +67,8 @@ class CreatePostState {
     species: species ?? this.species,
     notes: notes ?? this.notes,
     photoPath: clearPhoto ? null : photoPath ?? this.photoPath,
+    // The analysis describes one photo, so it goes with it.
+    aiResult: clearPhoto || clearAiResult ? null : aiResult,
     isBusy: isBusy ?? this.isBusy,
     error: error,
     submittedId: submittedId ?? this.submittedId,

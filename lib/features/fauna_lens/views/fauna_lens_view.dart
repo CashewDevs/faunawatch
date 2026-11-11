@@ -1,5 +1,5 @@
+import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
-import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/viewmodels/fauna_lens_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
@@ -85,14 +85,11 @@ class _FaunaLensViewState extends ConsumerState<FaunaLensView>
     if (!mounted) return;
     switch (choice) {
       case UseAiResults(:final result):
-        // TODO(team): Save the analysis to ai_analyses when the post is
-        // submitted. For now only the suggestion is carried into the draft.
+        // The analysis is saved to ai_analyses when the post is submitted.
         _startPost(
           photo,
+          aiResult: result,
           species: result.topGuess?.displayName,
-          category: result.possibleInvasive
-              ? ReportCategory.possibleInvasiveSpecies
-              : null,
         );
       case RetakeFromAiResult():
         await (photo.source == FaunaLensPhotoSource.gallery
@@ -112,14 +109,12 @@ class _FaunaLensViewState extends ConsumerState<FaunaLensView>
   /// Hands [photo] (and any AI suggestion) to Create Post and closes FaunaLens.
   void _startPost(
     FaunaLensPhoto photo, {
+    AiIdentification? aiResult,
     String? species,
-    ReportCategory? category,
   }) {
     final createPost = ref.read(createPostViewModelProvider.notifier)
-      ..usePhoto(photo);
-    if (species != null || category != null) {
-      createPost.edit(species: species, category: category);
-    }
+      ..usePhoto(photo, aiResult: aiResult);
+    if (species != null) createPost.edit(species: species);
     ref
         .read(shellViewModelProvider.notifier)
         .selectDestination(ShellDestination.addPost);

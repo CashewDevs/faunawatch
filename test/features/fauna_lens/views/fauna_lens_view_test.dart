@@ -253,11 +253,16 @@ void main() {
     expect(draft.photoPath, 'camera.jpg');
     expect(draft.species, 'Red-eared Slider (Trachemys scripta elegans)');
     expect(draft.category, ReportCategory.possibleInvasiveSpecies);
+    // Carried into the draft so it is saved to ai_analyses on submit.
+    expect(draft.aiResult, same(identification.result));
   });
 
-  testWidgets('a result without an invasive match leaves the category', (
+  testWidgets('a result without an invasive match uses the AI category', (
     tester,
   ) async {
+    identification.result = sampleIdentification(
+      category: ReportCategory.animalInNeed,
+    );
     await openFromHeader(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
@@ -268,7 +273,7 @@ void main() {
 
     final draft = container.read(createPostViewModelProvider);
     expect(draft.species, 'Red-eared Slider (Trachemys scripta elegans)');
-    expect(draft.category, isNull);
+    expect(draft.category, ReportCategory.animalInNeed);
   });
 
   testWidgets('Retake photo from the AI result reopens the camera', (

@@ -5,6 +5,7 @@ import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/ai_result_cards.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
@@ -131,7 +132,9 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('from Gemini'), findsOneWidget);
-    expect(find.text('Possible invasive species'), findsNothing);
+    expect(find.byType(InvasiveHintCard), findsNothing);
+    expect(find.text('SUGGESTED REPORT CATEGORY'), findsOneWidget);
+    expect(find.text('Other wildlife incident'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -141,7 +144,9 @@ void main() {
     service.result = sampleIdentification(invasive: true);
     await open(tester);
 
-    expect(find.text('Possible invasive species'), findsOneWidget);
+    expect(find.byType(InvasiveHintCard), findsOneWidget);
+    // The matched reference list sets the suggested category.
+    expect(find.text('Possible invasive species'), findsNWidgets(2));
     expect(
       find.textContaining('not an official classification'),
       findsOneWidget,
