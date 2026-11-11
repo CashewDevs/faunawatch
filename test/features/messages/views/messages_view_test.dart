@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/messages/models/chat_message.dart';
 import 'package:faunawatch/features/messages/models/chat_user.dart';
 import 'package:faunawatch/features/messages/models/message_thread.dart';
@@ -79,6 +80,66 @@ void main() {
       child: const MaterialApp(home: MessagesView()),
     );
   }
+
+  // Stands in for the floating nav bar the shell draws over the body.
+  Widget buildWithInset(MessagesService service, double inset) {
+    return ProviderScope(
+      overrides: [messagesServiceProvider.overrideWithValue(service)],
+      child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(padding: EdgeInsets.only(bottom: inset)),
+          child: child!,
+        ),
+        home: const MessagesView(),
+      ),
+    );
+  }
+
+  group('MessagesView nav bar inset', () {
+    testWidgets('centres the empty state above the nav bar', (tester) async {
+      const inset = 100.0;
+      await tester.pumpWidget(buildWithInset(_EmptyInboxService(), inset));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No conversations yet. Start a new chat.'), findsOne);
+      final area = find.byType(InsetCenteredScroll);
+      final visibleCentre =
+          tester.getTopLeft(area).dy +
+          (tester.getSize(area).height - inset) / 2;
+      final content = find.descendant(of: area, matching: find.byType(Column));
+      expect(tester.getCenter(content.first).dy, closeTo(visibleCentre, 1));
+    });
+
+    testWidgets('does not overflow on a short screen', (tester) async {
+      tester.view.physicalSize = const Size(400, 380);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(buildWithInset(_EmptyInboxService(), 80));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('No conversations yet. Start a new chat.'), findsOne);
+    });
+
+    testWidgets('lets the last conversation scroll above the nav bar', (
+      tester,
+    ) async {
+      const inset = 100.0;
+      await tester.pumpWidget(buildWithInset(_ManyThreadsService(), inset));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -5000));
+      await tester.pumpAndSettle();
+
+      final bottomLimit = tester.getBottomLeft(find.byType(MessagesView)).dy;
+      expect(
+        tester.getBottomLeft(find.byType(MessageTile).last).dy,
+        lessThanOrEqualTo(bottomLimit - inset),
+      );
+    });
+  });
 
   group('MessagesView', () {
     testWidgets(
@@ -243,6 +304,24 @@ void main() {
       },
     );
   });
+}
+
+class _EmptyInboxService extends ImmediateTestMessagesService {
+  @override
+  Future<List<MessageThread>> fetchMessageThreads() async => const [];
+}
+
+class _ManyThreadsService extends ImmediateTestMessagesService {
+  @override
+  Future<List<MessageThread>> fetchMessageThreads() async => [
+    for (var i = 0; i < 15; i++)
+      MessageThread(
+        id: 'thread-$i',
+        senderName: 'Person $i',
+        lastMessage: 'Hello $i',
+        timestamp: '10:42 AM',
+      ),
+  ];
 }
 
 class _NewChatService extends ImmediateTestMessagesService {

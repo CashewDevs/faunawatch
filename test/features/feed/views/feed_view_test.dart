@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -379,6 +380,51 @@ void main() {
           findsOneWidget,
         );
       }
+    });
+    testWidgets('centres the empty feed above the nav bar inset', (
+      tester,
+    ) async {
+      const inset = 100.0;
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: Size(390, 844),
+                padding: EdgeInsets.only(bottom: inset),
+              ),
+              child: FeedView(),
+            ),
+          ),
+        ),
+      );
+
+      final area = find.byType(InsetCenteredScroll);
+      final visibleCentre =
+          tester.getTopLeft(area).dy +
+          (tester.getSize(area).height - inset) / 2;
+      final content = find.descendant(of: area, matching: find.byType(Column));
+      expect(tester.getCenter(content.first).dy, closeTo(visibleCentre, 1));
+    });
+    testWidgets('empty feed does not overflow on a short screen', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: Size(400, 260),
+                padding: EdgeInsets.only(bottom: 80),
+              ),
+              child: FeedView(),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('No posts yet.'), findsOneWidget);
     });
     testWidgets('renders binoculars silhouette, title, and descriptive text', (
       tester,
