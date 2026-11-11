@@ -6,7 +6,8 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/auth/viewmodels/login_viewmodel.dart';
 import 'package:faunawatch/features/auth/views/sign_up_view.dart';
 import 'package:faunawatch/features/auth/views/widgets/auth_text_field.dart';
-import 'package:faunawatch/features/auth/views/widgets/google_sign_in_button.dart';
+import 'package:faunawatch/features/auth/views/widgets/google_auth_action.dart';
+import 'package:faunawatch/features/auth/viewmodels/google_sign_in_viewmodel.dart';
 import 'package:faunawatch/features/auth/views/widgets/login_action_button.dart';
 import 'package:faunawatch/features/shell/views/shell_view.dart';
 
@@ -51,6 +52,7 @@ class LoginView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(loginViewModelProvider);
+    final googleBusy = ref.watch(googleSignInViewModelProvider).isBusy;
 
     return Scaffold(
       backgroundColor: AppColors.loginGradientTop,
@@ -253,7 +255,7 @@ class LoginView extends ConsumerWidget {
                     const SizedBox(height: 38),
                     // Log In Action Button
                     LoginActionButton(
-                      isEnabled: state.isLoginEnabled,
+                      isEnabled: state.isLoginEnabled && !googleBusy,
                       isLoading: state.isSubmitting,
                       onPressed: () => _handleLogin(context, ref),
                     ),
@@ -289,11 +291,7 @@ class LoginView extends ConsumerWidget {
                     const SizedBox(height: 18),
                     // Google Sign In Button
                     Center(
-                      child: GoogleSignInButton(
-                        onPressed: () {
-                          // Google auth placeholder
-                        },
-                      ),
+                      child: GoogleAuthAction(enabled: !state.isSubmitting),
                     ),
                     const SizedBox(height: 54),
                     // Don't have an account footer

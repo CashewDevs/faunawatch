@@ -244,6 +244,19 @@ or local machine config. Before committing, review `git status` and
 
 ## Documentation
 
+Google authentication uses the existing Supabase browser OAuth flow in
+`lib/features/auth/` (Model → Service → ViewModel → View). Both auth screens
+share `GoogleAuthAction`; it waits for a signed-in event before navigating.
+`SupabaseGoogleAuthService` owns browser launch and loads the active session's
+profile data. ViewModels choose navigation from that data. Startup restores
+sessions through the splash ViewModel. Missing display names route to profile setup; named profiles route
+to the shell. Android and iOS register `com.faunawatch.app://login-callback/`
+and disable Flutter's default deep-link handler so Supabase's app_links can
+process the PKCE callback. Enable Google in Supabase, configure a Google web
+OAuth client, and allowlist that exact app redirect URL as described in README.
+The Google client secret belongs only in Supabase provider settings. No new
+dependency or database migration is required.
+
 Private one-to-one Chats live in `lib/features/messages/`
 (Model → Service → ViewModel → View). `SupabaseMessagesService` replaces the
 sample inbox and conversations. Registered users can search community profile

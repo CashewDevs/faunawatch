@@ -6,7 +6,8 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/auth/viewmodels/sign_up_viewmodel.dart';
 import 'package:faunawatch/features/auth/views/login_view.dart';
 import 'package:faunawatch/features/auth/views/widgets/auth_text_field.dart';
-import 'package:faunawatch/features/auth/views/widgets/google_sign_in_button.dart';
+import 'package:faunawatch/features/auth/views/widgets/google_auth_action.dart';
+import 'package:faunawatch/features/auth/viewmodels/google_sign_in_viewmodel.dart';
 import 'package:faunawatch/features/auth/views/widgets/login_action_button.dart';
 import 'package:faunawatch/features/profile_customization/views/profile_setup_view.dart';
 
@@ -51,6 +52,7 @@ class SignUpView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(signUpViewModelProvider);
+    final googleBusy = ref.watch(googleSignInViewModelProvider).isBusy;
 
     return Scaffold(
       backgroundColor: AppColors.loginGradientTop,
@@ -257,7 +259,7 @@ class SignUpView extends ConsumerWidget {
                     // Sign Up Action Button
                     LoginActionButton(
                       label: 'Sign Up',
-                      isEnabled: state.isSignUpEnabled,
+                      isEnabled: state.isSignUpEnabled && !googleBusy,
                       isLoading: state.isSubmitting,
                       onPressed: () => _handleSignUp(context, ref),
                     ),
@@ -293,11 +295,7 @@ class SignUpView extends ConsumerWidget {
                     const SizedBox(height: 18),
                     // Google Sign In Button
                     Center(
-                      child: GoogleSignInButton(
-                        onPressed: () {
-                          // Google auth placeholder
-                        },
-                      ),
+                      child: GoogleAuthAction(enabled: !state.isSubmitting),
                     ),
                     const SizedBox(height: 54),
                     // Already have an account footer
