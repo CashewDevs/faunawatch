@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/messages/models/message_thread.dart';
 import 'package:faunawatch/features/messages/viewmodels/chat_conversation_viewmodel.dart';
 import 'package:faunawatch/features/messages/views/widgets/chat_bubble.dart';
@@ -41,8 +42,9 @@ class _ChatConversationViewState extends ConsumerState<ChatConversationView> {
     final thread = widget.thread;
     final state = ref.watch(chatConversationViewModelProvider(thread.id));
     final vm = ref.read(chatConversationViewModelProvider(thread.id).notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -76,7 +78,9 @@ class _ChatConversationViewState extends ConsumerState<ChatConversationView> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 state.error!,
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(
+                  color: isDark ? AppColors.darkErrorText : Colors.red,
+                ),
               ),
             ),
           Expanded(

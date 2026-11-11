@@ -16,15 +16,18 @@ class MessagesFilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         _buildChip(
+          isDark: isDark,
           label: 'All',
           filter: MessagesFilter.all,
           isSelected: selectedFilter == MessagesFilter.all,
         ),
         const SizedBox(width: 10),
         _buildChip(
+          isDark: isDark,
           label: 'Unread',
           filter: MessagesFilter.unread,
           isSelected: selectedFilter == MessagesFilter.unread,
@@ -34,6 +37,7 @@ class MessagesFilterChips extends StatelessWidget {
   }
 
   Widget _buildChip({
+    required bool isDark,
     required String label,
     required MessagesFilter filter,
     required bool isSelected,
@@ -48,15 +52,23 @@ class MessagesFilterChips extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.messagesFilterSelected
-                : AppColors.messagesFilterUnselected,
+            color: isDark
+                ? (isSelected
+                      ? AppColors.darkFilterSelected
+                      : AppColors.darkSurface)
+                : (isSelected
+                      ? AppColors.messagesFilterSelected
+                      : AppColors.messagesFilterUnselected),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
             label,
             style: GoogleFonts.dmSans(
-              color: Colors.black87,
+              color: isDark
+                  ? (isSelected
+                        ? AppColors.darkTextPrimary
+                        : AppColors.darkTextBody)
+                  : Colors.black87,
               fontSize: 14,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             ),

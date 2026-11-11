@@ -101,6 +101,25 @@ void main() {
       },
     );
 
+    testWidgets('bottom padding follows the nav bar inset', (tester) async {
+      Future<double> bottomPadding(double inset) async {
+        await tester.pumpWidget(
+          MediaQuery(
+            data: MediaQueryData(padding: EdgeInsets.only(bottom: inset)),
+            child: buildTestProfile(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final scroll = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView).first,
+        );
+        return (scroll.padding! as EdgeInsets).bottom;
+      }
+
+      expect(await bottomPadding(0), 16);
+      expect(await bottomPadding(90), 106);
+    });
+
     testWidgets('renders profile header with username, bio, and action cards', (
       tester,
     ) async {

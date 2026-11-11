@@ -36,10 +36,11 @@ class MessageActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
@@ -55,7 +56,9 @@ class MessageActionSheet extends StatelessWidget {
                 height: 4.5,
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD6D6D6),
+                  color: isDark
+                      ? AppColors.darkIconMuted
+                      : const Color(0xFFD6D6D6),
                   borderRadius: BorderRadius.circular(2.5),
                 ),
               ),
@@ -67,7 +70,9 @@ class MessageActionSheet extends StatelessWidget {
               style: GoogleFonts.dmSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF1E293B),
+                color: isDark
+                    ? AppColors.darkTextPrimary
+                    : const Color(0xFF1E293B),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -78,13 +83,19 @@ class MessageActionSheet extends StatelessWidget {
               style: GoogleFonts.dmSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xFF64748B),
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : const Color(0xFF64748B),
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 18),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFEDF2F7)),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: isDark ? AppColors.darkBorder : const Color(0xFFEDF2F7),
+            ),
             const SizedBox(height: 10),
 
             // Action: Mark as read / unread
@@ -94,8 +105,12 @@ class MessageActionSheet extends StatelessWidget {
                   ? Icons.check_circle_outline_rounded
                   : Icons.mark_email_unread_outlined,
               label: thread.isUnread ? 'Mark as read' : 'Mark as unread',
-              iconColor: AppColors.messagesHeaderBlue,
-              textColor: const Color(0xFF1E293B),
+              iconColor: isDark
+                  ? AppColors.darkAccentBlue
+                  : AppColors.messagesHeaderBlue,
+              textColor: isDark
+                  ? AppColors.darkTextPrimary
+                  : const Color(0xFF1E293B),
               onTap: () {
                 Navigator.of(context).pop();
                 onToggleRead();
@@ -107,8 +122,12 @@ class MessageActionSheet extends StatelessWidget {
               context: context,
               icon: Icons.delete_outline_rounded,
               label: 'Delete conversation',
-              iconColor: const Color(0xFFD32F2F),
-              textColor: const Color(0xFFD32F2F),
+              iconColor: isDark
+                  ? AppColors.darkErrorText
+                  : const Color(0xFFD32F2F),
+              textColor: isDark
+                  ? AppColors.darkErrorText
+                  : const Color(0xFFD32F2F),
               onTap: () {
                 Navigator.of(context).pop();
                 onDelete();
@@ -131,7 +150,9 @@ class MessageActionSheet extends StatelessWidget {
                 style: GoogleFonts.dmSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF64748B),
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : const Color(0xFF64748B),
                 ),
               ),
             ),

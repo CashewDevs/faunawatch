@@ -16,12 +16,18 @@ class MessagesSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 46,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.messagesSearchBorder, width: 2.0),
+        border: Border.all(
+          color: isDark
+              ? AppColors.darkAccentBlue
+              : AppColors.messagesSearchBorder,
+          width: 2.0,
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -31,22 +37,26 @@ class MessagesSearchBar extends StatelessWidget {
             width: 20,
             height: 20,
             fit: BoxFit.contain,
+            color: isDark ? AppColors.darkAccentBlue : null,
+            colorBlendMode: isDark ? BlendMode.srcIn : null,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              cursorColor: AppColors.messagesHeaderBlue,
+              cursorColor: isDark
+                  ? AppColors.darkAccentBlue
+                  : AppColors.messagesHeaderBlue,
               style: GoogleFonts.dmSans(
-                color: Colors.black87,
+                color: isDark ? AppColors.darkTextPrimary : Colors.black87,
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
                 hintText: 'Search messages...',
                 hintStyle: GoogleFonts.dmSans(
-                  color: Colors.black38,
+                  color: isDark ? AppColors.darkTextSecondary : Colors.black38,
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
                 ),

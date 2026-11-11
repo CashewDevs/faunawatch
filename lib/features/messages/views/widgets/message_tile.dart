@@ -24,6 +24,7 @@ class MessageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUnread = thread.isUnread;
 
     return Semantics(
@@ -36,7 +37,9 @@ class MessageTile extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Container(
           color: isUnread
-              ? AppColors.messagesUnreadBackground
+              ? (isDark
+                    ? AppColors.darkUnreadBackground
+                    : AppColors.messagesUnreadBackground)
               : Colors.transparent,
           child: IntrinsicHeight(
             child: Row(
@@ -56,7 +59,7 @@ class MessageTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Profile picture circle: gray #D9D9D9
-                        _buildProfilePicture(),
+                        _buildProfilePicture(isDark),
                         const SizedBox(width: 14),
 
                         // Message details: Sender name & message preview
@@ -75,9 +78,13 @@ class MessageTile extends StatelessWidget {
                                         fontWeight: isUnread
                                             ? FontWeight.w700
                                             : FontWeight.w600,
-                                        color: isUnread
-                                            ? Colors.black87
-                                            : const Color(0xFF263238),
+                                        color: isDark
+                                            ? (isUnread
+                                                  ? AppColors.darkTextPrimary
+                                                  : AppColors.darkTextBody)
+                                            : (isUnread
+                                                  ? Colors.black87
+                                                  : const Color(0xFF263238)),
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -91,9 +98,13 @@ class MessageTile extends StatelessWidget {
                                       fontWeight: isUnread
                                           ? FontWeight.w600
                                           : FontWeight.w400,
-                                      color: isUnread
-                                          ? AppColors.messagesHeaderBlue
-                                          : const Color(0xFF90A4AE),
+                                      color: isDark
+                                          ? (isUnread
+                                                ? AppColors.darkAccentBlue
+                                                : AppColors.darkTextSecondary)
+                                          : (isUnread
+                                                ? AppColors.messagesHeaderBlue
+                                                : const Color(0xFF90A4AE)),
                                     ),
                                   ),
                                 ],
@@ -106,9 +117,13 @@ class MessageTile extends StatelessWidget {
                                   fontWeight: isUnread
                                       ? FontWeight.w600
                                       : FontWeight.w400,
-                                  color: isUnread
-                                      ? const Color(0xFF1E293B)
-                                      : const Color(0xFF64748B),
+                                  color: isDark
+                                      ? (isUnread
+                                            ? AppColors.darkTextBody
+                                            : AppColors.darkTextSecondary)
+                                      : (isUnread
+                                            ? const Color(0xFF1E293B)
+                                            : const Color(0xFF64748B)),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -128,12 +143,12 @@ class MessageTile extends StatelessWidget {
     );
   }
 
-  Widget _buildProfilePicture() {
+  Widget _buildProfilePicture(bool isDark) {
     return Container(
       width: 52,
       height: 52,
-      decoration: const BoxDecoration(
-        color: AppColors.messagesPfpPlaceholder,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkBorder : AppColors.messagesPfpPlaceholder,
         shape: BoxShape.circle,
       ),
       child: thread.avatarAsset != null

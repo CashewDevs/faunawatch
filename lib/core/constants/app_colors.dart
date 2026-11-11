@@ -199,4 +199,21 @@ abstract final class AppColors {
   static const Color darkTextSecondary = Color(0xFF94A3B8);
   static const Color darkProfileGradientStart = Color(0xFF0F172A);
   static const Color darkProfileGradientEnd = Color(0xFF082F49);
+
+  // Dark Theme Tokens: Notifications & Chats
+  static const Color darkHeaderGradientStart = Color(0xFF1E293B);
+  static const Color darkHeaderGradientEnd = Color(0xFF0A3A5C);
+  static const Color darkAccentBlue = Color(0xFF7CB4FF);
+  static const Color darkTextBody = Color(0xFFCBD5E1);
+  static const Color darkIconMuted = Color(0xFF64748B);
+  static const Color darkIconOrange = Color(0xFFFFB074);
+  static const Color darkIconGreen = Color(0xFF81C784);
+  static const Color darkUnreadBackground = Color(0xFF2E2B1A);
+  static const Color darkFilterSelected = Color(0xFF4B4219);
+  static const Color darkErrorBackground = Color(0xFF3B1519);
+  static const Color darkErrorText = Color(0xFFFF8A80);
+  static const Color darkChatUserBubbleGradientStart = Color(0xFF1E4E8C);
+  static const Color darkChatUserBubbleGradientEnd = Color(0xFF2A64A8);
+  static const Color darkChatOtherBubbleGradientStart = Color(0xFF334155);
+  static const Color darkChatOtherBubbleGradientEnd = Color(0xFF3F4F66);
 }

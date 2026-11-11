@@ -9,17 +9,23 @@ class MessagesHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          stops: [0.0, 1.0],
-          colors: [
-            AppColors.messagesHeaderGradientStart,
-            AppColors.messagesHeaderGradientEnd,
-          ],
+          stops: const [0.0, 1.0],
+          colors: isDark
+              ? const [
+                  AppColors.darkHeaderGradientStart,
+                  AppColors.darkHeaderGradientEnd,
+                ]
+              : const [
+                  AppColors.messagesHeaderGradientStart,
+                  AppColors.messagesHeaderGradientEnd,
+                ],
         ),
       ),
       child: SafeArea(
@@ -41,7 +47,9 @@ class MessagesHeader extends StatelessWidget {
                       style: GoogleFonts.dmSans(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.messagesHeaderBlue,
+                        color: isDark
+                            ? AppColors.darkAccentBlue
+                            : AppColors.messagesHeaderBlue,
                         letterSpacing: -0.5,
                       ),
                     ),
