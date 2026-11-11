@@ -39,20 +39,29 @@ class ProfileView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileState = ref.watch(profileViewModelProvider);
+    // The shell draws its floating nav bar over the bottom of the body and
+    // reports its height here.
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     if (profileState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: const Center(child: CircularProgressIndicator()),
+      );
     }
     if (profileState.hasError) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Unable to load your profile.'),
-            TextButton(
-              onPressed: () => ref.invalidate(profileViewModelProvider),
-              child: const Text('Retry'),
-            ),
-          ],
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Unable to load your profile.'),
+              TextButton(
+                onPressed: () => ref.invalidate(profileViewModelProvider),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -80,7 +89,7 @@ class ProfileView extends ConsumerWidget {
         ),
       ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 120),
+        padding: EdgeInsets.only(bottom: bottomInset + 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

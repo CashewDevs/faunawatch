@@ -279,6 +279,34 @@ refresh the active inbox/conversation and reconnect fetches missed messages.
 Service replacement on account changes clears private state and cancels old
 subscriptions. A failed send retains the current draft and selected photo.
 
+In-app Notifications live in `lib/features/notifications/` (Model → Service →
+ViewModel → View). `SupabaseNotificationsService` replaces the sample list and
+reads the signed-in user's rows of `public.notifications`: newest first in pages
+of 50 ("Load older notifications"), plus an unread count that also covers unloaded
+rows. Live updates use Realtime on that table and refresh the list; the service
+is replaced on account changes. Clients can only read, delete and set `read_at`
+on their own rows (RLS and a column grant); rows are created only by
+security-definer triggers: a report's owner is notified when it is approved,
+declined/taken down (with the decline reason) or sent back with changes
+requested (with the admin's message, never the admin); the owner of a report is
+notified of a new comment by someone else; and the other participant of a chat is
+notified of a new message, folded into one unread row per conversation, shown as
+"Sent a photo" for photos, and skipped for suspended recipients. Relative times
+("5m ago", "Yesterday") are formatted in the app from `createdAt` with an
+injectable clock. Tapping a notification only marks it read for now: opening the
+related report or chat is a TODO (no route by report id, and the chat screen
+needs the other user's name and avatar).
+
+Apply `20261112090000_create_notifications.sql` before using Notifications. The
+user applies it manually in the Supabase SQL editor; agents must not apply
+hosted changes. It must be applied after `20261111150721_add_report_change_requests.sql`,
+and it creates no notifications for past events. Push notifications (FCM,
+device tokens, an Edge Function) are NOT implemented: this is in-app only, and
+no push package or `device_tokens` table exists. The `nearby_alert` type exists
+so the app can render it, but nothing generates it yet; that is pending the
+decision on the `warning_zones` radius values and how proximity is generated
+(`alerts` is unchanged and unused by the app).
+
 Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
 View). A category and valid observation coordinates are required; photos and
 description/species/notes are optional. Reports are saved with `status = pending`.
