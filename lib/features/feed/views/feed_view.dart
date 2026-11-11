@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
@@ -72,11 +73,11 @@ class _EmptyFeed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return InsetCenteredScroll(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 36),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Light gray silhouette of binoculars
             BinocularsIcon(

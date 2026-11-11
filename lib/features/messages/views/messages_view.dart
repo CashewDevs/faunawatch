@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/messages/viewmodels/messages_viewmodel.dart';
 import 'package:faunawatch/features/messages/views/chat_conversation_view.dart';
 import 'package:faunawatch/features/messages/views/new_chat_view.dart';
@@ -121,33 +122,40 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
             child: state.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredThreads.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          size: 48,
-                          color: Color(0xFFB0BEC5),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          state.searchQuery.isNotEmpty
-                              ? 'No messages found for "${state.searchQuery}"'
-                              : state.activeFilter == MessagesFilter.unread
-                              ? 'No unread messages'
-                              : 'No conversations yet. Start a new chat.',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 15,
-                            color: const Color(0xFF78909C),
-                            fontWeight: FontWeight.w500,
+                ? InsetCenteredScroll(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 48,
+                            color: Color(0xFFB0BEC5),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          Text(
+                            state.searchQuery.isNotEmpty
+                                ? 'No messages found for "${state.searchQuery}"'
+                                : state.activeFilter == MessagesFilter.unread
+                                ? 'No unread messages'
+                                : 'No conversations yet. Start a new chat.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.dmSans(
+                              fontSize: 15,
+                              color: const Color(0xFF78909C),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 : ListView.builder(
-                    padding: EdgeInsets.zero,
+                    // Leave room for the nav bar the shell draws over the body.
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.paddingOf(context).bottom,
+                    ),
                     itemCount: filteredThreads.length,
                     itemBuilder: (context, index) {
                       final thread = filteredThreads[index];

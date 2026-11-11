@@ -150,6 +150,18 @@ class NotificationTile extends StatelessWidget {
         iconData = Icons.notifications_none_rounded;
         iconColor = const Color(0xFF005A97);
         break;
+      case NotificationType.reportStatus:
+        iconData = Icons.fact_check_outlined;
+        iconColor = const Color(0xFF2E7D32);
+        break;
+      case NotificationType.comment:
+        iconData = Icons.chat_bubble_outline_rounded;
+        iconColor = const Color(0xFF1A5DC9);
+        break;
+      case NotificationType.chat:
+        iconData = Icons.mail_outline_rounded;
+        iconColor = const Color(0xFF005A97);
+        break;
     }
 
     return Container(
