@@ -88,6 +88,10 @@ It returns only the caller's reports, sorted by `report_id`, then `round`. Each 
 - The table itself has **no** policy for reporters (`.from('report_change_requests')` returns nothing for them). Always use the function.
 - `species_description` covers species name, description and notes (`user_species`, `description`, `user_notes`).
 
+### Reading decisions: `rpc('my_report_reviews')`
+
+`20261112090100_hide_admin_identity_from_users.sql`. Approve, decline and take-down decisions on your own reports: `report_id`, `decision` (`approved` / `declined`), `decline_reason` (null unless declined), `decided_at`, oldest first. Same call shape as above (`p_report_id`, or omit for all your reports). Reporters can't read the `report_reviews` table itself, and the function never says which admin decided.
+
 ### Editing while `changes_requested`
 
 The owner may edit while the post is `pending` (old rule) **or** `changes_requested`, as long as they are **not suspended**:
@@ -223,6 +227,7 @@ Switching comments to `report_comments` is a separate task. It isn't required he
 
 - Suspended reporters can't edit a `changes_requested` post and get `FW403` on resubmit.
 - The app still doesn't explain suspensions anywhere (separate open item). For now, show the copy above.
+- To explain one, read the user's own suspensions with `rpc('my_sanctions')`: `id`, `reason`, `created_at`, `ends_at` (null = until lifted), `lifted_at` and `is_active`, newest first. It never says which admin suspended them, and the `user_sanctions` table itself is admin-only.
 
 ## Testing
 
