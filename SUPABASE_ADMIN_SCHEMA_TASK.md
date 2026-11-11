@@ -116,7 +116,7 @@ The first admin is added by the project owner: create the user under **Authentic
   $$;
   ```
 
-- `report_reviews`: one row per decision (`id`, `report_id`, `decision` (approved/declined), `decline_reason` (required when declined), `decided_by` → `auth.users`, `decided_at`). Select/insert for `is_admin()` only. The report owner may read the decision and decline reason for their own report.
+- `report_reviews`: one row per decision (`id`, `report_id`, `decision` (approved/declined), `decline_reason` (required when declined), `decided_by` → `profiles`, `decided_at`). Select for `is_admin()` only; rows are written only by `admin_decide_report()` / `admin_take_down_report()`. The report owner reads the decision, decline reason and time for their own reports through `my_report_reviews()`, never `decided_by`.
 - `admin_notes`: `id`, `report_id`, `author_id`, `body`, `created_at`. All operations `is_admin()` only. Report owners must never read these.
 - RPC `admin_decide_report(report_ids uuid[], decision, decline_reason)`: checks `is_admin()` first, inserts the review rows and updates `reports.status` in one transaction (supports bulk actions).
 
@@ -146,7 +146,7 @@ The first admin is added by the project owner: create the user under **Authentic
 
 ### 9. `create_user_sanctions`
 
-- `user_sanctions`: `id`, `user_id`, `reason text`, `created_by`, `created_at`, `ends_at timestamptz` (null = until lifted), `lifted_at`. Admin-only writes. A user may read their own sanctions.
+- `user_sanctions`: `id`, `user_id`, `reason text`, `created_by`, `created_at`, `ends_at timestamptz` (null = until lifted), `lifted_at`. Admin-only writes. A user reads their own sanctions through `my_sanctions()` (reason, dates, whether active), never `created_by`.
 - `public.is_suspended(uid uuid)` security definer helper.
 - Add `not public.is_suspended((select auth.uid()))` to the insert policies on `reports`, `report_comments` and `community_responses`.
 
