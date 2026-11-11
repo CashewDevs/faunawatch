@@ -5,9 +5,14 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 
 /// Styled pill-shaped Google authentication button.
 class GoogleSignInButton extends StatelessWidget {
-  const GoogleSignInButton({required this.onPressed, super.key});
+  const GoogleSignInButton({
+    required this.onPressed,
+    this.isLoading = false,
+    super.key,
+  });
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +47,14 @@ class GoogleSignInButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const _GoogleGLogo(size: 13),
+              if (isLoading)
+                const SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                const _GoogleGLogo(size: 13),
               const SizedBox(width: 8),
               Text(
                 'Google',

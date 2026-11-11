@@ -1,3 +1,5 @@
+import 'package:faunawatch/features/auth/services/google_auth_service.dart';
+import '../../auth/fake_google_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,9 @@ void main() {
     bool autoNavigate = true,
   }) {
     return ProviderScope(
+      overrides: [
+        googleAuthServiceProvider.overrideWithValue(FakeGoogleAuthService()),
+      ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
         home: SplashView(

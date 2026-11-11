@@ -5,9 +5,10 @@ import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/splash/viewmodels/splash_viewmodel.dart';
 import 'package:faunawatch/features/welcome/views/welcome_view.dart';
+import 'package:faunawatch/features/profile_customization/views/profile_setup_view.dart';
+import 'package:faunawatch/features/shell/views/shell_view.dart';
 
-/// Placeholder splash screen that simulates initial app launch before transitioning
-/// to the [WelcomeView].
+/// Startup screen that restores the session before choosing the next route.
 class SplashView extends ConsumerStatefulWidget {
   const SplashView({
     super.key,
@@ -37,10 +38,16 @@ class _SplashViewState extends ConsumerState<SplashView> {
         .initializeApp(delay: widget.initializationDelay);
 
     if (mounted) {
+      final state = ref.read(splashViewModelProvider);
+      if (state == SplashState.failed) return;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder<void>(
           pageBuilder: (context, animation, secondaryAnimation) =>
-              const WelcomeView(),
+              switch (state) {
+                SplashState.home => const ShellView(),
+                SplashState.profileSetup => const ProfileSetupView(),
+                _ => const WelcomeView(),
+              },
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
@@ -52,6 +59,7 @@ class _SplashViewState extends ConsumerState<SplashView> {
 
   @override
   Widget build(BuildContext context) {
+    final failed = ref.watch(splashViewModelProvider) == SplashState.failed;
     return Scaffold(
       backgroundColor: AppColors.welcomeBackgroundTone,
       body: Center(
@@ -91,14 +99,21 @@ class _SplashViewState extends ConsumerState<SplashView> {
               ),
             ),
             const SizedBox(height: 32),
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            if (failed) ...[
+              const Text('Could not restore your session. Please try again.'),
+              TextButton(
+                onPressed: _startInitialization,
+                child: const Text('Retry'),
               ),
-            ),
+            ] else
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
           ],
         ),
       ),

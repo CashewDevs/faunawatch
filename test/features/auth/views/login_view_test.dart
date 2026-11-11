@@ -1,3 +1,5 @@
+import 'package:faunawatch/features/auth/services/google_auth_service.dart';
+import '../fake_google_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,9 +46,11 @@ class _FakeProfileService implements ProfileService {
 }
 
 void main() {
-  Widget createWidgetUnderTest() {
+  Widget createWidgetUnderTest({FakeGoogleAuthService? googleAuth}) {
     return ProviderScope(
       overrides: [
+        if (googleAuth != null)
+          googleAuthServiceProvider.overrideWithValue(googleAuth),
         messagesServiceProvider.overrideWithValue(
           const SignedOutMessagesService(),
         ),
@@ -59,6 +63,25 @@ void main() {
   }
 
   group('LoginView', () {
+    testWidgets('Google action launches OAuth and shows a retryable error', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final google = FakeGoogleAuthService()..opens = false;
+      addTearDown(google.dispose);
+      await tester.pumpWidget(createWidgetUnderTest(googleAuth: google));
+      await tester.ensureVisible(find.text('Google'));
+      await tester.tap(find.text('Google'));
+      await tester.pump();
+      expect(google.launches, 1);
+      expect(
+        find.text('Google sign-in could not be completed. Please try again.'),
+        findsOneWidget,
+      );
+    });
     testWidgets('renders header, inputs, buttons, and social options', (
       tester,
     ) async {
