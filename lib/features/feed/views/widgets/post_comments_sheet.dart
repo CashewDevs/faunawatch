@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
-import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/viewmodels/post_comments_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/comment_input_bar.dart';
 import 'package:faunawatch/features/feed/views/widgets/comment_tile.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
 
-/// Bottom sheet listing a post's comments, with threaded replies and a composer.
-class PostCommentsSheet extends ConsumerStatefulWidget {
-  const PostCommentsSheet({super.key, required this.post});
-  final FeedPost post;
+/// Bottom sheet listing a post's comments, newest first, with a composer.
+///
+/// Comments are plain text: `report_comments` has no replies, reactions or
+/// photo attachments, so the sheet offers none, and there is no "top" sort.
+class PostCommentsSheet extends ConsumerWidget {
+  const PostCommentsSheet({super.key, required this.postId});
+  final String postId;
 
-  static Future<void> show(BuildContext context, FeedPost post) {
+  static Future<void> show(BuildContext context, String postId) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return showModalBottomSheet<void>(
       context: context,
@@ -23,76 +25,55 @@ class PostCommentsSheet extends ConsumerStatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => PostCommentsSheet(post: post),
+      builder: (_) => PostCommentsSheet(postId: postId),
     );
   }
 
   @override
-  ConsumerState<PostCommentsSheet> createState() => _PostCommentsSheetState();
-}
-
-class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
-  final _expandedCommentIds = <String>{};
-  PostComment? _replyingTo;
-  String? _replyParentId;
-
-  PostCommentsViewModel get _viewModel =>
-      ref.read(postCommentsViewModelProvider(widget.post.id).notifier);
-
-  Future<bool> _submit(String text, String? imagePath) async {
-    final parentId = _replyParentId;
-    final posted = await _viewModel.addComment(
-      text,
-      parentId: parentId,
-      imagePath: imagePath,
-    );
-    if (posted && mounted) {
-      setState(() {
-        if (parentId != null) _expandedCommentIds.add(parentId);
-        _replyingTo = null;
-        _replyParentId = null;
-      });
-    }
-    return posted;
-  }
-
-  void _startReply(PostComment comment, String parentId) {
-    setState(() {
-      _replyingTo = comment;
-      _replyParentId = parentId;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(postCommentsViewModelProvider(widget.post.id));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = postCommentsViewModelProvider(postId);
+    final state = ref.watch(provider);
+    final viewModel = ref.read(provider.notifier);
     final profile = ref.watch(profileViewModelProvider).asData?.value;
     final mediaQuery = MediaQuery.of(context);
+    final theme = Theme.of(context);
     return Padding(
       padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
       child: SizedBox(
         height: mediaQuery.size.height * 0.72,
         child: Column(
           children: [
-            _SheetHeader(
-              count: state.totalCount,
-              sortOrder: state.sortOrder,
-              onSortSelected: _viewModel.setSortOrder,
-            ),
+            _SheetHeader(count: state.comments.length),
             Expanded(
               child: state.isLoading
                   ? const Center(child: CircularProgressIndicator())
+                  : state.hasError
+                  ? _Notice(
+                      text: 'Could not load comments.',
+                      actionLabel: 'Retry',
+                      onAction: viewModel.load,
+                    )
                   : state.comments.isEmpty
-                  ? const _EmptyComments()
+                  ? const _Notice(text: 'No comments yet. Be the first!')
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 4, 12, 12),
                       itemCount: state.comments.length,
-                      itemBuilder: (context, index) => _buildThread(
-                        state.comments[index],
-                        Theme.of(context),
+                      itemBuilder: (context, index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: CommentTile(comment: state.comments[index]),
                       ),
                     ),
             ),
+            if (state.sendError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: Text(
+                  state.sendError!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
             CommentInputBar(
               avatar: PostAvatar(
                 size: 40,
@@ -100,108 +81,20 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                 filePath: profile?.customImagePath,
                 url: profile?.avatarUrl,
               ),
-              replyingTo: _replyingTo?.authorName,
-              onCancelReply: () => setState(() {
-                _replyingTo = null;
-                _replyParentId = null;
-              }),
-              onSubmit: _submit,
-              onPickImage: _viewModel.pickImage,
+              isSending: state.isSending,
+              onSubmit: viewModel.addComment,
             ),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildThread(PostComment comment, ThemeData theme) {
-    final isExpanded = _expandedCommentIds.contains(comment.id);
-    // Like the reference design, a creator's reply stays visible when collapsed.
-    final visibleReplies = isExpanded
-        ? comment.replies
-        : comment.replies.where((reply) => reply.isFromCreator).take(1);
-    final hiddenCount = comment.replies.length - visibleReplies.length;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildTile(comment, comment.id, 44),
-          for (final reply in visibleReplies)
-            Padding(
-              padding: const EdgeInsets.only(left: 56, top: 12),
-              child: _buildTile(reply, comment.id, 28),
-            ),
-          if (hiddenCount > 0 || (isExpanded && comment.replies.isNotEmpty))
-            Padding(
-              padding: const EdgeInsets.only(left: 56, top: 8),
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  isExpanded
-                      ? _expandedCommentIds.remove(comment.id)
-                      : _expandedCommentIds.add(comment.id);
-                }),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 1,
-                        color: theme.colorScheme.outlineVariant,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        isExpanded
-                            ? 'Hide replies'
-                            : 'View $hiddenCount '
-                                  '${hiddenCount == 1 ? 'reply' : 'replies'}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Icon(
-                        isExpanded
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        size: 18,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTile(PostComment comment, String parentId, double avatarSize) {
-    return CommentTile(
-      comment: comment,
-      post: widget.post,
-      avatarSize: avatarSize,
-      onReply: () => _startReply(comment, parentId),
-      onLike: () => _viewModel.toggleLike(comment.id),
-      onDislike: () => _viewModel.toggleDislike(comment.id),
-    );
-  }
 }
 
 class _SheetHeader extends StatelessWidget {
-  const _SheetHeader({
-    required this.count,
-    required this.sortOrder,
-    required this.onSortSelected,
-  });
+  const _SheetHeader({required this.count});
 
   final int count;
-  final CommentSortOrder sortOrder;
-  final ValueChanged<CommentSortOrder> onSortSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -212,32 +105,11 @@ class _SheetHeader extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$count ${count == 1 ? 'comment' : 'comments'}',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              PopupMenuButton<CommentSortOrder>(
-                tooltip: 'Sort comments',
-                initialValue: sortOrder,
-                onSelected: onSortSelected,
-                icon: const Icon(Icons.filter_list, size: 20),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: CommentSortOrder.top,
-                    child: Text('Top comments'),
-                  ),
-                  PopupMenuItem(
-                    value: CommentSortOrder.newest,
-                    child: Text('Newest first'),
-                  ),
-                ],
-              ),
-            ],
+          Text(
+            '$count ${count == 1 ? 'comment' : 'comments'}',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           Positioned(
             right: 8,
@@ -254,18 +126,28 @@ class _SheetHeader extends StatelessWidget {
   }
 }
 
-class _EmptyComments extends StatelessWidget {
-  const _EmptyComments();
+class _Notice extends StatelessWidget {
+  const _Notice({required this.text, this.actionLabel, this.onAction});
+  final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Text(
-        'No comments yet. Be the first!',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (actionLabel != null)
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+        ],
       ),
     );
   }

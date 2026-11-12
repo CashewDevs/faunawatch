@@ -1,4 +1,4 @@
-import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 
 /// Public report data returned by community_reports; never contains exact GPS.
@@ -21,7 +21,7 @@ class CommunityReport {
     description: row['description'] as String? ?? 'No description provided.',
   );
 
-  FeedPost get post => FeedPost(
+  MapPostPreview get preview => MapPostPreview(
     id: id,
     title:
         ReportCategory.values
@@ -32,7 +32,7 @@ class CommunityReport {
     author: 'Community spotter',
     location:
         '${latitude.toStringAsFixed(2)}, ${longitude.toStringAsFixed(2)} · Approximate location',
-    summary: description,
+
     body: description,
   );
 }

@@ -3,7 +3,11 @@ import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
-import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
+import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
+import 'package:faunawatch/features/feed/services/feed_service.dart';
+import '../../feed/fake_feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/community_map/models/warning_demo.dart';
@@ -18,13 +22,19 @@ import 'package:faunawatch/features/community_map/views/widgets/map_purpose_card
 import 'package:faunawatch/features/community_map/views/widgets/map_warning_demo_card.dart';
 
 void main() {
-  Widget buildMap({ThemeData? theme, double textScale = 1}) {
+  Widget buildMap({
+    ThemeData? theme,
+    double textScale = 1,
+    List<Override> extraOverrides = const [],
+  }) {
     return ProviderScope(
       overrides: [
         mapboxMapCanvasBuilderProvider.overrideWithValue(
           _FakeMapboxMapCanvasBuilder(),
         ),
         mapboxMapServiceProvider.overrideWithValue(_FakeMapboxMapService()),
+        currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
+        ...extraOverrides,
       ],
       child: MaterialApp(
         theme: theme,
@@ -39,59 +49,104 @@ void main() {
     );
   }
 
-  testWidgets(
-    'sample pin opens a dismissible preview and see more selects feed',
-    (tester) async {
-      tester.view.physicalSize = const Size(320, 568);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(
-        buildMap(theme: ThemeData.dark(useMaterial3: true), textScale: 1.5),
-      );
-      await tester.pump();
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(CommunityMapView)),
-      );
-      final vm = container.read(communityMapViewModelProvider.notifier);
-      vm.selectPost(sampleMapPost.id);
-      await tester.pumpAndSettle();
-      expect(find.text(sampleMapPost.title), findsOneWidget);
-      expect(find.byType(MapPostDialog), findsOneWidget);
-      final image = tester.widget<Image>(find.byType(Image).first);
-      expect((image.image as AssetImage).assetName, AppAssets.avatarGarfield);
-      expect(image.fit, BoxFit.contain);
-      final popup = tester.getRect(find.byType(Dialog));
-      expect(popup.center.dx, closeTo(160, 1));
-      expect(popup.center.dy, closeTo(284, 1));
-      expect(
-        tester.getRect(find.byType(Image).first).bottom,
-        lessThanOrEqualTo(tester.getRect(find.text(sampleMapPost.title)).top),
-      );
-      expect(find.text('1 / 3'), findsOneWidget);
-      await tester.drag(find.byType(PageView), const Offset(-240, 0));
-      await tester.pumpAndSettle();
-      expect(find.text('2 / 3'), findsOneWidget);
-      await tester.drag(find.byType(PageView), const Offset(240, 0));
-      await tester.pumpAndSettle();
-      expect(find.text('1 / 3'), findsOneWidget);
-      await tester.tap(find.byTooltip('Close post preview'));
-      await tester.pumpAndSettle();
-      expect(
-        container.read(communityMapViewModelProvider).selectedPostId,
-        isNull,
-      );
-      vm.selectPost(sampleMapPost.id);
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('See more in feed'));
-      await tester.tap(find.text('See more in feed'));
-      await tester.pumpAndSettle();
-      expect(container.read(feedViewModelProvider), same(sampleMapPost));
-      expect(container.read(shellViewModelProvider), ShellDestination.feed);
-      expect(find.text('See more in feed'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('demo pin opens a dismissible preview without a feed link', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      buildMap(theme: ThemeData.dark(useMaterial3: true), textScale: 1.5),
+    );
+    await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CommunityMapView)),
+    );
+    final vm = container.read(communityMapViewModelProvider.notifier);
+    vm.selectPost(MapPostPreview.demoId);
+    await tester.pumpAndSettle();
+    expect(find.text(MapPostPreview.demo.title), findsOneWidget);
+    expect(find.byType(MapPostDialog), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image).first);
+    expect((image.image as AssetImage).assetName, AppAssets.avatarGarfield);
+    expect(image.fit, BoxFit.contain);
+    final popup = tester.getRect(find.byType(Dialog));
+    expect(popup.center.dx, closeTo(160, 1));
+    expect(popup.center.dy, closeTo(284, 1));
+    expect(
+      tester.getRect(find.byType(Image).first).bottom,
+      lessThanOrEqualTo(
+        tester.getRect(find.text(MapPostPreview.demo.title)).top,
+      ),
+    );
+    expect(find.text('1 / 3'), findsOneWidget);
+    await tester.drag(find.byType(PageView), const Offset(-240, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 3'), findsOneWidget);
+    await tester.drag(find.byType(PageView), const Offset(240, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 3'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close post preview'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(communityMapViewModelProvider).selectedPostId,
+      isNull,
+    );
+    // The demo pin is not a report: its preview is labelled as a sample and
+    // has nothing to open in the feed.
+    vm.selectPost(MapPostPreview.demoId);
+    await tester.pumpAndSettle();
+    expect(find.text('Sample post'), findsOneWidget);
+    expect(find.text('Demo only - Not a real wildlife report'), findsOne);
+    expect(find.text('See more in feed'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a report pin opens its post in the feed through see more', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildMap(
+        extraOverrides: [
+          communityReportsServiceProvider.overrideWithValue(
+            _FakeReports(const [
+              CommunityReport(
+                id: 'r1',
+                category: 'animal_in_need',
+                latitude: 10.12,
+                longitude: 123.12,
+                description: 'Bird near the road.',
+              ),
+            ]),
+          ),
+          feedServiceProvider.overrideWithValue(
+            FakeFeedService(posts: [testPost('r1', title: 'Bird')]),
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CommunityMapView)),
+    );
+    final vm = container.read(communityMapViewModelProvider.notifier);
+    await vm.onStyleLoaded();
+    vm.selectPost('r1');
+    await tester.pumpAndSettle();
+    expect(find.text('Approved wildlife report'), findsOneWidget);
+    expect(find.text('Sample post'), findsNothing);
+    expect(find.text('Bird near the road.'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('See more in feed'));
+    await tester.tap(find.text('See more in feed'));
+    await tester.pumpAndSettle();
+    expect(container.read(shellViewModelProvider), ShellDestination.feed);
+    expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
+    expect(container.read(feedViewModelProvider).focusedPostId, 'r1');
+    expect(find.text('See more in feed'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('explains the map purpose and identifies planned features', (
     tester,
@@ -256,4 +311,12 @@ class _FakeMapboxMapService implements MapboxMapService {
 
   @override
   Future<void> showReports(List<CommunityReport> reports) async {}
+}
+
+class _FakeReports implements CommunityReportsService {
+  const _FakeReports(this.reports);
+  final List<CommunityReport> reports;
+
+  @override
+  Future<List<CommunityReport>> load() async => reports;
 }

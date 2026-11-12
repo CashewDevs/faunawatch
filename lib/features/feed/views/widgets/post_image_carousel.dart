@@ -2,15 +2,30 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Shared photo presentation for a post's map preview and feed card.
+///
+/// Photos come from bundled assets (the map's demo preview) or from network
+/// URLs (feed posts, signed for the private bucket).
 class PostImageCarousel extends StatefulWidget {
   const PostImageCarousel({
     super.key,
-    required this.imageAssets,
+    required List<String> imageAssets,
     this.counterOnRight = false,
     this.fit = BoxFit.contain,
     this.backgroundColor = Colors.black,
-  });
-  final List<String> imageAssets;
+  }) : images = imageAssets,
+       isNetwork = false;
+
+  const PostImageCarousel.network({
+    super.key,
+    required List<String> imageUrls,
+    this.counterOnRight = false,
+    this.fit = BoxFit.contain,
+    this.backgroundColor = Colors.black,
+  }) : images = imageUrls,
+       isNetwork = true;
+
+  final List<String> images;
+  final bool isNetwork;
 
   /// Moves the page counter to the top-right corner. The map preview keeps it
   /// on the left because its close button occupies the right.
@@ -28,12 +43,12 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   @override
   void didUpdateWidget(covariant PostImageCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!listEquals(oldWidget.imageAssets, widget.imageAssets)) _page = 0;
+    if (!listEquals(oldWidget.images, widget.images)) _page = 0;
   }
 
   @override
   Widget build(BuildContext context) {
-    final images = widget.imageAssets;
+    final images = widget.images;
     final isDarkBackground =
         ThemeData.estimateBrightnessForColor(widget.backgroundColor) ==
         Brightness.dark;
@@ -60,12 +75,40 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                     padding: EdgeInsets.only(
                       bottom: images.length > 1 ? 32 : 0,
                     ),
-                    child: Image.asset(
-                      images[index],
-                      fit: widget.fit,
-                      semanticLabel:
-                          'Post photo ${index + 1} of ${images.length}',
-                    ),
+                    child: widget.isNetwork
+                        ? Image.network(
+                            images[index],
+                            fit: widget.fit,
+                            semanticLabel:
+                                'Post photo ${index + 1} of ${images.length}',
+                            // Spinner until the first frame is decoded.
+                            frameBuilder:
+                                (context, child, frame, loadedSynchronously) =>
+                                    frame == null && !loadedSynchronously
+                                    ? Center(
+                                        child: CircularProgressIndicator(
+                                          color: indicatorColor,
+                                        ),
+                                      )
+                                    : child,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Center(
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    color: indicatorColor.withValues(
+                                      alpha: 0.54,
+                                    ),
+                                    size: 48,
+                                    semanticLabel: 'Photo unavailable',
+                                  ),
+                                ),
+                          )
+                        : Image.asset(
+                            images[index],
+                            fit: widget.fit,
+                            semanticLabel:
+                                'Post photo ${index + 1} of ${images.length}',
+                          ),
                   ),
                 ),
                 if (images.length > 1) ...[

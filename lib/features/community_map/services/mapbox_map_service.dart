@@ -1,7 +1,7 @@
 import 'dart:convert';
 import '../models/community_report.dart';
 import 'dart:ui' as ui;
-import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,7 +102,7 @@ class MapboxCommunityMapService implements MapboxMapService {
           'type': 'Feature',
           'properties': {
             'color': '#EF4444',
-            'postId': sampleMapPost.id,
+            'postId': MapPostPreview.demoId,
             'label': 'Sample incident',
             'labelOffset': [0, -2.2],
           },
@@ -254,7 +254,7 @@ class MapboxCommunityMapService implements MapboxMapService {
     mapboxMap.addInteraction(
       TapInteraction(
         FeaturesetDescriptor(layerId: 'faunawatch-demo-post-pin'),
-        (feature, context) => onPostTap?.call(sampleMapPost.id),
+        (feature, context) => onPostTap?.call(MapPostPreview.demoId),
         radius: 12,
       ),
       interactionID: 'sample-post-tap',

@@ -26,9 +26,9 @@ class FeedPostCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: PostImageCarousel(
+              child: PostImageCarousel.network(
                 key: ValueKey(post.id),
-                imageAssets: post.imageAssets,
+                imageUrls: post.photoUrls,
                 counterOnRight: true,
                 fit: BoxFit.fitWidth,
                 backgroundColor: backgroundColor,

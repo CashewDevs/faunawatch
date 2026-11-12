@@ -307,6 +307,50 @@ so the app can render it, but nothing generates it yet; that is pending the
 decision on the `warning_zones` radius values and how proximity is generated
 (`alerts` is unchanged and unused by the app).
 
+The For You feed lives in `lib/features/feed/` (Model → Service → ViewModel →
+View). Once a report is approved it appears there for every signed-in user,
+newest approval first (`SupabaseFeedService` replaces the single sample post and
+the local sample comments). `FeedViewModel` loads pages of 10, loads older ones
+as the user nears the last post, supports pull to refresh, and signs out/in with
+the account (the service is replaced on account changes). Posts are one
+full-screen card each (swipe up for the next), with network photos, the title
+(the user's species, else the AI's top guess, else the category label), the
+description, category, AI severity/invasive flag (always with the "Preliminary
+AI-assisted suggestions" note), and the place name. Private photo URLs and
+uploaded avatars are signed for one hour (they refresh with the page).
+
+Apply `20261112100000_create_community_feed.sql` before using the feed. The user
+applies it manually in the Supabase SQL editor; agents must not apply hosted
+changes. It must be applied after `20261112090000_create_notifications.sql`. It
+adds `community_feed()` (a security definer RPC: approved reports only, keyset
+paging on approval time, i.e. the latest approving `report_reviews.decided_at`,
+falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
+- **The feed shows the author's name and avatar.** This reverses the earlier
+  "OQ 8: stay anonymous" decision (`20261027001000_restrict_location_and_images.sql`).
+  Names use the same fallbacks as `list_chat_threads()` (username, full name,
+  display name, "FaunaWatch user"); avatars are `profiles.avatar_path`, either
+  `preset:<name>` or a signed `avatars` bucket path. Only the feed changed:
+  `community_reports()` (the map) still returns no author, and the map's preview
+  stays anonymous.
+- **Location:** the feed returns `reports.place_name` exactly as stored (it is
+  not split into city and province, because missing parts make that unreliable)
+  and shows "Approximate location" when it is null. It never returns exact
+  coordinates, and `user_notes` and the admin fields stay private.
+- **Likes** are real: `report_likes` (report, user) rows that a user can add or
+  remove only for themselves, only on approved reports and not while suspended.
+  Counts and `liked_by_me` come from the RPC; the app likes optimistically and
+  rolls back on failure. There are no like notifications.
+- **Comments** are real for every post: the app reads and writes
+  `report_comments` (visibility and insert rules from
+  `20261111144014_fix_comment_access_rules.sql`), so the `notify_report_comment`
+  trigger notifies the report's owner. The table has no replies, reactions or
+  photos, so the comments sheet offers plain text and emoji only, newest first
+  (the latest 100; no paging yet).
+- The community map's report pins open the matching post in the For You tab
+  (`FeedViewModel.openReport`, fetching it through `community_feed(p_report_id)`
+  when it is not loaded). The warning demo's "Sample incident" pin is not a
+  report: it keeps a map-local preview (`MapPostPreview.demo`) with no feed link.
+
 Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
 View). A category and valid observation coordinates are required; photos and
 description/species/notes are optional. Reports are saved with `status = pending`.
@@ -326,7 +370,7 @@ category is read-only while the analysis is attached, keeps its value when the
 analysis is detached, and is then editable again.
 Approved reports
 are loaded for the map through `community_reports()`, preserving its approximate
-coordinates and anonymous authors. The map refresh action reloads approvals.
+coordinates and returning no author (the For You feed shows authors, see above). The map refresh action reloads approvals.
 Observation locations are selected in a map picker (tap to pin, city/address
 search, or current GPS); the form does not expose coordinate entry.
 The picker opens in 3D and automatically centers on device GPS when available,
@@ -336,7 +380,7 @@ Search uses Mapbox Geocoding v6 with `permanent=true` because the chosen coordin
 On submit, `PlaceNameService` makes one more permanent request, a reverse lookup of the
 final point, to save its area in `reports.place_name` (barangay or locality, city, province;
 never a street address). If it fails, the name stays null and the post still submits.
-`place_name` is owner and admin only: `community_reports()` must not return it.
+`place_name` is visible to the owner, admins and, for approved reports, in the For You feed (`community_feed()`, exactly as stored); `community_reports()` (the map) must not return it.
 The `MAPBOX_PUBLIC_TOKEN` account must support permanent geocoding (a valid card
 on file or an enterprise contract). `http` is a direct dependency for these
 requests. Search runs on explicit submission; no request is sent per keystroke.

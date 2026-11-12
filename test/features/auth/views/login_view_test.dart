@@ -8,6 +8,7 @@ import 'package:faunawatch/features/auth/views/login_view.dart';
 import 'package:faunawatch/features/auth/views/widgets/auth_text_field.dart';
 import 'package:faunawatch/features/auth/views/widgets/login_action_button.dart';
 import 'package:faunawatch/features/shell/views/shell_view.dart';
+import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:faunawatch/features/messages/services/messages_service.dart';
 import 'package:faunawatch/features/notifications/services/notifications_service.dart';
 
@@ -55,6 +56,7 @@ void main() {
         messagesServiceProvider.overrideWithValue(
           const SignedOutMessagesService(),
         ),
+        feedServiceProvider.overrideWithValue(const SignedOutFeedService()),
         notificationsServiceProvider.overrideWithValue(
           const SignedOutNotificationsService(),
         ),

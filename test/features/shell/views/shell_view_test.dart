@@ -55,6 +55,8 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(buildTestShell());
+      // The feed shows a spinner until its first page (empty here) arrives.
+      await tester.pump();
 
       expect(find.byType(ShellHeader), findsOneWidget);
       expect(find.byType(ShellNavBar), findsOneWidget);

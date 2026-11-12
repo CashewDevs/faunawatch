@@ -366,8 +366,8 @@ void main() {
       final reports = await SupabaseCommunityReportsService(client).load();
       expect(requests.single.$2, '/rest/v1/rpc/community_reports');
       expect(reports.single.latitude, 10.12);
-      expect(reports.single.post.author, 'Community spotter');
-      expect(reports.single.post.location, contains('Approximate location'));
+      expect(reports.single.preview.author, 'Community spotter');
+      expect(reports.single.preview.location, contains('Approximate location'));
     },
   );
 }

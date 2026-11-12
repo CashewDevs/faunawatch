@@ -70,4 +70,65 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  group('network photos', () {
+    Future<void> showNetwork(WidgetTester tester, List<String> urls) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 300,
+                  height: 300,
+                  child: PostImageCarousel.network(imageUrls: urls),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    testWidgets('loads each photo from its URL and pages through them', (
+      tester,
+    ) async {
+      await showNetwork(tester, const [
+        'https://photos.invalid/a.webp',
+        'https://photos.invalid/b.webp',
+      ]);
+      expect(find.text('1 / 2'), findsOneWidget);
+      expect(
+        tester.widget<Image>(find.byType(Image)).image,
+        isA<NetworkImage>().having(
+          (image) => image.url,
+          'url',
+          'https://photos.invalid/a.webp',
+        ),
+      );
+      await tester.drag(find.byType(PageView), const Offset(-300, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('2 / 2'), findsOneWidget);
+    });
+
+    testWidgets('shows a spinner while loading', (tester) async {
+      await showNetwork(tester, const ['https://photos.invalid/a.webp']);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('shows a placeholder when a photo cannot load', (tester) async {
+      await showNetwork(tester, const ['https://photos.invalid/a.webp']);
+      // Tests answer every network request with an error.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('no URLs shows the empty placeholder', (tester) async {
+      await showNetwork(tester, const []);
+      expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+      expect(find.byType(PageView), findsNothing);
+    });
+  });
 }
