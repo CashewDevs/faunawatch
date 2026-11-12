@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_image_carousel.dart';
-import 'package:faunawatch/features/feed/models/feed_post.dart';
 
-/// A media-first preview with swipeable photos and details below them.
+/// A media-first preview of a map pin with the details below it.
+///
+/// The warning demo's pin is not a report, so it has no "See more in feed"
+/// button: pass a null [onSeeMore].
 class MapPostDialog extends StatelessWidget {
   const MapPostDialog({
     super.key,
+    required this.preview,
     required this.onSeeMore,
-    this.post = sampleMapPost,
   });
-  final FeedPost post;
-  final VoidCallback onSeeMore;
+  final MapPostPreview preview;
+  final VoidCallback? onSeeMore;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +32,7 @@ class MapPostDialog extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  PostImageCarousel(imageAssets: post.imageAssets),
+                  PostImageCarousel(imageAssets: preview.imageAssets),
                   Positioned(
                     top: 8,
                     right: 8,
@@ -54,7 +57,7 @@ class MapPostDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      post.id == sampleMapPost.id
+                      preview.isDemo
                           ? 'Sample post'
                           : 'Approved wildlife report',
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -64,37 +67,35 @@ class MapPostDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      post.title,
+                      preview.title,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(post.author, style: theme.textTheme.labelLarge),
+                    Text(preview.author, style: theme.textTheme.labelLarge),
                     const SizedBox(height: 4),
-                    Text(post.location, style: theme.textTheme.bodySmall),
+                    Text(preview.location, style: theme.textTheme.bodySmall),
                     const SizedBox(height: 8),
-                    Text(
-                      post.id == sampleMapPost.id
-                          ? 'Demo only - Not a real wildlife report'
-                          : post.body,
-                      style: theme.textTheme.bodySmall,
-                    ),
+                    Text(preview.body, style: theme.textTheme.bodySmall),
                   ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onSeeMore,
-                  icon: const Icon(Icons.arrow_forward),
-                  label: const Text('See more in feed'),
+            if (onSeeMore != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onSeeMore,
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('See more in feed'),
+                  ),
                 ),
-              ),
-            ),
+              )
+            else
+              const SizedBox(height: 16),
           ],
         ),
       ),

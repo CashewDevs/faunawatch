@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
-import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
+import 'package:faunawatch/features/feed/services/feed_service.dart';
+import '../../feed/fake_feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/community_map/models/warning_demo.dart';
@@ -15,14 +18,18 @@ void main() {
   late ProviderContainer container;
   late _FakeMapboxMapService mapboxMapService;
   late _Reports reports;
+  late FakeFeedService feed;
 
   setUp(() {
     mapboxMapService = _FakeMapboxMapService();
     reports = _Reports();
+    feed = FakeFeedService(posts: [testPost('approved', title: 'Bird')]);
     container = ProviderContainer(
       overrides: [
         mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
         communityReportsServiceProvider.overrideWithValue(reports),
+        currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
+        feedServiceProvider.overrideWithValue(feed),
       ],
     );
   });
@@ -39,9 +46,13 @@ void main() {
         'approved',
       );
       vm.selectPost('approved');
-      expect(vm.selectedPost!.author, 'Community spotter');
+      expect(vm.selectedPreview!.author, 'Community spotter');
+      expect(vm.selectedPreview!.isDemo, isFalse);
       vm.seeMore();
-      expect(container.read(feedViewModelProvider)!.id, 'approved');
+      await pumpEventQueue();
+      expect(container.read(feedViewModelProvider).focusedPostId, 'approved');
+      expect(container.read(shellViewModelProvider), ShellDestination.feed);
+      expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
       reports.fail = true;
       await vm.refreshReports();
       expect(
@@ -61,37 +72,40 @@ void main() {
     },
   );
 
-  test('selects only the sample, dismisses, and opens that post in feed', () {
+  test(
+    'selects only the demo pin or a loaded report, and can dismiss',
+    () async {
+      final vm = container.read(communityMapViewModelProvider.notifier);
+      vm.selectPost('unknown');
+      expect(
+        container.read(communityMapViewModelProvider).selectedPostId,
+        isNull,
+      );
+      vm.selectPost(MapPostPreview.demoId);
+      expect(
+        container.read(communityMapViewModelProvider).selectedPostId,
+        MapPostPreview.demoId,
+      );
+      expect(vm.selectedPreview, same(MapPostPreview.demo));
+      expect(vm.selectedPreview!.isDemo, isTrue);
+      vm.dismissPost();
+      expect(
+        container.read(communityMapViewModelProvider).selectedPostId,
+        isNull,
+      );
+    },
+  );
+
+  test('see more does nothing without a selection or for the demo pin', () {
     final vm = container.read(communityMapViewModelProvider.notifier);
-    vm.selectPost('unknown');
-    expect(
-      container.read(communityMapViewModelProvider).selectedPostId,
-      isNull,
-    );
-    vm.selectPost(sampleMapPost.id);
-    expect(
-      container.read(communityMapViewModelProvider).selectedPostId,
-      sampleMapPost.id,
-    );
-    vm.dismissPost();
-    expect(
-      container.read(communityMapViewModelProvider).selectedPostId,
-      isNull,
-    );
     container
         .read(shellViewModelProvider.notifier)
         .selectDestination(ShellDestination.chats);
     vm.seeMore();
-    expect(container.read(shellViewModelProvider), ShellDestination.chats);
-    vm.selectPost(sampleMapPost.id);
+    vm.selectPost(MapPostPreview.demoId);
     vm.seeMore();
-    expect(container.read(feedViewModelProvider), same(sampleMapPost));
-    expect(container.read(shellViewModelProvider), ShellDestination.feed);
-    expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
-    expect(
-      container.read(communityMapViewModelProvider).selectedPostId,
-      isNull,
-    );
+    expect(container.read(shellViewModelProvider), ShellDestination.chats);
+    expect(container.read(feedViewModelProvider).focusedPostId, isNull);
   });
 
   test('starts in 3D mode using the light appearance', () {

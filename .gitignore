@@ -124,3 +124,6 @@ app.*.symbols
 !/dev/ci/**/Gemfile.lock
 # Supabase CLI local state (created by supabase link)
 supabase/.temp/
+
+# Supabase CLI binary (downloaded locally, not committed)
+tools/supabase/

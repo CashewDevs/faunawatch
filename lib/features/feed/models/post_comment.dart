@@ -1,103 +1,100 @@
-/// A comment on a post, or a reply when nested inside another comment.
+import 'package:faunawatch/features/feed/models/feed_post.dart';
+
+/// One row of `report_comments` with its author.
+///
+/// The table has no replies, reactions or image attachments, so neither does
+/// this model.
 class PostComment {
   const PostComment({
     required this.id,
+    required this.authorId,
     required this.authorName,
     required this.text,
     required this.createdAt,
+    this.authorAvatarPath,
     this.authorAvatarAsset,
-    this.authorAvatarFilePath,
     this.authorAvatarUrl,
-    this.imagePath,
-    this.likeCount = 0,
-    this.isLiked = false,
-    this.isDisliked = false,
-    this.isFromCreator = false,
-    this.isLikedByCreator = false,
-    this.replies = const [],
   });
 
-  final String id;
-  final String authorName;
-  final String text;
+  /// Longest comment the app sends.
+  static const maxLength = 1000;
+
+  final String id, authorId, authorName, text;
   final DateTime createdAt;
-  final String? authorAvatarAsset;
-  final String? authorAvatarFilePath;
-  final String? authorAvatarUrl;
 
-  /// Local path of an attached photo.
-  final String? imagePath;
-  final int likeCount;
-  final bool isLiked;
-  final bool isDisliked;
-  final bool isFromCreator;
-  final bool isLikedByCreator;
-  final List<PostComment> replies;
+  /// `profiles.avatar_path`: `preset:<name>` or a path in the avatars bucket.
+  final String? authorAvatarPath;
+  final String? authorAvatarAsset, authorAvatarUrl;
 
-  PostComment copyWith({
-    int? likeCount,
-    bool? isLiked,
-    bool? isDisliked,
-    List<PostComment>? replies,
-  }) {
+  /// Reads a row selected as
+  /// `id, user_id, body, created_at, profiles(username, full_name, display_name, avatar_path)`.
+  factory PostComment.fromJson(Map<String, dynamic> row) {
+    final profile = row['profiles'];
+    String? field(String key) {
+      final text = profile is Map ? profile[key]?.toString().trim() : null;
+      return text == null || text.isEmpty ? null : text;
+    }
+
     return PostComment(
-      id: id,
-      authorName: authorName,
-      text: text,
-      createdAt: createdAt,
-      authorAvatarAsset: authorAvatarAsset,
-      authorAvatarFilePath: authorAvatarFilePath,
-      authorAvatarUrl: authorAvatarUrl,
-      imagePath: imagePath,
-      likeCount: likeCount ?? this.likeCount,
-      isLiked: isLiked ?? this.isLiked,
-      isDisliked: isDisliked ?? this.isDisliked,
-      isFromCreator: isFromCreator,
-      isLikedByCreator: isLikedByCreator,
-      replies: replies ?? this.replies,
+      id: row['id'] as String,
+      authorId: row['user_id'] as String,
+      authorName:
+          field('username') ??
+          field('full_name') ??
+          field('display_name') ??
+          FeedPost.fallbackAuthorName,
+      text: (row['body'] as String? ?? '').trim(),
+      createdAt: DateTime.parse(row['created_at'] as String),
+      authorAvatarPath: field('avatar_path'),
     );
   }
+
+  PostComment withAvatar({String? asset, String? url}) => PostComment(
+    id: id,
+    authorId: authorId,
+    authorName: authorName,
+    text: text,
+    createdAt: createdAt,
+    authorAvatarPath: authorAvatarPath,
+    authorAvatarAsset: asset,
+    authorAvatarUrl: url,
+  );
 }
 
-enum CommentSortOrder { top, newest }
-
-/// The comments of one post and how they are ordered.
+/// The comments of one post, newest first.
 class PostCommentsState {
   const PostCommentsState({
     this.comments = const [],
-    this.sortOrder = CommentSortOrder.top,
     this.isLoading = false,
+    this.hasError = false,
+    this.isSending = false,
+    this.sendError,
   });
 
   final List<PostComment> comments;
-  final CommentSortOrder sortOrder;
   final bool isLoading;
 
-  /// Comments and replies combined.
-  int get totalCount => comments.fold(
-    comments.length,
-    (total, comment) => total + comment.replies.length,
-  );
+  /// Loading failed and nothing is shown yet.
+  final bool hasError;
+  final bool isSending;
+
+  /// Why the last comment could not be posted, if it could not.
+  final String? sendError;
 
   PostCommentsState copyWith({
     List<PostComment>? comments,
-    CommentSortOrder? sortOrder,
     bool? isLoading,
+    bool? hasError,
+    bool? isSending,
+    String? sendError,
+    bool clearSendError = false,
   }) {
     return PostCommentsState(
       comments: comments ?? this.comments,
-      sortOrder: sortOrder ?? this.sortOrder,
       isLoading: isLoading ?? this.isLoading,
+      hasError: hasError ?? this.hasError,
+      isSending: isSending ?? this.isSending,
+      sendError: clearSendError ? null : sendError ?? this.sendError,
     );
   }
-}
-
-/// Short age label for a comment, e.g. `37m` or `22h`.
-String formatCommentAge(DateTime createdAt, DateTime now) {
-  final age = now.difference(createdAt);
-  if (age.inMinutes < 1) return 'now';
-  if (age.inHours < 1) return '${age.inMinutes}m';
-  if (age.inDays < 1) return '${age.inHours}h';
-  if (age.inDays < 7) return '${age.inDays}d';
-  return '${age.inDays ~/ 7}w';
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:faunawatch/core/widgets/local_image.dart';
+import 'package:flutter/services.dart';
+import 'package:faunawatch/features/feed/models/post_comment.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 
 const _quickEmojis = [
@@ -15,27 +16,23 @@ const _quickEmojis = [
   '🌿',
 ];
 
-/// Bottom comment composer with photo, emoji, and mention shortcuts.
+/// Bottom comment composer with an emoji shortcut. Comments are text only.
 class CommentInputBar extends StatefulWidget {
   const CommentInputBar({
     super.key,
     required this.avatar,
     required this.onSubmit,
-    required this.onPickImage,
-    this.replyingTo,
-    this.onCancelReply,
+    this.isSending = false,
   });
 
   final PostAvatar avatar;
 
   /// Posts the comment and returns whether it succeeded, so a failed post keeps
   /// the user's text.
-  final Future<bool> Function(String text, String? imagePath) onSubmit;
-  final Future<String?> Function() onPickImage;
+  final Future<bool> Function(String text) onSubmit;
 
-  /// Name of the author being replied to, if any.
-  final String? replyingTo;
-  final VoidCallback? onCancelReply;
+  /// A comment is being posted; sending is disabled meanwhile.
+  final bool isSending;
 
   @override
   State<CommentInputBar> createState() => _CommentInputBarState();
@@ -44,19 +41,9 @@ class CommentInputBar extends StatefulWidget {
 class _CommentInputBarState extends State<CommentInputBar> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  String? _imagePath;
   bool _showEmojis = false;
 
-  bool get _canSend => _controller.text.trim().isNotEmpty || _imagePath != null;
-
-  @override
-  void didUpdateWidget(covariant CommentInputBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.replyingTo != null &&
-        widget.replyingTo != oldWidget.replyingTo) {
-      _focusNode.requestFocus();
-    }
-  }
+  bool get _canSend => _controller.text.trim().isNotEmpty && !widget.isSending;
 
   @override
   void dispose() {
@@ -78,20 +65,12 @@ class _CommentInputBarState extends State<CommentInputBar> {
     setState(() {});
   }
 
-  Future<void> _pickImage() async {
-    final path = await widget.onPickImage();
-    if (path != null && mounted) setState(() => _imagePath = path);
-  }
-
   Future<void> _submit() async {
     if (!_canSend) return;
-    final posted = await widget.onSubmit(_controller.text, _imagePath);
+    final posted = await widget.onSubmit(_controller.text);
     if (!posted || !mounted) return;
     _controller.clear();
-    setState(() {
-      _imagePath = null;
-      _showEmojis = false;
-    });
+    setState(() => _showEmojis = false);
   }
 
   @override
@@ -110,73 +89,6 @@ class _CommentInputBarState extends State<CommentInputBar> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.replyingTo != null)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Replying to ${widget.replyingTo}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      tooltip: 'Cancel reply',
-                      onPressed: widget.onCancelReply,
-                      icon: const Icon(Icons.close, size: 18),
-                    ),
-                  ],
-                ),
-              if (_imagePath != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LocalImage(
-                          _imagePath!,
-                          width: 72,
-                          height: 72,
-                          fit: BoxFit.cover,
-                          semanticLabel: 'Selected photo',
-                          errorBuilder: (_, _, _) => SizedBox.square(
-                            dimension: 72,
-                            child: Icon(
-                              Icons.broken_image_outlined,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Semantics(
-                          button: true,
-                          label: 'Remove photo',
-                          excludeSemantics: true,
-                          child: GestureDetector(
-                            onTap: () => setState(() => _imagePath = null),
-                            child: const CircleAvatar(
-                              radius: 11,
-                              backgroundColor: Colors.black54,
-                              child: Icon(
-                                Icons.close,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               if (_showEmojis)
                 SizedBox(
                   height: 40,
@@ -221,6 +133,11 @@ class _CommentInputBarState extends State<CommentInputBar> {
                               minLines: 1,
                               maxLines: 4,
                               textCapitalization: TextCapitalization.sentences,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(
+                                  PostComment.maxLength,
+                                ),
+                              ],
                               onChanged: (_) => setState(() {}),
                               decoration: const InputDecoration(
                                 hintText: 'Add comment...',
@@ -233,20 +150,10 @@ class _CommentInputBarState extends State<CommentInputBar> {
                             ),
                           ),
                           _InputAction(
-                            icon: Icons.image_outlined,
-                            label: 'Add photo',
-                            onTap: _pickImage,
-                          ),
-                          _InputAction(
                             icon: Icons.emoji_emotions_outlined,
                             label: 'Add emoji',
                             onTap: () =>
                                 setState(() => _showEmojis = !_showEmojis),
-                          ),
-                          _InputAction(
-                            icon: Icons.alternate_email,
-                            label: 'Mention someone',
-                            onTap: () => _insert('@'),
                           ),
                           if (_canSend)
                             _InputAction(

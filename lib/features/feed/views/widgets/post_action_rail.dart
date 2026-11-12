@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
-import 'package:faunawatch/features/feed/viewmodels/post_comments_viewmodel.dart';
-import 'package:faunawatch/features/feed/viewmodels/post_likes_viewmodel.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/animated_heart.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
@@ -26,29 +25,28 @@ class PostActionRail extends ConsumerWidget {
       Shadow(color: glow, blurRadius: 2),
       Shadow(color: glow, blurRadius: 8),
     ];
-    final isLiked = ref.watch(postLikesViewModelProvider).contains(post.id);
-    final commentCount = ref
-        .watch(postCommentsViewModelProvider(post.id))
-        .totalCount;
-    final likeCount = post.likeCount + (isLiked ? 1 : 0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Semantics(
           image: true,
-          label: "${post.author}'s profile picture",
-          child: PostAvatar(size: 48, asset: post.authorAvatarAsset),
+          label: "${post.authorName}'s profile picture",
+          child: PostAvatar(
+            size: 48,
+            asset: post.authorAvatarAsset,
+            url: post.authorAvatarUrl,
+          ),
         ),
         const SizedBox(height: 6),
         _RailAction(
-          label: 'Like',
-          count: likeCount,
+          label: post.likedByMe ? 'Unlike' : 'Like',
+          count: post.likeCount,
           shadows: shadows,
           onTap: () =>
-              ref.read(postLikesViewModelProvider.notifier).toggle(post.id),
+              ref.read(feedViewModelProvider.notifier).toggleLike(post.id),
           child: AnimatedHeart(
-            isLiked: isLiked,
+            isLiked: post.likedByMe,
             size: 32,
             color: color,
             unlikedIcon: Icons.favorite,
@@ -57,9 +55,9 @@ class PostActionRail extends ConsumerWidget {
         ),
         _RailAction(
           label: 'Comments',
-          count: commentCount,
+          count: post.commentCount,
           shadows: shadows,
-          onTap: () => PostCommentsSheet.show(context, post),
+          onTap: () => PostCommentsSheet.show(context, post.id),
           child: Icon(Icons.sms, color: color, size: 32, shadows: shadows),
         ),
       ],

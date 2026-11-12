@@ -1,143 +1,92 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/features/feed/models/post_comment.dart';
-import 'package:faunawatch/features/feed/services/post_comments_service.dart';
-import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
+import 'package:faunawatch/features/feed/services/feed_service.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 
 export 'package:faunawatch/features/feed/models/post_comment.dart';
 
-/// Manages the comments of the post identified by its family argument.
-class PostCommentsViewModel extends FamilyNotifier<PostCommentsState, String> {
+/// Loads and adds the comments of the post identified by its family argument.
+///
+/// Auto-disposed, so the comments are loaded again each time the sheet opens.
+class PostCommentsViewModel
+    extends AutoDisposeFamilyNotifier<PostCommentsState, String> {
+  late FeedService _service;
+  var _disposed = false;
+
   @override
   PostCommentsState build(String arg) {
-    _loadComments();
+    _service = ref.watch(feedServiceProvider);
+    _disposed = false;
+    ref.onDispose(() => _disposed = true);
+    Future.microtask(load);
     return const PostCommentsState(isLoading: true);
   }
 
-  Future<void> _loadComments() async {
+  /// Loads the comments, newest first. A failure keeps what is already shown.
+  Future<void> load() async {
     try {
-      final comments = await ref
-          .read(postCommentsServiceProvider)
-          .fetchComments(arg);
+      final comments = await _service.fetchComments(arg);
+      if (_disposed) return;
       state = state.copyWith(
-        comments: _sorted(comments, state.sortOrder),
+        comments: comments,
         isLoading: false,
+        hasError: false,
       );
-    } catch (_) {
-      state = state.copyWith(isLoading: false);
+      // Every comment is loaded, so the post's count can be made exact.
+      if (comments.length < FeedService.commentLimit) {
+        ref
+            .read(feedViewModelProvider.notifier)
+            .setCommentCount(arg, comments.length);
+      }
+    } catch (e) {
+      debugPrint('PostCommentsViewModel: Failed to load comments: $e');
+      if (_disposed) return;
+      state = state.copyWith(
+        isLoading: false,
+        hasError: state.comments.isEmpty,
+      );
     }
   }
 
-  /// Adds a comment, or a reply when [parentId] is given. Returns whether
-  /// anything was posted.
-  Future<bool> addComment(
-    String text, {
-    String? parentId,
-    String? imagePath,
-  }) async {
+  /// Adds a comment first in the list. Returns whether it was posted; when it
+  /// was not, [PostCommentsState.sendError] says why and the text is kept by
+  /// the caller.
+  Future<bool> addComment(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty && imagePath == null) return false;
-
-    final profile = ref.read(profileViewModelProvider).asData?.value;
-    final username = profile?.username ?? '';
+    if (trimmed.isEmpty || state.isSending) return false;
+    final feed = ref.read(feedViewModelProvider.notifier);
+    state = state.copyWith(isSending: true, clearSendError: true);
     try {
-      final comment = await ref
-          .read(postCommentsServiceProvider)
-          .addComment(
-            postId: arg,
-            authorName: username.isEmpty ? 'You' : username,
-            authorAvatarAsset: profile?.presetAvatar,
-            authorAvatarFilePath: profile?.customImagePath,
-            authorAvatarUrl: profile?.avatarUrl,
-            text: trimmed,
-            imagePath: imagePath,
-          );
+      final comment = await _service.addComment(arg, trimmed);
+      feed.adjustCommentCount(arg, 1);
+      if (_disposed) return true;
       state = state.copyWith(
-        comments: parentId == null
-            ? [comment, ...state.comments]
-            : [
-                for (final existing in state.comments)
-                  existing.id == parentId
-                      ? existing.copyWith(
-                          replies: [...existing.replies, comment],
-                        )
-                      : existing,
-              ],
+        comments: [comment, ...state.comments],
+        isSending: false,
       );
       return true;
+    } on FormatException catch (e) {
+      if (!_disposed) {
+        state = state.copyWith(isSending: false, sendError: e.message);
+      }
+      return false;
     } catch (e) {
       debugPrint('PostCommentsViewModel: Failed to add comment: $e');
+      if (!_disposed) {
+        state = state.copyWith(
+          isSending: false,
+          sendError: 'Could not post your comment. Please try again.',
+        );
+      }
       return false;
     }
   }
 
-  void toggleLike(String commentId) {
-    _update(commentId, (comment) {
-      final isLiked = !comment.isLiked;
-      return comment.copyWith(
-        isLiked: isLiked,
-        isDisliked: false,
-        likeCount: comment.likeCount + (isLiked ? 1 : -1),
-      );
-    });
-  }
-
-  void toggleDislike(String commentId) {
-    _update(commentId, (comment) {
-      final isDisliked = !comment.isDisliked;
-      return comment.copyWith(
-        isDisliked: isDisliked,
-        isLiked: false,
-        likeCount: comment.isLiked ? comment.likeCount - 1 : null,
-      );
-    });
-  }
-
-  /// Reorders once on selection, so reacting never moves a comment under the
-  /// user's finger.
-  void setSortOrder(CommentSortOrder sortOrder) {
-    state = state.copyWith(
-      sortOrder: sortOrder,
-      comments: _sorted(state.comments, sortOrder),
-    );
-  }
-
-  /// Opens the device picker and returns the selected photo's path, if any.
-  Future<String?> pickImage() async {
-    try {
-      return await ref.read(imagePickerServiceProvider).pickImage();
-    } catch (e) {
-      debugPrint('PostCommentsViewModel: Failed to pick image: $e');
-      return null;
-    }
-  }
-
-  void _update(String commentId, PostComment Function(PostComment) change) {
-    PostComment apply(PostComment comment) {
-      if (comment.id == commentId) return change(comment);
-      return comment.copyWith(replies: comment.replies.map(apply).toList());
-    }
-
-    state = state.copyWith(comments: state.comments.map(apply).toList());
-  }
-
-  List<PostComment> _sorted(
-    List<PostComment> comments,
-    CommentSortOrder sortOrder,
-  ) {
-    return [...comments]..sort(
-      (a, b) => switch (sortOrder) {
-        CommentSortOrder.top => b.likeCount.compareTo(a.likeCount),
-        CommentSortOrder.newest => b.createdAt.compareTo(a.createdAt),
-      },
-    );
-  }
+  void clearSendError() => state = state.copyWith(clearSendError: true);
 }
 
-/// Provider family exposing [PostCommentsViewModel] by post ID. Kept alive so
-/// comments survive closing the sheet.
-final postCommentsViewModelProvider =
-    NotifierProviderFamily<PostCommentsViewModel, PostCommentsState, String>(
+final postCommentsViewModelProvider = NotifierProvider.autoDispose
+    .family<PostCommentsViewModel, PostCommentsState, String>(
       PostCommentsViewModel.new,
     );

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/community_reports_service.dart';
-import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +34,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
 
   void selectPost(String postId) {
     if (!_disposed &&
-        (postId == sampleMapPost.id ||
+        (postId == MapPostPreview.demoId ||
             state.reports.any((report) => report.id == postId))) {
       state = state.copyWith(selectedPostId: postId);
     }
@@ -42,12 +42,12 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
 
   void dismissPost() => state = state.copyWith(clearSelectedPost: true);
 
+  /// Opens the tapped report in the For You feed. The demo pin is not a report
+  /// and has no feed post, so it does nothing here (its dialog has no button).
   void seeMore() {
     final postId = state.selectedPostId;
-    if (postId == null) return;
-    final post = selectedPost;
-    if (post == null) return;
-    ref.read(feedViewModelProvider.notifier).openPost(post);
+    if (postId == null || postId == MapPostPreview.demoId) return;
+    ref.read(feedViewModelProvider.notifier).openReport(postId);
     dismissPost();
     ref
         .read(shellViewModelProvider.notifier)
@@ -63,12 +63,14 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     await refreshReports();
   }
 
-  FeedPost? get selectedPost {
-    if (state.selectedPostId == sampleMapPost.id) return sampleMapPost;
+  MapPostPreview? get selectedPreview {
+    if (state.selectedPostId == MapPostPreview.demoId) {
+      return MapPostPreview.demo;
+    }
     return state.reports
         .where((r) => r.id == state.selectedPostId)
         .firstOrNull
-        ?.post;
+        ?.preview;
   }
 
   Future<void> refreshReports() async {

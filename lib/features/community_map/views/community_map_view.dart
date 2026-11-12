@@ -28,14 +28,18 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
     if (_postDialogOpen) return;
     _postDialogOpen = true;
     final viewModel = ref.read(communityMapViewModelProvider.notifier);
+    final preview = viewModel.selectedPreview!;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => MapPostDialog(
-        post: viewModel.selectedPost!,
-        onSeeMore: () {
-          Navigator.pop(dialogContext);
-          viewModel.seeMore();
-        },
+        preview: preview,
+        // The demo pin is not a report, so there is nothing to open in the feed.
+        onSeeMore: preview.isDemo
+            ? null
+            : () {
+                Navigator.pop(dialogContext);
+                viewModel.seeMore();
+              },
       ),
     );
     _postDialogOpen = false;
