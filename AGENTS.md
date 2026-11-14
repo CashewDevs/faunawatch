@@ -361,6 +361,13 @@ dropped whenever the photo is removed or changed. On submit it is inserted into
 `ai_analyses` as one write-once `completed` row while the report is still
 `pending`, and the report gets `ai_status = completed`; without an attached
 analysis `ai_status = unavailable`. If the insert fails, the report is rolled back.
+The database derives `ai_status` from `ai_analyses`
+(`20261114041037_derive_report_ai_status.sql`): a signed-in insert of `completed`
+is stored as `pending` until the completed analysis row is inserted, which sets it
+to `completed`; removing that analysis turns it `unavailable`; and a signed-in
+update of `ai_status` that disagrees with `ai_analyses` raises `FW409
+ai_status_mismatch`. Clients don't need to write it (the insert value from
+`PostDraft.toRow` is harmless).
 The report category comes from the AI result: prompt `fauna_lens_identify_v3`
 picks among `animal_in_need`, `potentially_dangerous_animal` and
 `other_wildlife_incident` (unknown or missing falls back to the last), and a
