@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
@@ -13,14 +14,16 @@ class SearchView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppPaletteColors.of(
+        context,
+      ).resolve(Colors.white, Theme.of(context).colorScheme.surface),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header container with curved bottom corners
           Container(
-            decoration: const BoxDecoration(
-              color: AppColors.searchHeaderBackground,
+            decoration: BoxDecoration(
+              color: AppPaletteColors.of(context).searchHeaderBackground,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
             ),
             child: SafeArea(
@@ -37,9 +40,9 @@ class SearchView extends StatelessWidget {
                       child: GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
                         behavior: HitTestBehavior.opaque,
-                        child: const Icon(
+                        child: Icon(
                           Icons.chevron_left_rounded,
-                          color: AppColors.searchHeaderBlue,
+                          color: AppPaletteColors.of(context).searchHeaderBlue,
                           size: 32,
                         ),
                       ),
@@ -50,7 +53,7 @@ class SearchView extends StatelessWidget {
                     Text(
                       'Search',
                       style: GoogleFonts.dmSans(
-                        color: AppColors.searchHeaderBlue,
+                        color: AppPaletteColors.of(context).searchHeaderBlue,
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
@@ -62,10 +65,13 @@ class SearchView extends StatelessWidget {
                     Container(
                       height: 42,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppPaletteColors.of(context).resolve(
+                          Colors.white,
+                          Theme.of(context).colorScheme.surface,
+                        ),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: AppColors.searchFieldStroke,
+                          color: AppPaletteColors.of(context).searchFieldStroke,
                           width: 1.5,
                         ),
                       ),
@@ -82,16 +88,26 @@ class SearchView extends StatelessWidget {
                           Expanded(
                             child: TextField(
                               autofocus: true,
-                              cursorColor: AppColors.searchHeaderBlue,
+                              cursorColor: AppPaletteColors.of(
+                                context,
+                              ).searchHeaderBlue,
                               style: GoogleFonts.dmSans(
-                                color: Colors.black87,
+                                color: AppPaletteColors.of(context).resolve(
+                                  Colors.black87,
+                                  Theme.of(context).colorScheme.onSurface,
+                                ),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
                               decoration: InputDecoration(
                                 hintText: 'Search fauna, sightings, areas...',
                                 hintStyle: GoogleFonts.dmSans(
-                                  color: Colors.black38,
+                                  color: AppPaletteColors.of(context).resolve(
+                                    Colors.black38,
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
                                   fontSize: 14,
                                 ),
                                 border: InputBorder.none,
@@ -118,7 +134,9 @@ class SearchView extends StatelessWidget {
                   Icon(
                     Icons.search_rounded,
                     size: 64,
-                    color: AppColors.searchHeaderBlue.withValues(alpha: 0.25),
+                    color: AppPaletteColors.of(
+                      context,
+                    ).searchHeaderBlue.withValues(alpha: 0.25),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -126,7 +144,10 @@ class SearchView extends StatelessWidget {
                     style: GoogleFonts.dmSans(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.onboardingSubheadingDark,
+                      color: AppPaletteColors.of(context).resolve(
+                        AppColors.onboardingSubheadingDark,
+                        Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -134,7 +155,10 @@ class SearchView extends StatelessWidget {
                     'Find animals, encounters, or regional sightings.',
                     style: GoogleFonts.dmSans(
                       fontSize: 14,
-                      color: Colors.black54,
+                      color: AppPaletteColors.of(context).resolve(
+                        Colors.black54,
+                        Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],

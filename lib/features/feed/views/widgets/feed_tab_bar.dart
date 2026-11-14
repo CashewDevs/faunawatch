@@ -1,5 +1,5 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 
 /// Text tabs at the top of the feed, with an underline on the selected one.
@@ -53,7 +53,7 @@ class FeedTabBar extends StatelessWidget {
                 height: 3,
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.messagesHeaderUnderline
+                      ? AppPaletteColors.of(context).messagesHeaderUnderline
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(2),
                 ),

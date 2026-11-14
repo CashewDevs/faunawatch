@@ -1,6 +1,6 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:faunawatch/core/constants/app_colors.dart';
 
 /// Top header for the Notifications screen featuring a horizontal blue gradient
 /// and the "Notifications" title in DM Sans extrabold with a yellow accent underline.
@@ -18,13 +18,13 @@ class NotificationsHeader extends StatelessWidget {
           end: Alignment.centerRight,
           stops: const [0.0, 1.0],
           colors: isDark
-              ? const [
-                  AppColors.darkHeaderGradientStart,
-                  AppColors.darkHeaderGradientEnd,
+              ? [
+                  AppPaletteColors.of(context).darkHeaderGradientStart,
+                  AppPaletteColors.of(context).darkHeaderGradientEnd,
                 ]
-              : const [
-                  AppColors.messagesHeaderGradientStart,
-                  AppColors.messagesHeaderGradientEnd,
+              : [
+                  AppPaletteColors.of(context).messagesHeaderGradientStart,
+                  AppPaletteColors.of(context).messagesHeaderGradientEnd,
                 ],
         ),
       ),
@@ -48,8 +48,8 @@ class NotificationsHeader extends StatelessWidget {
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
                         color: isDark
-                            ? AppColors.darkAccentBlue
-                            : AppColors.messagesHeaderBlue,
+                            ? AppPaletteColors.of(context).darkAccentBlue
+                            : AppPaletteColors.of(context).messagesHeaderBlue,
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -57,7 +57,9 @@ class NotificationsHeader extends StatelessWidget {
                     Container(
                       height: 3.5,
                       decoration: BoxDecoration(
-                        color: AppColors.messagesHeaderUnderline,
+                        color: AppPaletteColors.of(
+                          context,
+                        ).messagesHeaderUnderline,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),

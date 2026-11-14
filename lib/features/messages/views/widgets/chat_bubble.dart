@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
@@ -31,13 +32,15 @@ class ChatBubble extends StatelessWidget {
             end: Alignment.centerRight,
             stops: const [0.0, 1.0],
             colors: isDark
-                ? const [
-                    AppColors.darkChatUserBubbleGradientStart,
-                    AppColors.darkChatUserBubbleGradientEnd,
+                ? [
+                    AppPaletteColors.of(
+                      context,
+                    ).darkChatUserBubbleGradientStart,
+                    AppPaletteColors.of(context).darkChatUserBubbleGradientEnd,
                   ]
-                : const [
-                    AppColors.chatUserBubbleGradientStart,
-                    AppColors.chatUserBubbleGradientEnd,
+                : [
+                    AppPaletteColors.of(context).chatUserBubbleGradientStart,
+                    AppPaletteColors.of(context).chatUserBubbleGradientEnd,
                   ],
           )
         : LinearGradient(

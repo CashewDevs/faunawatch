@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
@@ -59,14 +60,16 @@ class ChatHeader extends StatelessWidget {
                       width: 32,
                       height: 32,
                       fit: BoxFit.contain,
-                      color: isDark ? AppColors.darkAccentBlue : null,
+                      color: isDark
+                          ? AppPaletteColors.of(context).darkAccentBlue
+                          : null,
                       colorBlendMode: isDark ? BlendMode.srcIn : null,
                       errorBuilder: (_, _, _) => Icon(
                         Icons.chevron_left_rounded,
                         size: 36,
                         color: isDark
-                            ? AppColors.darkAccentBlue
-                            : AppColors.messagesHeaderBlue,
+                            ? AppPaletteColors.of(context).darkAccentBlue
+                            : AppPaletteColors.of(context).messagesHeaderBlue,
                       ),
                     ),
                   ),

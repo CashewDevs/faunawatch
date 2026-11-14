@@ -14,7 +14,16 @@ class AppThemePalette {
   final int accentColorValue;
   final String description;
 
+  static const apollo = AppThemePalette(
+    id: 'apollo',
+    name: 'Apollo',
+    primaryColorValue: 0xFF1A5DC9,
+    accentColorValue: 0xFFFECE01,
+    description: 'The original FaunaWatch blue and golden yellow',
+  );
+
   static const List<AppThemePalette> presets = [
+    apollo,
     AppThemePalette(
       id: 'forest',
       name: 'Forest Emerald',

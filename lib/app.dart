@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/core/theme/theme_provider.dart';
 import 'package:faunawatch/features/splash/views/splash_view.dart';
 
@@ -15,8 +14,8 @@ class FaunaWatchApp extends ConsumerWidget {
     return MaterialApp(
       title: 'FaunaWatch',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: ref.watch(appLightThemeProvider),
+      darkTheme: ref.watch(appDarkThemeProvider),
       themeMode: themeMode,
       home: const SplashView(),
     );

@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
@@ -60,7 +61,7 @@ class GalleryCard extends StatelessWidget {
               // Bottom details container: #FFF7D6
               Container(
                 height: 32,
-                color: AppColors.galleryCardDetailsYellow,
+                color: AppPaletteColors.of(context).galleryCardDetailsYellow,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 alignment: Alignment.centerLeft,
                 child: Row(
@@ -71,7 +72,10 @@ class GalleryCard extends StatelessWidget {
                         style: GoogleFonts.dmSans(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF6B5800),
+                          color: AppPaletteColors.of(context).resolve(
+                            const Color(0xFF6B5800),
+                            Theme.of(context).colorScheme.onSecondaryContainer,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -83,7 +87,10 @@ class GalleryCard extends StatelessWidget {
                         style: GoogleFonts.dmSans(
                           fontSize: 9,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF8A7300),
+                          color: AppPaletteColors.of(context).resolve(
+                            const Color(0xFF8A7300),
+                            Theme.of(context).colorScheme.onSecondaryContainer,
+                          ),
                         ),
                       ),
                   ],

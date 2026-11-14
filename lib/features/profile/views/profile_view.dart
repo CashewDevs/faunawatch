@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -78,13 +79,13 @@ class ProfileView extends ConsumerWidget {
           end: Alignment.bottomCenter,
           stops: const [0.3, 1.0],
           colors: isDark
-              ? const [
-                  AppColors.darkProfileGradientStart,
-                  AppColors.darkProfileGradientEnd,
+              ? [
+                  AppPaletteColors.of(context).darkProfileGradientStart,
+                  AppPaletteColors.of(context).darkProfileGradientEnd,
                 ]
-              : const [
-                  AppColors.profileBackgroundGradientStart,
-                  AppColors.profileBackgroundGradientEnd,
+              : [
+                  AppPaletteColors.of(context).profileBackgroundGradientStart,
+                  AppPaletteColors.of(context).profileBackgroundGradientEnd,
                 ],
         ),
       ),
@@ -118,8 +119,14 @@ class ProfileView extends ConsumerWidget {
             // Button 1: Edit Profile
             ProfileActionCard(
               icon: Icons.person_outline_rounded,
-              iconBackgroundColor: const Color(0xFFE0F2FE),
-              iconColor: const Color(0xFF0284C7),
+              iconBackgroundColor: AppPaletteColors.of(context).resolve(
+                const Color(0xFFE0F2FE),
+                Theme.of(context).colorScheme.primaryContainer,
+              ),
+              iconColor: AppPaletteColors.of(context).resolve(
+                const Color(0xFF0284C7),
+                Theme.of(context).colorScheme.primary,
+              ),
               title: 'Edit Profile',
               subtitle: 'Update username, bio, avatar & banner',
               onTap: () => _openEditProfile(context),
@@ -128,8 +135,14 @@ class ProfileView extends ConsumerWidget {
             // Button 2: Change Theme
             ProfileActionCard(
               icon: Icons.palette_outlined,
-              iconBackgroundColor: const Color(0xFFFEF3C7),
-              iconColor: const Color(0xFFD97706),
+              iconBackgroundColor: AppPaletteColors.of(context).resolve(
+                const Color(0xFFFEF3C7),
+                Theme.of(context).colorScheme.primaryContainer,
+              ),
+              iconColor: AppPaletteColors.of(context).resolve(
+                const Color(0xFFD97706),
+                Theme.of(context).colorScheme.primary,
+              ),
               title: 'Change Theme',
               subtitle: 'Customize accent color palette',
               trailing: Container(
@@ -138,7 +151,10 @@ class ProfileView extends ConsumerWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: AppPaletteColors.of(context).resolve(
+                    const Color(0xFFF1F5F9),
+                    Theme.of(context).colorScheme.primaryContainer,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -149,7 +165,10 @@ class ProfileView extends ConsumerWidget {
                       style: GoogleFonts.dmSans(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF475569),
+                        color: AppPaletteColors.of(context).resolve(
+                          const Color(0xFF475569),
+                          Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -167,8 +186,14 @@ class ProfileView extends ConsumerWidget {
             // Button 3: Settings
             ProfileActionCard(
               icon: Icons.settings_outlined,
-              iconBackgroundColor: const Color(0xFFCCFBF1),
-              iconColor: const Color(0xFF0D9488),
+              iconBackgroundColor: AppPaletteColors.of(context).resolve(
+                const Color(0xFFCCFBF1),
+                Theme.of(context).colorScheme.primaryContainer,
+              ),
+              iconColor: AppPaletteColors.of(context).resolve(
+                const Color(0xFF0D9488),
+                Theme.of(context).colorScheme.primary,
+              ),
               title: 'Settings',
               subtitle: 'Dark / Light mode, AI keys, preferences & account',
               onTap: () => _openSettings(context),

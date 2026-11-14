@@ -423,6 +423,16 @@ to the private `report-images` bucket; `report_images` stores their Storage path
 and metadata. Apply `20261103152000_limit_report_images_to_5mb.sql` to enforce
 the same per-file limit in Storage. Existing objects are unaffected.
 
+Appearance palettes (Apollo, Forest, Ocean, Sunset, Arctic and Meadow) are selected
+in Profile > Change Theme. Apollo is the default and retains the original blue
+controls, yellow highlights and green Material accents in both brightness modes.
+`SettingsViewModel.activePaletteId` drives the shared light/dark theme providers
+in `lib/core/theme/`; `AppPaletteColors` preserves the original UI colors for
+Apollo and maps them to the generated scheme for other palettes. Light/Dark/System
+remains an independent choice. Both appearance choices currently live in memory
+for the app session; they are not saved to the profile or local storage.
+No database change or new dependency is required.
+
 Profile banners persist in `profiles.banner_asset` (preset asset identifier) or
 `profiles.banner_color` (unsigned 32-bit ARGB stored as bigint), with at most one
 set. Apply `20261028000100_add_profile_banner.sql` before running clients that

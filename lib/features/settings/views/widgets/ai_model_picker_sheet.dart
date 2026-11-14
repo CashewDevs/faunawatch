@@ -1,6 +1,6 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/services/ai/ai_vision_client.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 
@@ -76,9 +76,9 @@ class _ModelPickerState extends State<_ModelPicker> {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
 
     Widget check(String id) => id == widget.selected
-        ? const Icon(
+        ? Icon(
             Icons.check_circle_rounded,
-            color: AppColors.shellHeaderBlue,
+            color: AppPaletteColors.of(context).shellHeaderBlue,
           )
         : const SizedBox.shrink();
 

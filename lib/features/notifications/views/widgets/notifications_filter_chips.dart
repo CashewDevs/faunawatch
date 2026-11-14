@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
@@ -20,6 +21,7 @@ class NotificationsFilterChips extends StatelessWidget {
     return Row(
       children: [
         _buildChip(
+          context: context,
           isDark: isDark,
           label: 'All',
           filter: NotificationsFilter.all,
@@ -27,6 +29,7 @@ class NotificationsFilterChips extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         _buildChip(
+          context: context,
           isDark: isDark,
           label: 'Unread',
           filter: NotificationsFilter.unread,
@@ -37,6 +40,7 @@ class NotificationsFilterChips extends StatelessWidget {
   }
 
   Widget _buildChip({
+    required BuildContext context,
     required bool isDark,
     required String label,
     required NotificationsFilter filter,
@@ -54,11 +58,11 @@ class NotificationsFilterChips extends StatelessWidget {
           decoration: BoxDecoration(
             color: isDark
                 ? (isSelected
-                      ? AppColors.darkFilterSelected
+                      ? AppPaletteColors.of(context).darkFilterSelected
                       : AppColors.darkSurface)
                 : (isSelected
-                      ? AppColors.messagesFilterSelected
-                      : AppColors.messagesFilterUnselected),
+                      ? AppPaletteColors.of(context).messagesFilterSelected
+                      : AppPaletteColors.of(context).messagesFilterUnselected),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(

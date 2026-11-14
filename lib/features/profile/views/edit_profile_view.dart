@@ -1,8 +1,8 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
-import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
 import 'package:faunawatch/features/profile_customization/models/profile_setup_state.dart';
 
@@ -84,9 +84,13 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppPaletteColors.of(
+        context,
+      ).resolve(Colors.white, Theme.of(context).colorScheme.surface),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppPaletteColors.of(
+          context,
+        ).resolve(Colors.white, Theme.of(context).colorScheme.surface),
         elevation: 0,
         leading: Semantics(
           button: true,
@@ -94,9 +98,9 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
           child: GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             behavior: HitTestBehavior.opaque,
-            child: const Icon(
+            child: Icon(
               Icons.chevron_left_rounded,
-              color: AppColors.shellHeaderBlue,
+              color: AppPaletteColors.of(context).shellHeaderBlue,
               size: 32,
             ),
           ),
@@ -104,7 +108,7 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
         title: Text(
           'Edit Profile',
           style: GoogleFonts.dmSans(
-            color: AppColors.shellHeaderBlue,
+            color: AppPaletteColors.of(context).shellHeaderBlue,
             fontSize: 22,
             fontWeight: FontWeight.w800,
           ),
@@ -115,7 +119,7 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
             child: Text(
               'Save',
               style: GoogleFonts.dmSans(
-                color: AppColors.shellHeaderBlue,
+                color: AppPaletteColors.of(context).shellHeaderBlue,
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
               ),
@@ -161,7 +165,7 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isSelected
-                              ? AppColors.shellHeaderBlue
+                              ? AppPaletteColors.of(context).shellHeaderBlue
                               : Colors.transparent,
                           width: 3,
                         ),
@@ -205,7 +209,7 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
                       decoration: BoxDecoration(
                         border: Border.all(
                           color: _selectedBanner == banner
-                              ? AppColors.shellHeaderBlue
+                              ? AppPaletteColors.of(context).shellHeaderBlue
                               : Colors.transparent,
                           width: 3,
                         ),
@@ -238,7 +242,10 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
               style: GoogleFonts.dmSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF475569),
+                color: AppPaletteColors.of(context).resolve(
+                  const Color(0xFF475569),
+                  Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -248,7 +255,10 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
               decoration: InputDecoration(
                 hintText: 'Enter username',
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: AppPaletteColors.of(context).resolve(
+                  const Color(0xFFF8FAFC),
+                  Theme.of(context).colorScheme.surfaceContainerLow,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -259,8 +269,8 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                    color: AppColors.shellHeaderBlue,
+                  borderSide: BorderSide(
+                    color: AppPaletteColors.of(context).shellHeaderBlue,
                     width: 1.8,
                   ),
                 ),
@@ -274,7 +284,10 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
               style: GoogleFonts.dmSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF475569),
+                color: AppPaletteColors.of(context).resolve(
+                  const Color(0xFF475569),
+                  Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -285,7 +298,10 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
               decoration: InputDecoration(
                 hintText: 'Enter bio',
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: AppPaletteColors.of(context).resolve(
+                  const Color(0xFFF8FAFC),
+                  Theme.of(context).colorScheme.surfaceContainerLow,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -296,8 +312,8 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                    color: AppColors.shellHeaderBlue,
+                  borderSide: BorderSide(
+                    color: AppPaletteColors.of(context).shellHeaderBlue,
                     width: 1.8,
                   ),
                 ),
@@ -327,7 +343,9 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
           color: Color(colorValue),
           shape: BoxShape.circle,
           border: Border.all(
-            color: isSelected ? AppColors.shellHeaderBlue : Colors.transparent,
+            color: isSelected
+                ? AppPaletteColors.of(context).shellHeaderBlue
+                : Colors.transparent,
             width: 3,
           ),
         ),

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/profile/models/settings_state.dart';
+import 'package:faunawatch/features/profile/models/theme_palette.dart';
 import 'package:faunawatch/features/profile/services/profile_storage_service.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
@@ -15,6 +16,9 @@ class SettingsViewModel extends Notifier<SettingsState> {
 
   /// Sets the active palette ID for the "Change Theme" selection.
   void setPalette(String paletteId) {
+    if (!AppThemePalette.presets.any((palette) => palette.id == paletteId)) {
+      return;
+    }
     state = state.copyWith(activePaletteId: paletteId);
   }
 
