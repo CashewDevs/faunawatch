@@ -129,7 +129,7 @@ What to do with the boolean:
 
 - **`true`:** if you have a fresh FaunaLens result for the new photo, save it **after** resubmit, now that the post is `pending` again. Owners may only insert `ai_analyses` while the post is pending (`ai_analyses_insert_own_pending`, `20261027000700_harden_ai_analyses.sql:31-43`).
   - Insert `analysis.toAnalysisRow(reportId)` (`lib/features/fauna_lens/models/ai_identification.dart:170`), exactly as `create_post_service.dart:92-97` does.
-  - Then update `reports.ai_status = 'completed'`, which is allowed while pending. Use `.select('id')`: it returns 0 rows if an admin decided the post in between, and an empty result can be ignored.
+  - **Don't write `reports.ai_status`.** The database sets it to `completed` as soon as the completed analysis is inserted (`20261114041037_derive_report_ai_status.sql`).
   - Rows are write-once and there may be only one `completed` analysis per report (`20261103153902_one_completed_ai_analysis_per_report.sql:16-18`).
   - If the AI insert fails, the post simply stays `pending` with `ai_status = 'unavailable'`. Don't undo the resubmit.
 - **`false`:** the existing analysis (if any) is kept. Don't insert a new one; if the post already has a completed analysis the insert fails (one-completed rule).
@@ -149,7 +149,7 @@ Suggested structure (adjust to fit). Chain: **Model → Service → ViewModel �
 - `ChangeRequest`: the `my_report_change_requests` row.
   - `isOpen` = `resolution == null`.
   - `fields` mapped to an enum (`photos`, `speciesDescription`, `location`, `category`), dropping unknown values.
-- `ReportEdit` / reuse of `PostDraft` for the edited values. `PostDraft.toRow` (`lib/features/create_post/models/post_draft.dart:53-72`) is for **insert**: it sets `status` and `ai_status`. Don't send those in the edit update; send only the edited columns.
+- `ReportEdit` / reuse of `PostDraft` for the edited values. `PostDraft.toRow` (`lib/features/create_post/models/post_draft.dart:53-72`) is for **insert**: it sets `status` and `ai_status`. Don't send those in the edit update; send only the edited columns. (An `ai_status` that disagrees with the post's analyses is refused with `FW409 ai_status_mismatch`.)
 
 ### 2. Services (Supabase only here)
 
@@ -161,7 +161,7 @@ Suggested structure (adjust to fit). Chain: **Model → Service → ViewModel �
   - `updateDetails(reportId, edit)`: update the report row guarded with `.eq('status', 'changes_requested').select('id')`; empty means not waiting for changes any more (stop and reload).
   - `replacePhoto(reportId, newPhoto)`: see "Replacing the photo".
   - `resubmit(reportId)`: returns `photosChanged`.
-  - `saveAnalysis(reportId, analysis)`: insert `ai_analyses`, then set `ai_status = 'completed'`.
+  - `saveAnalysis(reportId, analysis)`: insert `ai_analyses` only. The database then sets `ai_status = 'completed'` itself.
 - Map `PostgrestException.code` to a typed error (table below). Never put keys, tokens or ids in messages.
 
 #### Replacing the photo
@@ -205,6 +205,7 @@ PostgREST returns function errors as HTTP 400 with the SQLSTATE in `error.code`.
 | `FW404` | `report_not_found` | Post deleted | "This post no longer exists." |
 | `FW404` | `change_request_not_found` | Inconsistent state (shouldn't happen) | "Something went wrong. Pull to refresh." |
 | `FW409` | `report_not_awaiting_changes` | Already resubmitted, or an admin withdrew the request | "This post is no longer waiting for changes. It's been refreshed." **Reload it.** |
+| `FW409` | `ai_status_mismatch` | The app wrote `reports.ai_status` and it disagrees with the post's analyses (app bug: the app shouldn't write it) | Generic error |
 | `22023` | `Choose a report` | `p_report_id` was null (app bug) | Generic error |
 | `42501` (insert/storage) | `new row violates row-level security policy`: Postgres `42501` for `report_images`/EXIF; a Storage error (403, row-level security) for files | User is suspended, or the post was deleted | "This post can't be edited any more." Reload. |
 | update with 0 rows | (none) | The guarded update (`.eq('status', 'changes_requested')`) found nothing: request withdrawn or already resubmitted, user suspended, or post deleted | Same as above |
