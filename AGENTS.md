@@ -348,8 +348,15 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   (the latest 100; no paging yet).
 - The community map's report pins open the matching post in the For You tab
   (`FeedViewModel.openReport`, fetching it through `community_feed(p_report_id)`
-  when it is not loaded). The warning demo's "Sample incident" pin is not a
-  report: it keeps a map-local preview (`MapPostPreview.demo`) with no feed link.
+  when it is not loaded). The map shows only real approved reports at the
+  approximate coordinates returned by `community_reports()`. It fits the first
+  nonempty load into view; later refreshes preserve the current camera. There
+  are no sample pins, simulated positions, or demo warning zones.
+  Pin dialogs load the first available post photo on demand through
+  `MapPostThumbnailViewModel` and the existing `FeedService.fetchPost` signed-URL
+  flow. URLs are discarded when the dialog closes and reloaded on account
+  changes. Previews stay anonymous and show a placeholder when no photo is
+  attached or available; a failed photo load can be retried.
 
 Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
 View). A category and valid observation coordinates are required; photos and

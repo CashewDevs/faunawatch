@@ -7,8 +7,6 @@ import 'package:faunawatch/features/community_map/viewmodels/community_map_viewm
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_guide_sheet.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_purpose_card.dart';
-import 'package:faunawatch/features/community_map/views/widgets/map_warning_demo_card.dart';
-import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 
 /// Interactive Mapbox map for approximate community wildlife sightings.
 class CommunityMapView extends ConsumerStatefulWidget {
@@ -21,7 +19,6 @@ class CommunityMapView extends ConsumerStatefulWidget {
 class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   Brightness? _lastBrightness;
   bool _showPurposeCard = true;
-  bool _showDemoControls = true;
   bool _postDialogOpen = false;
 
   Future<void> _openPost() async {
@@ -33,13 +30,10 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
       context: context,
       builder: (dialogContext) => MapPostDialog(
         preview: preview,
-        // The demo pin is not a report, so there is nothing to open in the feed.
-        onSeeMore: preview.isDemo
-            ? null
-            : () {
-                Navigator.pop(dialogContext);
-                viewModel.seeMore();
-              },
+        onSeeMore: () {
+          Navigator.pop(dialogContext);
+          viewModel.seeMore();
+        },
       ),
     );
     _postDialogOpen = false;
@@ -63,10 +57,8 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   // The service changes only the pitch for 2D/3D, preserving the user's
   // current center, zoom, and bearing.
   late final CameraViewportState _initialViewport = CameraViewportState(
-    center: Point(
-      coordinates: Position(WarningDemo.longitude, WarningDemo.latitude),
-    ),
-    zoom: WarningDemo.zoom,
+    center: Point(coordinates: Position(122, 12)),
+    zoom: 5,
     pitch: 55,
   );
 
@@ -159,6 +151,8 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                           ? 'Loading reports…'
                           : state.reportsHaveError
                           ? 'Could not load reports · Retry'
+                          : state.reports.isEmpty
+                          ? 'No approved reports yet · Refresh'
                           : '${state.reports.length} approved reports · Refresh',
                     ),
                     onPressed: state.isLoadingReports
@@ -169,47 +163,26 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   ),
                 ),
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SafeArea(
-                  top: false,
-                  // Leave the native map attribution visible below the card.
-                  minimum: const EdgeInsets.fromLTRB(16, 0, 16, 40),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: 420,
-                      maxHeight: constraints.maxHeight * 0.46,
+              if (_showPurposeCard)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: SafeArea(
+                    top: false,
+                    // Leave the native map attribution visible below the card.
+                    minimum: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: 420,
+                        maxHeight: constraints.maxHeight * 0.46,
+                      ),
+                      child: MapPurposeCard(
+                        onLearnMore: _openMapGuide,
+                        onDismiss: () =>
+                            setState(() => _showPurposeCard = false),
+                      ),
                     ),
-                    child: _showPurposeCard
-                        ? MapPurposeCard(
-                            onLearnMore: _openMapGuide,
-                            onDismiss: () =>
-                                setState(() => _showPurposeCard = false),
-                          )
-                        : _showDemoControls
-                        ? MapWarningDemoCard(
-                            level: state.demoLevel,
-                            hasError: state.demoHasError,
-                            onSelect: ref
-                                .read(communityMapViewModelProvider.notifier)
-                                .selectDemoLevel,
-                            onRecenter: ref
-                                .read(communityMapViewModelProvider.notifier)
-                                .recenterDemo,
-                            onDismiss: () =>
-                                setState(() => _showDemoControls = false),
-                          )
-                        : ActionChip(
-                            avatar: const Icon(Icons.radar, size: 18),
-                            label: Text(
-                              'Warning demo · ${state.demoLevel.label}',
-                            ),
-                            onPressed: () =>
-                                setState(() => _showDemoControls = true),
-                          ),
                   ),
                 ),
-              ),
             ],
           );
         },
@@ -247,7 +220,7 @@ class _MapTitleCard extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: onOpenPreview,
-                  tooltip: 'Show map preview',
+                  tooltip: 'About this map',
                   icon: const Icon(Icons.info_outline),
                 ),
               ],

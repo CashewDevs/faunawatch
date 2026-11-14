@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Explains approved reports and the separate warning demonstration.
+/// Explains the approved reports shown on the community map.
 class MapPurposeCard extends StatelessWidget {
   const MapPurposeCard({
     super.key,
@@ -32,7 +32,7 @@ class MapPurposeCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'MAP PREVIEW',
+                    'ABOUT THIS MAP',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colors.primary,
                       fontWeight: FontWeight.w800,
@@ -42,7 +42,7 @@ class MapPurposeCard extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: onDismiss,
-                  tooltip: 'Dismiss map preview',
+                  tooltip: 'Dismiss map information',
                   icon: const Icon(Icons.close),
                 ),
               ],
@@ -67,8 +67,9 @@ class MapPurposeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Blue report dots show approved posts at approximate locations. Tap one for details. '
-                      'The Cebu City red pin, warning zones, and simulated position are a separate demo. GPS warnings are still in development.',
+                      'FaunaWatch logo pins show approved posts at approximate locations. '
+                      'Tap one for details, then open the full post in the feed. '
+                      'Use Refresh to load newly approved reports.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),
