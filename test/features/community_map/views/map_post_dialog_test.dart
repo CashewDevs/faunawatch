@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:flutter/material.dart';
@@ -23,18 +24,34 @@ const _preview = MapPostPreview(
 );
 
 void main() {
-  Future<void> pumpDialog(WidgetTester tester, FeedService service) =>
-      tester.pumpWidget(
-        ProviderScope(
-          overrides: [feedServiceProvider.overrideWithValue(service)],
-          child: MaterialApp(
-            theme: ThemeData.dark(useMaterial3: true),
-            home: Scaffold(
-              body: MapPostDialog(preview: _preview, onSeeMore: () {}),
+  Future<void> pumpDialog(
+    WidgetTester tester,
+    FeedService service, {
+    bool reducedMotion = false,
+  }) => tester.pumpWidget(
+    ProviderScope(
+      overrides: [feedServiceProvider.overrideWithValue(service)],
+      child: MaterialApp(
+        theme: ThemeData.dark(useMaterial3: true),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(disableAnimations: reducedMotion),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: MapPostFlipTransition(
+            animation: const AlwaysStoppedAnimation(1),
+            builder: (onReady) => MapPostDialog(
+              preview: _preview,
+              onSeeMore: () {},
+              onThumbnailReady: onReady,
             ),
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   testWidgets('shows the first post photo above its details', (tester) async {
     final asset = await rootBundle.load(AppAssets.avatarPanda);
@@ -53,7 +70,7 @@ void main() {
       await tester.runAsync(() async {
         await precacheImage(
           const NetworkImage(_url),
-          tester.element(find.byType(MapPostDialog)),
+          tester.element(find.byType(MapPostDialog, skipOffstage: false)),
         );
       });
       await tester.pumpAndSettle();
@@ -82,7 +99,8 @@ void main() {
     await pumpDialog(tester, service);
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('Bird near the road.'), findsOneWidget);
+    expect(find.text('Loading post preview…'), findsOneWidget);
+    expect(find.text('Bird near the road.'), findsNothing);
     service.pending!.complete(testPost('r1'));
     await tester.pumpAndSettle();
     expect(find.text('No photo attached'), findsOneWidget);
@@ -106,6 +124,65 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'reduced motion still waits for loading and reveals without a flip',
+    (tester) async {
+      final service = _Feed()..pending = Completer<FeedPost?>();
+      await pumpDialog(tester, service, reducedMotion: true);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Loading post preview…'), findsOneWidget);
+      expect(find.text('Bird near the road.'), findsNothing);
+      service.pending!.complete(testPost('r1'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Bird near the road.'), findsOneWidget);
+      expect(find.text('Loading post preview…'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('loading can finish safely after dismissing the preview', (
+    tester,
+  ) async {
+    final service = _Feed()..pending = Completer<FeedPost?>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [feedServiceProvider.overrideWithValue(service)],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => MapPostFlipTransition(
+                    animation: const AlwaysStoppedAnimation(1),
+                    builder: (onReady) => MapPostDialog(
+                      preview: _preview,
+                      onSeeMore: () {},
+                      onThumbnailReady: onReady,
+                    ),
+                  ),
+                ),
+                child: const Text('Open preview'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open preview'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Loading post preview…'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close post preview'));
+    await tester.pumpAndSettle();
+    service.pending!.complete(testPost('r1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapPostDialog), findsNothing);
+    expect(find.text('Open preview'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a failed image download keeps the preview usable', (
     tester,
   ) async {
@@ -122,6 +199,52 @@ void main() {
     expect(find.text('Retry photo'), findsOneWidget);
     expect(find.text('See more in feed'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('waits for downloaded image pixels before flipping to the post', (
+    tester,
+  ) async {
+    final asset = await rootBundle.load(AppAssets.avatarPanda);
+    final download = Completer<void>();
+    debugNetworkImageHttpClientProvider = () =>
+        _DelayedImageClient(asset.buffer.asUint8List(), download.future);
+    try {
+      await pumpDialog(
+        tester,
+        FakeFeedService(
+          posts: [
+            testPost('r1', photoUrls: [_url]),
+          ],
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Loading post preview…'), findsOneWidget);
+      expect(find.text('Bird near the road.'), findsNothing);
+      expect(find.byType(Image, skipOffstage: false), findsOneWidget);
+
+      await tester.runAsync(() async {
+        download.complete();
+        await precacheImage(
+          const NetworkImage(_url),
+          tester.element(find.byType(MapPostDialog, skipOffstage: false)),
+        );
+      });
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Loading post preview…'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(find.text('Bird near the road.'), findsOneWidget);
+      expect(tester.widget<RawImage>(find.byType(RawImage)).image, isNotNull);
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugNetworkImageHttpClientProvider = null;
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    }
   });
 }
 
@@ -144,6 +267,17 @@ class _ImageClient implements HttpClient {
   Future<HttpClientRequest> getUrl(Uri url) async => _ImageRequest(bytes);
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _DelayedImageClient extends _ImageClient {
+  _DelayedImageClient(super.bytes, this.download);
+  final Future<void> download;
+
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) async {
+    await download;
+    return super.getUrl(url);
+  }
 }
 
 class _ImageRequest implements HttpClientRequest {

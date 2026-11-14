@@ -34,16 +34,21 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
           ? Duration.zero
           : const Duration(milliseconds: 420),
       transitionBuilder: (context, animation, secondaryAnimation, child) =>
-          MapPostFlipTransition(animation: animation, child: child),
-      pageBuilder: (dialogContext, animation, secondaryAnimation) => SafeArea(
-        child: MapPostDialog(
-          preview: preview,
-          onSeeMore: () {
-            Navigator.pop(dialogContext);
-            viewModel.seeMore();
-          },
-        ),
-      ),
+          child,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) =>
+          MapPostFlipTransition(
+            animation: animation,
+            builder: (onThumbnailReady) => SafeArea(
+              child: MapPostDialog(
+                preview: preview,
+                onThumbnailReady: onThumbnailReady,
+                onSeeMore: () {
+                  Navigator.pop(dialogContext);
+                  viewModel.seeMore();
+                },
+              ),
+            ),
+          ),
     );
     _postDialogOpen = false;
     if (mounted) viewModel.dismissPost();

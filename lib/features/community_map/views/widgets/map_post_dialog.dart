@@ -9,14 +9,27 @@ class MapPostDialog extends ConsumerWidget {
     super.key,
     required this.preview,
     required this.onSeeMore,
+    this.onThumbnailReady,
   });
   final MapPostPreview preview;
   final VoidCallback onSeeMore;
+  final VoidCallback? onThumbnailReady;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final thumbnail = ref.watch(mapPostThumbnailViewModelProvider(preview.id));
+    void thumbnailReady() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) onThumbnailReady?.call();
+      });
+    }
+
+    // A URL alone is not ready: wait until Image has decoded its first frame.
+    if (!thumbnail.isLoading &&
+        (thumbnail.hasError || thumbnail.valueOrNull == null)) {
+      thumbnailReady();
+    }
     void retryThumbnail() => ref
         .read(mapPostThumbnailViewModelProvider(preview.id).notifier)
         .retry();
@@ -55,23 +68,24 @@ class MapPostDialog extends ConsumerWidget {
                                       height: double.infinity,
                                       semanticLabel: 'Post thumbnail',
                                       frameBuilder:
-                                          (
-                                            context,
-                                            child,
-                                            frame,
-                                            synchronous,
-                                          ) => synchronous || frame != null
-                                          ? child
-                                          : const Center(
+                                          (context, child, frame, synchronous) {
+                                            if (synchronous || frame != null) {
+                                              thumbnailReady();
+                                              return child;
+                                            }
+                                            return const Center(
                                               child:
                                                   CircularProgressIndicator(),
-                                            ),
-                                      errorBuilder: (context, error, stack) =>
-                                          _ThumbnailPlaceholder(
-                                            message: 'Photo unavailable',
-                                            icon: Icons.broken_image_outlined,
-                                            onRetry: retryThumbnail,
-                                          ),
+                                            );
+                                          },
+                                      errorBuilder: (context, error, stack) {
+                                        thumbnailReady();
+                                        return _ThumbnailPlaceholder(
+                                          message: 'Photo unavailable',
+                                          icon: Icons.broken_image_outlined,
+                                          onRetry: retryThumbnail,
+                                        );
+                                      },
                                     ),
                               error: (error, stack) => _ThumbnailPlaceholder(
                                 message: 'Could not load photo',
