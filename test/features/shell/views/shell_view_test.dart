@@ -118,7 +118,7 @@ void main() {
       await tester.tap(find.text('Map'));
       await tester.pumpAndSettle();
       expect(find.byType(CommunityMapView), findsOneWidget);
-      expect(find.text('Community map'), findsOneWidget);
+      expect(find.byTooltip('About this map'), findsOneWidget);
 
       await tester.tap(find.text('Chats'));
       await tester.pumpAndSettle();
@@ -142,7 +142,7 @@ void main() {
       await tester.tap(find.text('Feed'));
       await tester.pumpAndSettle();
       expect(find.byType(FeedView), findsOneWidget);
-      expect(find.text('Community map'), findsOneWidget);
+      expect(find.byTooltip('About this map'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

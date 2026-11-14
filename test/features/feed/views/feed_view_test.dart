@@ -648,7 +648,7 @@ void main() {
       await tester.tap(find.text('Map'));
       await tester.pumpAndSettle();
       expect(find.byType(CommunityMapView), findsOneWidget);
-      expect(find.text('Community map'), findsOneWidget);
+      expect(find.byTooltip('About this map'), findsOneWidget);
       final state = tester.state(find.byType(CommunityMapView));
 
       await tester.tap(find.text('For You'));

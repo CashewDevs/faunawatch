@@ -1,6 +1,7 @@
 // The SDK's controller constructor accepts this test-only platform contract.
 // ignore_for_file: depend_on_referenced_packages, invalid_use_of_internal_member
 import 'dart:convert';
+import 'package:flutter/material.dart' show Brightness;
 import 'package:faunawatch/features/create_post/models/post_location.dart';
 import 'package:faunawatch/features/create_post/services/location_picker_map_service.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
@@ -24,6 +25,33 @@ void main() {
     service.detach();
     expect(platform.interactions, isEmpty);
   });
+
+  test(
+    'both maps use matching day and night lighting without picker camera changes',
+    () async {
+      final picker = MapboxLocationPickerMapService();
+      picker.attach(MapboxMap(platform), onTap: (_) {});
+      for (final brightness in [Brightness.dark, Brightness.light]) {
+        await service.applyAppearance(
+          brightness: brightness,
+          is3dEnabled: true,
+        );
+        final communityPreset =
+            platform.style.importSettings['basemap/lightPreset'];
+        final camerasBefore = platform.cameras.length;
+        await picker.applyAppearance(isDarkMode: brightness == Brightness.dark);
+        expect(
+          platform.style.importSettings['basemap/lightPreset'],
+          communityPreset,
+        );
+        expect(
+          communityPreset,
+          brightness == Brightness.dark ? 'night' : 'day',
+        );
+        expect(platform.cameras.length, camerasBefore);
+      }
+    },
+  );
 
   test('frames actual report coordinates only when requested', () async {
     const reports = [
@@ -118,14 +146,64 @@ void main() {
     () async {
       final picker = MapboxLocationPickerMapService();
       picker.attach(MapboxMap(platform), onTap: (_) {});
-      await picker.configure3d();
+      await picker.initializeCamera(null);
       expect(platform.style.importSettings['basemap/show3dObjects'], true);
       expect(platform.cameras.single.pitch, 55);
+      expect(platform.cameras.single.center!.coordinates.lng, 122);
+      expect(platform.cameras.single.center!.coordinates.lat, 12);
+      expect(platform.cameras.single.zoom, 5);
       await picker.focus(const PostLocation(latitude: 14.6, longitude: 121));
       expect(platform.cameras.last.center!.coordinates.lat, 14.6);
       expect(platform.cameras.last.center!.coordinates.lng, 121);
       expect(platform.cameras.last.pitch, 55);
       expect(platform.style.sources, isEmpty);
+    },
+  );
+
+  test(
+    'picker explicitly initializes existing and invalid opening locations',
+    () async {
+      final picker = MapboxLocationPickerMapService();
+      picker.attach(MapboxMap(platform), onTap: (_) {});
+      await picker.initializeCamera(
+        const PostLocation(latitude: 10.3, longitude: 123.9),
+      );
+      expect(platform.cameras.single.center!.coordinates.lng, 123.9);
+      expect(platform.cameras.single.center!.coordinates.lat, 10.3);
+      expect(platform.cameras.single.zoom, 15);
+      await picker.initializeCamera(
+        const PostLocation(latitude: 91, longitude: 123),
+      );
+      expect(platform.cameras.last.center!.coordinates.lng, 122);
+      expect(platform.cameras.last.center!.coordinates.lat, 12);
+      expect(platform.cameras.last.zoom, 5);
+      expect(platform.style.sources, isEmpty);
+    },
+  );
+
+  test(
+    'location picker uses the same blue logo pin as community reports',
+    () async {
+      await service.showReports([]);
+      final picker = MapboxLocationPickerMapService();
+      picker.attach(MapboxMap(platform), onTap: (_) {});
+      await picker.showLocation(
+        const PostLocation(latitude: 10.3, longitude: 123.9),
+      );
+      final reportPin =
+          platform.style.renderedImages['community-report-logo-pin']!
+              as StyleImageRgba;
+      final pickerPin =
+          platform.style.renderedImages['observation-location-pin']!
+              as StyleImageRgba;
+      expect(pickerPin.width, reportPin.width);
+      expect(pickerPin.height, reportPin.height);
+      expect(pickerPin.pixels, reportPin.pixels);
+      expect(platform.style.imageScales['observation-location-pin'], 2);
+      final layer = platform.style.layers['observation-location-pin']!;
+      expect(layer['layout']['icon-anchor'], 'bottom');
+      expect(layer['layout']['icon-ignore-placement'], isTrue);
+      expect(layer['paint']['icon-emissive-strength'], 1);
     },
   );
 
@@ -160,6 +238,7 @@ void main() {
       expect(platform.style.sources, hasLength(1));
       expect(platform.style.layers, hasLength(1));
       expect(platform.cameras, hasLength(1));
+      expect(platform.style.imageAddCount, 1);
       picker.detach();
       expect(
         platform.interactions.containsKey('pick-observation-location'),

@@ -1,37 +1,60 @@
 import 'dart:ui' as ui;
 
+import 'package:faunawatch/core/constants/app_assets.dart';
+import 'package:flutter/services.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
-/// Renders the shared blue location pin for Mapbox style images at 2x scale.
+/// Renders the shared FaunaWatch logo pin with a blue background at 2x scale.
 Future<StyleImage> createMapPinImage() async {
-  final recorder = ui.PictureRecorder();
-  final canvas = ui.Canvas(recorder);
-  final path = ui.Path()
-    ..moveTo(32, 84)
-    ..cubicTo(25, 70, 4, 43, 4, 30)
-    ..cubicTo(4, -6, 60, -6, 60, 30)
-    ..cubicTo(60, 43, 39, 70, 32, 84)
-    ..close();
-  canvas.drawPath(path, ui.Paint()..color = const ui.Color(0xFF2563EB));
-  canvas.drawCircle(
-    const ui.Offset(32, 29),
-    11,
-    ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+  final asset = await rootBundle.load(AppAssets.appLogo);
+  final codec = await ui.instantiateImageCodec(
+    asset.buffer.asUint8List(asset.offsetInBytes, asset.lengthInBytes),
   );
-  final picture = recorder.endRecording();
   try {
-    final image = await picture.toImage(64, 88);
+    final logo = (await codec.getNextFrame()).image;
     try {
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-      return StyleImage.rgba(
-        width: 64,
-        height: 88,
-        pixels: bytes!.buffer.asUint8List(),
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+      final blue = ui.Paint()..color = const ui.Color(0xFF2563EB);
+      final pointer = ui.Path()
+        ..moveTo(38, 85)
+        ..lineTo(52, 128)
+        ..lineTo(66, 85)
+        ..close();
+      canvas.drawPath(pointer, blue);
+      canvas.drawCircle(const ui.Offset(52, 49), 46, blue);
+      canvas.drawImageRect(
+        logo,
+        ui.Rect.fromLTWH(0, 0, logo.width.toDouble(), logo.height.toDouble()),
+        ui.Rect.fromCenter(
+          center: const ui.Offset(52, 49),
+          width: 68,
+          height: 68 * logo.height / logo.width,
+        ),
+        ui.Paint()..filterQuality = ui.FilterQuality.high,
       );
+      final picture = recorder.endRecording();
+      try {
+        final image = await picture.toImage(104, 128);
+        try {
+          final bytes = await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          return StyleImage.rgba(
+            width: 104,
+            height: 128,
+            pixels: bytes!.buffer.asUint8List(),
+          );
+        } finally {
+          image.dispose();
+        }
+      } finally {
+        picture.dispose();
+      }
     } finally {
-      image.dispose();
+      logo.dispose();
     }
   } finally {
-    picture.dispose();
+    codec.dispose();
   }
 }

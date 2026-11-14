@@ -44,6 +44,42 @@ void main() {
   tearDown(() => container.dispose());
 
   test(
+    'applies the active theme once ready and reapplies it on style reload',
+    () async {
+      final vm = container.read(provider.notifier);
+      await vm.setDarkMode(true);
+      expect(map.appearanceCalls, isEmpty);
+      vm.onMapCreated(MapboxMap(FakePickerPlatform()));
+      await vm.onStyleLoaded();
+      expect(map.appearanceCalls, [true]);
+      await vm.onStyleLoaded();
+      expect(map.appearanceCalls, [true, true]);
+      await vm.setDarkMode(true);
+      expect(map.appearanceCalls, [true, true]);
+      expect(container.read(provider).isDarkMode, isTrue);
+    },
+  );
+
+  test('theme changes preserve the pin, camera and GPS warning', () async {
+    final vm = container.read(provider.notifier);
+    vm.onMapCreated(MapboxMap(FakePickerPlatform()));
+    await vm.onStyleLoaded();
+    vm.selectPin(testPin);
+    await pumpEventQueue();
+    await vm.locate();
+    final warning = container.read(provider).error;
+    expect(warning, isNotNull);
+    await vm.setDarkMode(true);
+    await vm.setDarkMode(false);
+    expect(map.appearanceCalls, [false, true, false]);
+    expect(map.initialCameraLocations, [null]);
+    expect(map.focuses, isEmpty);
+    expect(map.renders.last.recenter, isFalse);
+    expect(vm.confirm(), testPin);
+    expect(container.read(provider).error, warning);
+  });
+
+  test(
     'startup GPS centers the 3D map without choosing an observation pin',
     () async {
       locations.location = const GeoCoordinates(latitude: 14.6, longitude: 121);
@@ -52,7 +88,7 @@ void main() {
       expect(map.focuses, isEmpty);
       vm.onMapCreated(MapboxMap(FakePickerPlatform()));
       await vm.onStyleLoaded();
-      expect(map.configure3dCalls, 1);
+      expect(map.initialCameraLocations, [null]);
       expect(map.focuses.single.latitude, 14.6);
       expect(map.focuses.single.longitude, 121);
       expect(vm.confirm(), isNull);
@@ -78,13 +114,78 @@ void main() {
     vm.onMapCreated(MapboxMap(FakePickerPlatform()));
     await vm.onStyleLoaded();
     await vm.initialize();
-    expect(map.configure3dCalls, 1);
+    expect(map.initialCameraLocations, [null]);
     expect(map.focuses, isEmpty);
     expect(container.read(provider).isLocating, isFalse);
     expect(container.read(provider).error, contains('tap the map'));
     vm.selectPin(testPin);
     expect(vm.confirm(), testPin);
   });
+
+  for (final throws in [false, true]) {
+    test(
+      'map camera initializes before GPS ${throws ? 'throws' : 'returns no location'}',
+      () async {
+        final pending = Completer<GeoCoordinates?>();
+        final local = ProviderContainer(
+          overrides: [
+            locationSearchServiceProvider.overrideWithValue(search),
+            locationPickerMapServiceProvider.overrideWithValue(map),
+            photoLocationServiceProvider.overrideWithValue(
+              _PendingLocations(pending.future),
+            ),
+          ],
+        );
+        addTearDown(local.dispose);
+        local.listen(provider, (_, _) {});
+        final vm = local.read(provider.notifier);
+        final startup = vm.initialize();
+        // Both native callback orders must configure the map without waiting for GPS.
+        await vm.onStyleLoaded();
+        expect(map.initialCameraLocations, isEmpty);
+        vm.onMapCreated(MapboxMap(FakePickerPlatform()));
+        await pumpEventQueue();
+        expect(map.initialCameraLocations, [null]);
+        expect(local.read(provider).isLocating, isTrue);
+        expect(vm.confirm(), isNull);
+        if (throws) {
+          pending.completeError(StateError('location unavailable'));
+        } else {
+          pending.complete(null);
+        }
+        await startup;
+        expect(local.read(provider).isLocating, isFalse);
+        expect(local.read(provider).mapHasError, isFalse);
+        expect(map.initialCameraLocations, [null]);
+        vm.updateQuery('Cebu');
+        await vm.search();
+        vm.selectResult(testPlace);
+        await pumpEventQueue();
+        expect(map.renders.last.location, testPlace);
+        expect(map.renders.last.recenter, isTrue);
+        map.onTap!(testPin);
+        await pumpEventQueue();
+        expect(vm.confirm(), testPin);
+        expect(map.renders.last.location, testPin);
+      },
+    );
+  }
+
+  test(
+    'GPS denial opens on the existing pin without selecting the fallback',
+    () async {
+      final initial = locationPickerViewModelProvider(testPlace);
+      container.listen(initial, (_, _) {});
+      final vm = container.read(initial.notifier);
+      await vm.initialize();
+      vm.onMapCreated(MapboxMap(FakePickerPlatform()));
+      await vm.onStyleLoaded();
+      expect(map.initialCameraLocations, [testPlace]);
+      expect(map.focuses, isEmpty);
+      expect(map.renders.last.location, testPlace);
+      expect(vm.confirm(), testPlace);
+    },
+  );
 
   test('late startup GPS cannot replace a user-selected location', () async {
     final pending = Completer<GeoCoordinates?>();

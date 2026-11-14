@@ -11,7 +11,8 @@ class LocationPickerViewModel
     extends AutoDisposeFamilyNotifier<LocationPickerState, PostLocation?> {
   bool _disposed = false, _styleReady = false, _attached = false;
   bool _pendingRecenter = false;
-  bool _initialized = false, _needs3d = true;
+  bool _initialized = false, _needsInitialCamera = true;
+  bool _needsAppearance = true;
   PostLocation? _pendingFocus;
   int _searchRequest = 0, _locationRequest = 0;
   Future<void> _mapQueue = Future.value();
@@ -41,7 +42,15 @@ class LocationPickerViewModel
 
   Future<void> onStyleLoaded() async {
     _styleReady = true;
-    _needs3d = true;
+    _needsInitialCamera = true;
+    _needsAppearance = true;
+    await _render();
+  }
+
+  Future<void> setDarkMode(bool isDarkMode) async {
+    if (_disposed || state.isDarkMode == isDarkMode) return;
+    state = state.copyWith(isDarkMode: isDarkMode, error: state.error);
+    _needsAppearance = true;
     await _render();
   }
 
@@ -158,9 +167,15 @@ class LocationPickerViewModel
         return;
       }
       try {
-        if (_needs3d) {
-          await _map.configure3d();
-          _needs3d = false;
+        if (_needsInitialCamera) {
+          await _map.initializeCamera(state.selection);
+          _needsInitialCamera = false;
+        }
+        if (_disposed) return;
+        if (_needsAppearance) {
+          final isDarkMode = state.isDarkMode;
+          await _map.applyAppearance(isDarkMode: isDarkMode);
+          _needsAppearance = state.isDarkMode != isDarkMode;
         }
         if (_disposed) return;
         final focus = _pendingFocus;

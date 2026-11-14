@@ -7,11 +7,99 @@ import 'package:faunawatch/features/create_post/services/location_picker_map_ser
 import 'package:faunawatch/features/create_post/views/widgets/location_picker_canvas.dart';
 import 'package:faunawatch/features/create_post/views/screens/location_picker_screen.dart';
 import 'package:faunawatch/features/create_post/viewmodels/location_picker_viewmodel.dart';
+import 'package:faunawatch/features/create_post/models/post_location.dart';
 import 'location_picker_fakes.dart';
 import 'create_post_viewmodel_test.dart' show FakeLocations;
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
 
 void main() {
+  testWidgets(
+    'picker follows light and dark app themes without moving its pin',
+    (tester) async {
+      final mode = ValueNotifier(ThemeMode.dark);
+      addTearDown(mode.dispose);
+      final map = FakePickerMap();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            locationSearchServiceProvider.overrideWithValue(FakePlaceSearch()),
+            photoLocationServiceProvider.overrideWithValue(FakeLocations()),
+            locationPickerMapServiceProvider.overrideWithValue(map),
+            locationPickerCanvasBuilderProvider.overrideWithValue(
+              FakePickerCanvas(map),
+            ),
+          ],
+          child: ValueListenableBuilder<ThemeMode>(
+            valueListenable: mode,
+            builder: (context, themeMode, child) => MaterialApp(
+              theme: ThemeData.light(useMaterial3: true),
+              darkTheme: ThemeData.dark(useMaterial3: true),
+              themeMode: themeMode,
+              home: const LocationPickerScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(map.appearanceCalls.last, isTrue);
+      await tester.tap(find.text('Drop test pin'));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(LocationPickerScreen)),
+      );
+      mode.value = ThemeMode.light;
+      await tester.pumpAndSettle();
+      expect(map.appearanceCalls.last, isFalse);
+      mode.value = ThemeMode.dark;
+      await tester.pumpAndSettle();
+      expect(map.appearanceCalls.last, isTrue);
+      expect(map.initialCameraLocations, [null]);
+      expect(map.focuses, isEmpty);
+      expect(
+        container.read(locationPickerViewModelProvider(null)).selection,
+        testPin,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('GPS denial opens the regional map and still permits pinning', (
+    tester,
+  ) async {
+    final map = FakePickerMap();
+    final canvas = FakePickerCanvas(map);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          locationSearchServiceProvider.overrideWithValue(FakePlaceSearch()),
+          photoLocationServiceProvider.overrideWithValue(FakeLocations()),
+          locationPickerMapServiceProvider.overrideWithValue(map),
+          locationPickerCanvasBuilderProvider.overrideWithValue(canvas),
+        ],
+        child: const MaterialApp(home: LocationPickerScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      canvas.initialViewport!.center!.coordinates.lng,
+      PostLocation.regionalFallback.longitude,
+    );
+    expect(
+      canvas.initialViewport!.center!.coordinates.lat,
+      PostLocation.regionalFallback.latitude,
+    );
+    expect(map.initialCameraLocations, [null]);
+    expect(find.textContaining('Could not get your location'), findsOneWidget);
+    await tester.tap(find.text('Drop test pin'));
+    await tester.pumpAndSettle();
+    expect(map.renders.last.location, testPin);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNotNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opens in 3D and automatically centers on device GPS', (
     tester,
   ) async {
@@ -32,7 +120,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(canvas.initialViewport!.pitch, 55);
-    expect(map.configure3dCalls, 1);
+    expect(map.initialCameraLocations, [null]);
     expect(map.focuses.single.latitude, 14.6);
     expect(map.focuses.single.longitude, 121);
     expect(

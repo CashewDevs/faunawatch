@@ -10,11 +10,13 @@ class LocationPickerState {
     this.hasSearched = false,
     this.error,
     this.mapHasError = false,
+    this.isDarkMode = false,
   });
   final PostLocation? selection;
   final String query;
   final List<PostLocation> results;
   final bool isSearching, isLocating, hasSearched, mapHasError;
+  final bool isDarkMode;
   final String? error;
 
   bool get canConfirm => selection?.isValid == true && !isLocating;
@@ -28,6 +30,7 @@ class LocationPickerState {
     bool? hasSearched,
     String? error,
     bool? mapHasError,
+    bool? isDarkMode,
   }) => LocationPickerState(
     selection: selection ?? this.selection,
     query: query ?? this.query,
@@ -37,5 +40,6 @@ class LocationPickerState {
     hasSearched: hasSearched ?? this.hasSearched,
     error: error,
     mapHasError: mapHasError ?? this.mapHasError,
+    isDarkMode: isDarkMode ?? this.isDarkMode,
   );
 }

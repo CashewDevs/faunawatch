@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
@@ -15,7 +17,6 @@ import 'package:faunawatch/features/community_map/services/mapbox_map_service.da
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_guide_sheet.dart';
-import 'package:faunawatch/features/community_map/views/widgets/map_purpose_card.dart';
 
 void main() {
   Widget buildMap({
@@ -97,47 +98,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('an empty map shows no approved reports and can refresh', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      buildMap(
-        extraOverrides: [
-          communityReportsServiceProvider.overrideWithValue(
-            const _FakeReports([]),
-          ),
-        ],
-      ),
-    );
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(CommunityMapView)),
-    );
-    await container
-        .read(communityMapViewModelProvider.notifier)
-        .onStyleLoaded();
-    await tester.pump();
-    expect(find.text('No approved reports yet · Refresh'), findsOneWidget);
-    await tester.tap(find.text('No approved reports yet · Refresh'));
-    await tester.pumpAndSettle();
-    expect(container.read(communityMapViewModelProvider).reports, isEmpty);
-    expect(find.textContaining('Sample incident'), findsNothing);
-    expect(find.byType(MapPostDialog), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('explains real approved reports without demo content', (
+  testWidgets('uses compact controls with info beside the dimension toggle', (
     tester,
   ) async {
     await tester.pumpWidget(buildMap());
     await tester.pump();
-    expect(find.byType(MapPurposeCard), findsOneWidget);
-    expect(find.text('Wildlife encounters, on one shared map'), findsOneWidget);
-    expect(
-      find.textContaining('FaunaWatch logo pins show approved posts'),
-      findsOneWidget,
+    expect(find.byType(Card), findsNothing);
+    expect(find.byType(ActionChip), findsNothing);
+    expect(find.text('Community map'), findsNothing);
+    expect(find.text('How this map works'), findsNothing);
+    final info = tester.getRect(find.byTooltip('About this map'));
+    final mode = tester.getRect(find.byTooltip('Switch to 2D'));
+    final refresh = tester.getRect(
+      find.byTooltip('No approved reports yet. Refresh'),
     );
-    await tester.ensureVisible(find.text('How this map works'));
-    await tester.tap(find.text('How this map works'));
+    expect(info.size, const Size(48, 48));
+    expect(mode.size, info.size);
+    expect(refresh.size, info.size);
+    expect(info.right, lessThan(mode.left));
+    expect(info.center.dy, mode.center.dy);
+    expect(refresh.center.dy, mode.center.dy);
+    expect(refresh.right, lessThan(info.left));
+  });
+
+  testWidgets('info opens the guide directly and can reopen after closing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildMap());
+    await tester.pump();
+    await tester.tap(find.byTooltip('About this map'));
     await tester.pumpAndSettle();
     expect(find.byType(MapGuideSheet), findsOneWidget);
     expect(find.text('Find reported encounters'), findsOneWidget);
@@ -148,57 +137,126 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('demo'), findsNothing);
-    expect(find.textContaining('Danger Zone'), findsNothing);
     await tester.tap(find.byTooltip('Close map guide'));
     await tester.pumpAndSettle();
     expect(find.byType(MapGuideSheet), findsNothing);
-    expect(find.byKey(const Key('fake_mapbox_map')), findsOneWidget);
-    await tester.tap(find.text('3D'));
-    await tester.pump();
-    expect(find.text('2D'), findsOneWidget);
-  });
-
-  testWidgets('map information dismisses and reopens without demo controls', (
-    tester,
-  ) async {
-    await tester.pumpWidget(buildMap());
-    await tester.pump();
-    await tester.tap(find.byTooltip('Dismiss map information'));
-    await tester.pump();
-    expect(find.byType(MapPurposeCard), findsNothing);
-    expect(find.textContaining('Warning demo'), findsNothing);
     await tester.tap(find.byTooltip('About this map'));
-    await tester.pump();
-    expect(find.byType(MapPurposeCard), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.byType(MapGuideSheet), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'guide remains reachable on a small dark screen with larger text',
+    'refresh shows loading, prevents duplicate taps and keeps its compact size',
     (tester) async {
-      tester.view.physicalSize = const Size(320, 568);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+      final reports = _ControlledReports();
       await tester.pumpWidget(
-        buildMap(theme: ThemeData.dark(useMaterial3: true), textScale: 1.5),
+        buildMap(
+          extraOverrides: [
+            communityReportsServiceProvider.overrideWithValue(reports),
+          ],
+        ),
       );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CommunityMapView)),
+      );
+      await container
+          .read(communityMapViewModelProvider.notifier)
+          .onStyleLoaded();
       await tester.pump();
-      await tester.ensureVisible(find.text('How this map works'));
-      await tester.tap(find.text('How this map works'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.textContaining('Try it now:'));
-      expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.byTooltip('Close map guide'));
-      await tester.tap(find.byTooltip('Close map guide'));
-      await tester.pumpAndSettle();
-      expect(find.byType(MapGuideSheet), findsNothing);
-      await tester.tap(find.byTooltip('Dismiss map information'));
+      expect(reports.loads, 1);
+      reports.pending = Completer<List<CommunityReport>>();
+      await tester.tap(find.byTooltip('No approved reports yet. Refresh'));
       await tester.pump();
-      expect(find.textContaining('simulated'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      final loading = find.byTooltip('Loading reports');
+      expect(tester.getSize(loading), const Size(48, 48));
+      final button = tester.widget<IconButton>(
+        find.ancestor(of: loading, matching: find.byType(IconButton)),
+      );
+      expect(button.onPressed, isNull);
+      await tester.tap(loading);
+      expect(reports.loads, 2);
+      reports.pending!.complete([]);
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        find.byTooltip('No approved reports yet. Refresh'),
+        findsOneWidget,
+      );
+      expect(container.read(communityMapViewModelProvider).reports, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('refresh exposes failures and retries without a status banner', (
+    tester,
+  ) async {
+    final reports = _ControlledReports()..fail = true;
+    await tester.pumpWidget(
+      buildMap(
+        extraOverrides: [
+          communityReportsServiceProvider.overrideWithValue(reports),
+        ],
+      ),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CommunityMapView)),
+    );
+    await container
+        .read(communityMapViewModelProvider.notifier)
+        .onStyleLoaded();
+    await tester.pump();
+    expect(
+      find.byTooltip('Could not load reports. Tap to retry'),
+      findsOneWidget,
+    );
+    reports.fail = false;
+    reports.items = const [
+      CommunityReport(
+        id: 'r1',
+        category: 'animal_in_need',
+        latitude: 10.12,
+        longitude: 123.12,
+        description: 'Bird',
+      ),
+    ];
+    await tester.tap(find.byTooltip('Could not load reports. Tap to retry'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Refresh reports (1 approved)'), findsOneWidget);
+    expect(find.byType(ActionChip), findsNothing);
+    expect(
+      container.read(communityMapViewModelProvider).reports.single.id,
+      'r1',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('controls and guide fit a small dark screen with larger text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      buildMap(theme: ThemeData.dark(useMaterial3: true), textScale: 1.5),
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('About this map'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.textContaining('Try it now:'));
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.byTooltip('Close map guide'));
+    await tester.tap(find.byTooltip('Close map guide'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapGuideSheet), findsNothing);
+    await tester.tap(find.byTooltip('Switch to 2D'));
+    await tester.pump();
+    expect(find.byTooltip('Switch to 3D'), findsOneWidget);
+    expect(find.byTooltip('About this map'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('keeps the initial viewport when changing map dimension', (
     tester,
@@ -271,4 +329,18 @@ class _FakeReports implements CommunityReportsService {
 
   @override
   Future<List<CommunityReport>> load() async => reports;
+}
+
+class _ControlledReports implements CommunityReportsService {
+  int loads = 0;
+  bool fail = false;
+  List<CommunityReport> items = [];
+  Completer<List<CommunityReport>>? pending;
+
+  @override
+  Future<List<CommunityReport>> load() async {
+    loads++;
+    if (fail) throw StateError('offline');
+    return pending?.future ?? items;
+  }
 }

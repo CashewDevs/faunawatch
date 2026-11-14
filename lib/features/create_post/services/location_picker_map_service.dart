@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:faunawatch/core/services/map_lighting.dart';
 import 'package:faunawatch/core/services/map_pin_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -6,7 +7,10 @@ import '../models/post_location.dart';
 
 abstract interface class LocationPickerMapService {
   void attach(MapboxMap map, {required void Function(PostLocation) onTap});
-  Future<void> configure3d();
+
+  /// Sets a complete opening camera without requiring device GPS.
+  Future<void> initializeCamera(PostLocation? initialLocation);
+  Future<void> applyAppearance({required bool isDarkMode});
   Future<void> focus(PostLocation location);
   Future<void> showLocation(PostLocation location, {bool recenter = false});
   void detach();
@@ -18,11 +22,30 @@ class MapboxLocationPickerMapService implements LocationPickerMapService {
   static const _pin = 'observation-location-pin';
 
   @override
-  Future<void> configure3d() async {
+  Future<void> applyAppearance({required bool isDarkMode}) async {
+    final map = _map;
+    if (map != null) await applyMapLighting(map, isDarkMode: isDarkMode);
+  }
+
+  @override
+  Future<void> initializeCamera(PostLocation? initialLocation) async {
     final map = _map;
     if (map == null) return;
+    final hasInitialLocation = initialLocation?.isValid == true;
+    final center = hasInitialLocation
+        ? initialLocation!
+        : PostLocation.regionalFallback;
     await map.setStyleImportConfigProperty('basemap', 'show3dObjects', true);
-    await map.setCamera(CameraOptions(pitch: 55));
+    // Apply center and zoom explicitly: a native map can miss the widget's
+    // initial viewport while it is being created. GPS success used to be the
+    // only path that supplied a complete camera afterward.
+    await map.setCamera(
+      CameraOptions(
+        center: Point(coordinates: Position(center.longitude, center.latitude)),
+        zoom: hasInitialLocation ? 15 : 5,
+        pitch: 55,
+      ),
+    );
   }
 
   @override
@@ -92,6 +115,8 @@ class MapboxLocationPickerMapService implements LocationPickerMapService {
           iconImage: _pin,
           iconAnchor: IconAnchor.BOTTOM,
           iconAllowOverlap: true,
+          iconIgnorePlacement: true,
+          iconEmissiveStrength: 1,
         ),
       );
     }

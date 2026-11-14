@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:faunawatch/features/community_map/services/report_pin_image.dart';
+import 'package:faunawatch/core/services/map_lighting.dart';
+import 'package:faunawatch/core/services/map_pin_image.dart';
 import '../models/community_report.dart';
 
 import 'package:flutter/material.dart';
@@ -56,7 +57,7 @@ class MapboxCommunityMapService implements MapboxMapService {
       await map.addSource(GeoJsonSource(id: source, data: data));
     }
     if (!await map.hasStyleImage(_pinImage)) {
-      await map.addImage(_pinImage, 2, await createReportPinImage());
+      await map.addImage(_pinImage, 2, await createMapPinImage());
     }
     if (!await map.styleLayerExists('community-report-pins')) {
       await map.addLayer(
@@ -116,10 +117,9 @@ class MapboxCommunityMapService implements MapboxMapService {
     }
 
     // Mapbox Standard is configured through its `basemap` style import.
-    await mapboxMap.setStyleImportConfigProperty(
-      'basemap',
-      'lightPreset',
-      brightness == Brightness.dark ? 'night' : 'day',
+    await applyMapLighting(
+      mapboxMap,
+      isDarkMode: brightness == Brightness.dark,
     );
     await mapboxMap.setStyleImportConfigProperty(
       'basemap',
