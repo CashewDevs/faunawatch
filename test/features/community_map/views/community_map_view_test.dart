@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
@@ -22,6 +23,7 @@ void main() {
   Widget buildMap({
     ThemeData? theme,
     double textScale = 1,
+    bool disableAnimations = false,
     List<Override> extraOverrides = const [],
   }) {
     return ProviderScope(
@@ -36,13 +38,87 @@ void main() {
       child: MaterialApp(
         theme: theme,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+            disableAnimations: disableAnimations,
+          ),
           child: child!,
         ),
         home: const CommunityMapView(),
       ),
+    );
+  }
+
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'pin preview ${reducedMotion ? 'respects reduced motion' : 'flips open and closed'} and can reopen',
+      (tester) async {
+        await tester.pumpWidget(
+          buildMap(
+            disableAnimations: reducedMotion,
+            extraOverrides: [
+              communityReportsServiceProvider.overrideWithValue(
+                const _FakeReports([
+                  CommunityReport(
+                    id: 'flip',
+                    category: 'animal_in_need',
+                    latitude: 10.12,
+                    longitude: 123.12,
+                    description: 'Bird near the trail.',
+                  ),
+                ]),
+              ),
+            ],
+          ),
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(CommunityMapView)),
+        );
+        final vm = container.read(communityMapViewModelProvider.notifier);
+        await vm.onStyleLoaded();
+        vm.selectPost('flip');
+        vm.selectPost('flip');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
+        final transition = tester.widget<MapPostFlipTransition>(
+          find.byType(MapPostFlipTransition),
+        );
+        if (reducedMotion) {
+          expect(transition.animation.value, 1);
+        } else {
+          expect(transition.animation.status, AnimationStatus.forward);
+          expect(transition.animation.value, inExclusiveRange(0, 1));
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPostDialog), findsOneWidget);
+        expect(find.text('Bird near the trail.'), findsOneWidget);
+        await tester.tap(find.byTooltip('Close post preview'));
+        await tester.pump();
+        if (!reducedMotion) {
+          expect(
+            tester
+                .widget<MapPostFlipTransition>(
+                  find.byType(MapPostFlipTransition),
+                )
+                .animation
+                .status,
+            AnimationStatus.reverse,
+          );
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPostDialog), findsNothing);
+        expect(
+          container.read(communityMapViewModelProvider).selectedPostId,
+          isNull,
+        );
+        vm.selectPost('flip');
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPostDialog), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPostDialog), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
     );
   }
 

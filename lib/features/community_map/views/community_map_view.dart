@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
@@ -24,14 +25,24 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
     _postDialogOpen = true;
     final viewModel = ref.read(communityMapViewModelProvider.notifier);
     final preview = viewModel.selectedPreview!;
-    await showDialog<void>(
+    await showGeneralDialog<void>(
       context: context,
-      builder: (dialogContext) => MapPostDialog(
-        preview: preview,
-        onSeeMore: () {
-          Navigator.pop(dialogContext);
-          viewModel.seeMore();
-        },
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 420),
+      transitionBuilder: (context, animation, secondaryAnimation, child) =>
+          MapPostFlipTransition(animation: animation, child: child),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) => SafeArea(
+        child: MapPostDialog(
+          preview: preview,
+          onSeeMore: () {
+            Navigator.pop(dialogContext);
+            viewModel.seeMore();
+          },
+        ),
       ),
     );
     _postDialogOpen = false;
