@@ -15,14 +15,15 @@ class LocationPickerScreen extends ConsumerStatefulWidget {
 
 class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
   final _query = TextEditingController();
+  Brightness? _lastBrightness;
+  late final _initialCenter = widget.initialLocation?.isValid == true
+      ? widget.initialLocation!
+      : PostLocation.regionalFallback;
   late final _viewport = CameraViewportState(
     center: Point(
-      coordinates: Position(
-        widget.initialLocation?.longitude ?? 122,
-        widget.initialLocation?.latitude ?? 12,
-      ),
+      coordinates: Position(_initialCenter.longitude, _initialCenter.latitude),
     ),
-    zoom: widget.initialLocation == null ? 5 : 15,
+    zoom: widget.initialLocation?.isValid == true ? 15 : 5,
     pitch: 55,
   );
 
@@ -36,6 +37,23 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
               locationPickerViewModelProvider(widget.initialLocation).notifier,
             )
             .initialize();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final brightness = Theme.of(context).brightness;
+    if (_lastBrightness == brightness) return;
+    _lastBrightness = brightness;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref
+            .read(
+              locationPickerViewModelProvider(widget.initialLocation).notifier,
+            )
+            .setDarkMode(brightness == Brightness.dark);
       }
     });
   }

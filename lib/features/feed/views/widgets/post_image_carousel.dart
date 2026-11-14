@@ -1,10 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// Shared photo presentation for a post's map preview and feed card.
+/// Shared photo presentation for posts.
 ///
-/// Photos come from bundled assets (the map's demo preview) or from network
-/// URLs (feed posts, signed for the private bucket).
+/// Photos come from bundled assets or network URLs signed for the private bucket.
 class PostImageCarousel extends StatefulWidget {
   const PostImageCarousel({
     super.key,

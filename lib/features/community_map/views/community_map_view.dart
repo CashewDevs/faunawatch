@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_guide_sheet.dart';
-import 'package:faunawatch/features/community_map/views/widgets/map_purpose_card.dart';
-import 'package:faunawatch/features/community_map/views/widgets/map_warning_demo_card.dart';
-import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 
 /// Interactive Mapbox map for approximate community wildlife sightings.
 class CommunityMapView extends ConsumerStatefulWidget {
@@ -20,8 +18,6 @@ class CommunityMapView extends ConsumerStatefulWidget {
 
 class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   Brightness? _lastBrightness;
-  bool _showPurposeCard = true;
-  bool _showDemoControls = true;
   bool _postDialogOpen = false;
 
   Future<void> _openPost() async {
@@ -29,18 +25,30 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
     _postDialogOpen = true;
     final viewModel = ref.read(communityMapViewModelProvider.notifier);
     final preview = viewModel.selectedPreview!;
-    await showDialog<void>(
+    await showGeneralDialog<void>(
       context: context,
-      builder: (dialogContext) => MapPostDialog(
-        preview: preview,
-        // The demo pin is not a report, so there is nothing to open in the feed.
-        onSeeMore: preview.isDemo
-            ? null
-            : () {
-                Navigator.pop(dialogContext);
-                viewModel.seeMore();
-              },
-      ),
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 420),
+      transitionBuilder: (context, animation, secondaryAnimation, child) =>
+          child,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) =>
+          MapPostFlipTransition(
+            animation: animation,
+            builder: (onThumbnailReady) => SafeArea(
+              child: MapPostDialog(
+                preview: preview,
+                onThumbnailReady: onThumbnailReady,
+                onSeeMore: () {
+                  Navigator.pop(dialogContext);
+                  viewModel.seeMore();
+                },
+              ),
+            ),
+          ),
     );
     _postDialogOpen = false;
     if (mounted) viewModel.dismissPost();
@@ -63,10 +71,8 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   // The service changes only the pitch for 2D/3D, preserving the user's
   // current center, zoom, and bearing.
   late final CameraViewportState _initialViewport = CameraViewportState(
-    center: Point(
-      coordinates: Position(WarningDemo.longitude, WarningDemo.latitude),
-    ),
-    zoom: WarningDemo.zoom,
+    center: Point(coordinates: Position(122, 12)),
+    zoom: 5,
     pitch: 55,
   );
 
@@ -99,7 +105,13 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
     });
     final state = ref.watch(communityMapViewModelProvider);
     final canvasBuilder = ref.watch(mapboxMapCanvasBuilderProvider);
-    final colorScheme = Theme.of(context).colorScheme;
+    final refreshLabel = state.isLoadingReports
+        ? 'Loading reports'
+        : state.reportsHaveError
+        ? 'Could not load reports. Tap to retry'
+        : state.reports.isEmpty
+        ? 'No approved reports yet. Refresh'
+        : 'Refresh reports (${state.reports.length} approved)';
 
     return Scaffold(
       body: LayoutBuilder(
@@ -122,91 +134,56 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   },
                 ),
               ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  minimum: const EdgeInsets.all(12),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Expanded(
-                        child: _MapTitleCard(
-                          colorScheme: colorScheme,
-                          onOpenPreview: () =>
-                              setState(() => _showPurposeCard = true),
+                      _MapControlButton(
+                        tooltip: refreshLabel,
+                        onPressed: state.isLoadingReports
+                            ? null
+                            : ref
+                                  .read(communityMapViewModelProvider.notifier)
+                                  .refreshReports,
+                        icon: state.isLoadingReports
+                            ? const SizedBox.square(
+                                dimension: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(
+                                Icons.refresh,
+                                color: state.reportsHaveError
+                                    ? Theme.of(context).colorScheme.error
+                                    : null,
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      _MapControlButton(
+                        tooltip: 'About this map',
+                        onPressed: _openMapGuide,
+                        icon: const Icon(Icons.info_outline),
+                      ),
+                      const SizedBox(width: 8),
+                      _MapControlButton(
+                        tooltip: 'Switch to ${state.is3dEnabled ? '2D' : '3D'}',
+                        onPressed: () => ref
+                            .read(communityMapViewModelProvider.notifier)
+                            .toggle3d(),
+                        icon: Text(
+                          state.is3dEnabled ? '3D' : '2D',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      _MapModeButton(
-                        is3dEnabled: state.is3dEnabled,
-                        onPressed: () {
-                          ref
-                              .read(communityMapViewModelProvider.notifier)
-                              .toggle3d();
-                        },
-                      ),
                     ],
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 120,
-                right: 16,
-                child: SafeArea(
-                  child: ActionChip(
-                    avatar: const Icon(Icons.refresh, size: 18),
-                    label: Text(
-                      state.isLoadingReports
-                          ? 'Loading reports…'
-                          : state.reportsHaveError
-                          ? 'Could not load reports · Retry'
-                          : '${state.reports.length} approved reports · Refresh',
-                    ),
-                    onPressed: state.isLoadingReports
-                        ? null
-                        : ref
-                              .read(communityMapViewModelProvider.notifier)
-                              .refreshReports,
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SafeArea(
-                  top: false,
-                  // Leave the native map attribution visible below the card.
-                  minimum: const EdgeInsets.fromLTRB(16, 0, 16, 40),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: 420,
-                      maxHeight: constraints.maxHeight * 0.46,
-                    ),
-                    child: _showPurposeCard
-                        ? MapPurposeCard(
-                            onLearnMore: _openMapGuide,
-                            onDismiss: () =>
-                                setState(() => _showPurposeCard = false),
-                          )
-                        : _showDemoControls
-                        ? MapWarningDemoCard(
-                            level: state.demoLevel,
-                            hasError: state.demoHasError,
-                            onSelect: ref
-                                .read(communityMapViewModelProvider.notifier)
-                                .selectDemoLevel,
-                            onRecenter: ref
-                                .read(communityMapViewModelProvider.notifier)
-                                .recenterDemo,
-                            onDismiss: () =>
-                                setState(() => _showDemoControls = false),
-                          )
-                        : ActionChip(
-                            avatar: const Icon(Icons.radar, size: 18),
-                            label: Text(
-                              'Warning demo · ${state.demoLevel.label}',
-                            ),
-                            onPressed: () =>
-                                setState(() => _showDemoControls = true),
-                          ),
                   ),
                 ),
               ),
@@ -218,79 +195,28 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   }
 }
 
-class _MapTitleCard extends StatelessWidget {
-  const _MapTitleCard({required this.colorScheme, required this.onOpenPreview});
+/// Consistent, accessible touch targets for the floating map controls.
+class _MapControlButton extends StatelessWidget {
+  const _MapControlButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
 
-  final ColorScheme colorScheme;
-  final VoidCallback onOpenPreview;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: colorScheme.surface.withValues(alpha: 0.94),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Community map',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: onOpenPreview,
-                  tooltip: 'Show map preview',
-                  icon: const Icon(Icons.info_outline),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Approved reports · Approximate locations',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MapModeButton extends StatelessWidget {
-  const _MapModeButton({required this.is3dEnabled, required this.onPressed});
-
-  final bool is3dEnabled;
-  final VoidCallback onPressed;
+  final String tooltip;
+  final Widget icon;
+  final VoidCallback? onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    final label = is3dEnabled ? '3D' : '2D';
-    return Semantics(
-      button: true,
-      label: 'Switch to ${is3dEnabled ? '2D' : '3D'} map view',
-      child: Material(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.94),
-        elevation: 4,
-        shape: const CircleBorder(),
-        child: IconButton(
-          onPressed: onPressed,
-          tooltip: 'Switch to ${is3dEnabled ? '2D' : '3D'}',
-          icon: Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.94),
+    elevation: 4,
+    shape: const CircleBorder(),
+    child: IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+      icon: icon,
+    ),
+  );
 }

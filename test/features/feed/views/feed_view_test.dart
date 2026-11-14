@@ -5,7 +5,6 @@ import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
-import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
@@ -649,7 +648,7 @@ void main() {
       await tester.tap(find.text('Map'));
       await tester.pumpAndSettle();
       expect(find.byType(CommunityMapView), findsOneWidget);
-      expect(find.text('Community map'), findsOneWidget);
+      expect(find.byTooltip('About this map'), findsOneWidget);
       final state = tester.state(find.byType(CommunityMapView));
 
       await tester.tap(find.text('For You'));
@@ -781,7 +780,10 @@ class _FakeMapCanvasBuilder implements MapboxMapCanvasBuilder {
 
 class _FakeMapService implements MapboxMapService {
   @override
-  Future<void> showReports(List<CommunityReport> reports) async {}
+  Future<void> showReports(
+    List<CommunityReport> reports, {
+    bool recenter = false,
+  }) async {}
   @override
   Future<void> applyAppearance({
     required Brightness brightness,
@@ -796,10 +798,4 @@ class _FakeMapService implements MapboxMapService {
 
   @override
   void detach() {}
-
-  @override
-  Future<void> showWarningDemo(
-    DemoWarningLevel level, {
-    bool recenter = false,
-  }) async {}
 }

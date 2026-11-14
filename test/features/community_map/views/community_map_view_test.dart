@@ -1,16 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
-import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
-import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import '../../feed/fake_feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
-import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
@@ -18,13 +18,12 @@ import 'package:faunawatch/features/community_map/services/mapbox_map_service.da
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_guide_sheet.dart';
-import 'package:faunawatch/features/community_map/views/widgets/map_purpose_card.dart';
-import 'package:faunawatch/features/community_map/views/widgets/map_warning_demo_card.dart';
 
 void main() {
   Widget buildMap({
     ThemeData? theme,
     double textScale = 1,
+    bool disableAnimations = false,
     List<Override> extraOverrides = const [],
   }) {
     return ProviderScope(
@@ -39,9 +38,10 @@ void main() {
       child: MaterialApp(
         theme: theme,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+            disableAnimations: disableAnimations,
+          ),
           child: child!,
         ),
         home: const CommunityMapView(),
@@ -49,7 +49,80 @@ void main() {
     );
   }
 
-  testWidgets('demo pin opens a dismissible preview without a feed link', (
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'pin preview ${reducedMotion ? 'respects reduced motion' : 'flips open and closed'} and can reopen',
+      (tester) async {
+        await tester.pumpWidget(
+          buildMap(
+            disableAnimations: reducedMotion,
+            extraOverrides: [
+              communityReportsServiceProvider.overrideWithValue(
+                const _FakeReports([
+                  CommunityReport(
+                    id: 'flip',
+                    category: 'animal_in_need',
+                    latitude: 10.12,
+                    longitude: 123.12,
+                    description: 'Bird near the trail.',
+                  ),
+                ]),
+              ),
+            ],
+          ),
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(CommunityMapView)),
+        );
+        final vm = container.read(communityMapViewModelProvider.notifier);
+        await vm.onStyleLoaded();
+        vm.selectPost('flip');
+        vm.selectPost('flip');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
+        final transition = tester.widget<MapPostFlipTransition>(
+          find.byType(MapPostFlipTransition),
+        );
+        if (reducedMotion) {
+          expect(transition.animation.value, 1);
+        } else {
+          expect(transition.animation.status, AnimationStatus.forward);
+          expect(transition.animation.value, inExclusiveRange(0, 1));
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPostDialog), findsOneWidget);
+        expect(find.text('Bird near the trail.'), findsOneWidget);
+        await tester.tap(find.byTooltip('Close post preview'));
+        await tester.pump();
+        if (!reducedMotion) {
+          expect(
+            tester
+                .widget<MapPostFlipTransition>(
+                  find.byType(MapPostFlipTransition),
+                )
+                .animation
+                .status,
+            AnimationStatus.reverse,
+          );
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPostDialog), findsNothing);
+        expect(
+          container.read(communityMapViewModelProvider).selectedPostId,
+          isNull,
+        );
+        vm.selectPost('flip');
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPostDialog), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPostDialog), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('a report pin opens its post in the feed through see more', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 568);
@@ -57,57 +130,9 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      buildMap(theme: ThemeData.dark(useMaterial3: true), textScale: 1.5),
-    );
-    await tester.pump();
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(CommunityMapView)),
-    );
-    final vm = container.read(communityMapViewModelProvider.notifier);
-    vm.selectPost(MapPostPreview.demoId);
-    await tester.pumpAndSettle();
-    expect(find.text(MapPostPreview.demo.title), findsOneWidget);
-    expect(find.byType(MapPostDialog), findsOneWidget);
-    final image = tester.widget<Image>(find.byType(Image).first);
-    expect((image.image as AssetImage).assetName, AppAssets.avatarGarfield);
-    expect(image.fit, BoxFit.contain);
-    final popup = tester.getRect(find.byType(Dialog));
-    expect(popup.center.dx, closeTo(160, 1));
-    expect(popup.center.dy, closeTo(284, 1));
-    expect(
-      tester.getRect(find.byType(Image).first).bottom,
-      lessThanOrEqualTo(
-        tester.getRect(find.text(MapPostPreview.demo.title)).top,
-      ),
-    );
-    expect(find.text('1 / 3'), findsOneWidget);
-    await tester.drag(find.byType(PageView), const Offset(-240, 0));
-    await tester.pumpAndSettle();
-    expect(find.text('2 / 3'), findsOneWidget);
-    await tester.drag(find.byType(PageView), const Offset(240, 0));
-    await tester.pumpAndSettle();
-    expect(find.text('1 / 3'), findsOneWidget);
-    await tester.tap(find.byTooltip('Close post preview'));
-    await tester.pumpAndSettle();
-    expect(
-      container.read(communityMapViewModelProvider).selectedPostId,
-      isNull,
-    );
-    // The demo pin is not a report: its preview is labelled as a sample and
-    // has nothing to open in the feed.
-    vm.selectPost(MapPostPreview.demoId);
-    await tester.pumpAndSettle();
-    expect(find.text('Sample post'), findsOneWidget);
-    expect(find.text('Demo only - Not a real wildlife report'), findsOne);
-    expect(find.text('See more in feed'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('a report pin opens its post in the feed through see more', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
       buildMap(
+        theme: ThemeData.dark(useMaterial3: true),
+        textScale: 1.5,
         extraOverrides: [
           communityReportsServiceProvider.overrideWithValue(
             _FakeReports(const [
@@ -134,6 +159,7 @@ void main() {
     await vm.onStyleLoaded();
     vm.selectPost('r1');
     await tester.pumpAndSettle();
+    expect(find.byType(MapPostDialog), findsOneWidget);
     expect(find.text('Approved wildlife report'), findsOneWidget);
     expect(find.text('Sample post'), findsNothing);
     expect(find.text('Bird near the road.'), findsOneWidget);
@@ -148,102 +174,165 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('explains the map purpose and identifies planned features', (
+  testWidgets('uses compact controls with info beside the dimension toggle', (
     tester,
   ) async {
     await tester.pumpWidget(buildMap());
     await tester.pump();
-    expect(find.byType(MapPurposeCard), findsOneWidget);
-    expect(find.text('Wildlife encounters, on one shared map'), findsOneWidget);
-    expect(
-      find.textContaining('Blue report dots show approved posts'),
-      findsOneWidget,
+    expect(find.byType(Card), findsNothing);
+    expect(find.byType(ActionChip), findsNothing);
+    expect(find.text('Community map'), findsNothing);
+    expect(find.text('How this map works'), findsNothing);
+    final info = tester.getRect(find.byTooltip('About this map'));
+    final mode = tester.getRect(find.byTooltip('Switch to 2D'));
+    final refresh = tester.getRect(
+      find.byTooltip('No approved reports yet. Refresh'),
     );
-    await tester.ensureVisible(find.text('How this map works'));
-    await tester.tap(find.text('How this map works'));
+    expect(info.size, const Size(48, 48));
+    expect(mode.size, info.size);
+    expect(refresh.size, info.size);
+    expect(info.right, lessThan(mode.left));
+    expect(info.center.dy, mode.center.dy);
+    expect(refresh.center.dy, mode.center.dy);
+    expect(refresh.right, lessThan(info.left));
+  });
+
+  testWidgets('info opens the guide directly and can reopen after closing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildMap());
+    await tester.pump();
+    await tester.tap(find.byTooltip('About this map'));
     await tester.pumpAndSettle();
     expect(find.byType(MapGuideSheet), findsOneWidget);
     expect(find.text('Find reported encounters'), findsOneWidget);
     expect(
       find.textContaining(
-        'Approved reports appear as blue dots at approximate locations.',
+        'Approved reports appear as FaunaWatch logo pins at approximate locations.',
       ),
       findsOneWidget,
     );
-    expect(
-      find.textContaining('AI suggestions are still in development'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('Danger Zone'), findsNWidgets(2));
+    expect(find.textContaining('demo'), findsNothing);
     await tester.tap(find.byTooltip('Close map guide'));
     await tester.pumpAndSettle();
     expect(find.byType(MapGuideSheet), findsNothing);
-    expect(find.byKey(const Key('fake_mapbox_map')), findsOneWidget);
-    await tester.tap(find.text('3D'));
-    await tester.pump();
-    expect(find.text('2D'), findsOneWidget);
+    await tester.tap(find.byTooltip('About this map'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapGuideSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'X dismisses preview, demo levels change, controls and preview reopen',
+    'refresh shows loading, prevents duplicate taps and keeps its compact size',
     (tester) async {
-      await tester.pumpWidget(buildMap());
+      final reports = _ControlledReports();
+      await tester.pumpWidget(
+        buildMap(
+          extraOverrides: [
+            communityReportsServiceProvider.overrideWithValue(reports),
+          ],
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CommunityMapView)),
+      );
+      await container
+          .read(communityMapViewModelProvider.notifier)
+          .onStyleLoaded();
       await tester.pump();
-      await tester.tap(find.byTooltip('Dismiss map preview'));
+      expect(reports.loads, 1);
+      reports.pending = Completer<List<CommunityReport>>();
+      await tester.tap(find.byTooltip('No approved reports yet. Refresh'));
       await tester.pump();
-      expect(find.byType(MapPurposeCard), findsNothing);
-      expect(find.byType(MapWarningDemoCard), findsOneWidget);
-      expect(find.textContaining('750 m away (simulated)'), findsOneWidget);
-      await tester.ensureVisible(find.text('Near'));
-      await tester.tap(find.text('Near'));
-      await tester.pump();
-      expect(find.textContaining('350 m away (simulated)'), findsOneWidget);
-      await tester.tap(find.text('Danger Zone'));
-      await tester.pump();
-      expect(find.textContaining('150 m away (simulated)'), findsOneWidget);
-      await tester.ensureVisible(find.byTooltip('Collapse warning demo'));
-      await tester.tap(find.byTooltip('Collapse warning demo'));
-      await tester.pump();
-      expect(find.byType(MapWarningDemoCard), findsNothing);
-      await tester.tap(find.text('Warning demo · Danger Zone'));
-      await tester.pump();
-      expect(find.byType(MapWarningDemoCard), findsOneWidget);
-      await tester.tap(find.byTooltip('Show map preview'));
-      await tester.pump();
-      expect(find.byType(MapPurposeCard), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      final loading = find.byTooltip('Loading reports');
+      expect(tester.getSize(loading), const Size(48, 48));
+      final button = tester.widget<IconButton>(
+        find.ancestor(of: loading, matching: find.byType(IconButton)),
+      );
+      expect(button.onPressed, isNull);
+      await tester.tap(loading);
+      expect(reports.loads, 2);
+      reports.pending!.complete([]);
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        find.byTooltip('No approved reports yet. Refresh'),
+        findsOneWidget,
+      );
+      expect(container.read(communityMapViewModelProvider).reports, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets(
-    'guide remains reachable on a small dark screen with larger text',
-    (tester) async {
-      tester.view.physicalSize = const Size(320, 568);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(
-        buildMap(theme: ThemeData.dark(useMaterial3: true), textScale: 1.5),
-      );
-      await tester.pump();
-      await tester.ensureVisible(find.text('How this map works'));
-      await tester.tap(find.text('How this map works'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.textContaining('Try it now:'));
-      expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.byTooltip('Close map guide'));
-      await tester.tap(find.byTooltip('Close map guide'));
-      await tester.pumpAndSettle();
-      expect(find.byType(MapGuideSheet), findsNothing);
-      await tester.tap(find.byTooltip('Dismiss map preview'));
-      await tester.pump();
-      await tester.ensureVisible(find.text('Danger Zone'));
-      await tester.tap(find.text('Danger Zone'));
-      await tester.pump();
-      expect(find.textContaining('150 m away (simulated)'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('refresh exposes failures and retries without a status banner', (
+    tester,
+  ) async {
+    final reports = _ControlledReports()..fail = true;
+    await tester.pumpWidget(
+      buildMap(
+        extraOverrides: [
+          communityReportsServiceProvider.overrideWithValue(reports),
+        ],
+      ),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CommunityMapView)),
+    );
+    await container
+        .read(communityMapViewModelProvider.notifier)
+        .onStyleLoaded();
+    await tester.pump();
+    expect(
+      find.byTooltip('Could not load reports. Tap to retry'),
+      findsOneWidget,
+    );
+    reports.fail = false;
+    reports.items = const [
+      CommunityReport(
+        id: 'r1',
+        category: 'animal_in_need',
+        latitude: 10.12,
+        longitude: 123.12,
+        description: 'Bird',
+      ),
+    ];
+    await tester.tap(find.byTooltip('Could not load reports. Tap to retry'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Refresh reports (1 approved)'), findsOneWidget);
+    expect(find.byType(ActionChip), findsNothing);
+    expect(
+      container.read(communityMapViewModelProvider).reports.single.id,
+      'r1',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('controls and guide fit a small dark screen with larger text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      buildMap(theme: ThemeData.dark(useMaterial3: true), textScale: 1.5),
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('About this map'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.textContaining('Try it now:'));
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.byTooltip('Close map guide'));
+    await tester.tap(find.byTooltip('Close map guide'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapGuideSheet), findsNothing);
+    await tester.tap(find.byTooltip('Switch to 2D'));
+    await tester.pump();
+    expect(find.byTooltip('Switch to 3D'), findsOneWidget);
+    expect(find.byTooltip('About this map'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('keeps the initial viewport when changing map dimension', (
     tester,
@@ -263,8 +352,8 @@ void main() {
 
     final viewportBeforeToggle = canvasBuilder.viewports.last;
     final viewport = viewportBeforeToggle as CameraViewportState;
-    expect(viewport.center!.coordinates.lng, WarningDemo.longitude);
-    expect(viewport.center!.coordinates.lat, WarningDemo.latitude);
+    expect(viewport.center!.coordinates.lng, 122);
+    expect(viewport.center!.coordinates.lat, 12);
     await tester.tap(find.text('3D'));
     await tester.pump();
 
@@ -304,13 +393,10 @@ class _FakeMapboxMapService implements MapboxMapService {
   void detach() {}
 
   @override
-  Future<void> showWarningDemo(
-    DemoWarningLevel level, {
+  Future<void> showReports(
+    List<CommunityReport> reports, {
     bool recenter = false,
   }) async {}
-
-  @override
-  Future<void> showReports(List<CommunityReport> reports) async {}
 }
 
 class _FakeReports implements CommunityReportsService {
@@ -319,4 +405,18 @@ class _FakeReports implements CommunityReportsService {
 
   @override
   Future<List<CommunityReport>> load() async => reports;
+}
+
+class _ControlledReports implements CommunityReportsService {
+  int loads = 0;
+  bool fail = false;
+  List<CommunityReport> items = [];
+  Completer<List<CommunityReport>>? pending;
+
+  @override
+  Future<List<CommunityReport>> load() async {
+    loads++;
+    if (fail) throw StateError('offline');
+    return pending?.future ?? items;
+  }
 }

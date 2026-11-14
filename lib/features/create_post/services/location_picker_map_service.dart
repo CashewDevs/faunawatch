@@ -1,12 +1,16 @@
 import 'dart:convert';
-import 'dart:ui' as ui;
+import 'package:faunawatch/core/services/map_lighting.dart';
+import 'package:faunawatch/core/services/map_pin_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import '../models/post_location.dart';
 
 abstract interface class LocationPickerMapService {
   void attach(MapboxMap map, {required void Function(PostLocation) onTap});
-  Future<void> configure3d();
+
+  /// Sets a complete opening camera without requiring device GPS.
+  Future<void> initializeCamera(PostLocation? initialLocation);
+  Future<void> applyAppearance({required bool isDarkMode});
   Future<void> focus(PostLocation location);
   Future<void> showLocation(PostLocation location, {bool recenter = false});
   void detach();
@@ -18,11 +22,30 @@ class MapboxLocationPickerMapService implements LocationPickerMapService {
   static const _pin = 'observation-location-pin';
 
   @override
-  Future<void> configure3d() async {
+  Future<void> applyAppearance({required bool isDarkMode}) async {
+    final map = _map;
+    if (map != null) await applyMapLighting(map, isDarkMode: isDarkMode);
+  }
+
+  @override
+  Future<void> initializeCamera(PostLocation? initialLocation) async {
     final map = _map;
     if (map == null) return;
+    final hasInitialLocation = initialLocation?.isValid == true;
+    final center = hasInitialLocation
+        ? initialLocation!
+        : PostLocation.regionalFallback;
     await map.setStyleImportConfigProperty('basemap', 'show3dObjects', true);
-    await map.setCamera(CameraOptions(pitch: 55));
+    // Apply center and zoom explicitly: a native map can miss the widget's
+    // initial viewport while it is being created. GPS success used to be the
+    // only path that supplied a complete camera afterward.
+    await map.setCamera(
+      CameraOptions(
+        center: Point(coordinates: Position(center.longitude, center.latitude)),
+        zoom: hasInitialLocation ? 15 : 5,
+        pitch: 55,
+      ),
+    );
   }
 
   @override
@@ -81,39 +104,7 @@ class MapboxLocationPickerMapService implements LocationPickerMapService {
       await map.setStyleSourceProperty(_source, 'data', data);
     }
     if (!await map.hasStyleImage(_pin)) {
-      final recorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(recorder);
-      final path = ui.Path()
-        ..moveTo(32, 84)
-        ..cubicTo(25, 70, 4, 43, 4, 30)
-        ..cubicTo(4, -6, 60, -6, 60, 30)
-        ..cubicTo(60, 43, 39, 70, 32, 84)
-        ..close();
-      canvas.drawPath(path, ui.Paint()..color = const ui.Color(0xFF2563EB));
-      canvas.drawCircle(
-        const ui.Offset(32, 29),
-        11,
-        ui.Paint()..color = const ui.Color(0xFFFFFFFF),
-      );
-      final picture = recorder.endRecording();
-      final image = await picture.toImage(64, 88);
-      try {
-        final bytes = await image.toByteData(
-          format: ui.ImageByteFormat.rawRgba,
-        );
-        await map.addImage(
-          _pin,
-          2,
-          StyleImage.rgba(
-            width: 64,
-            height: 88,
-            pixels: bytes!.buffer.asUint8List(),
-          ),
-        );
-      } finally {
-        image.dispose();
-        picture.dispose();
-      }
+      await map.addImage(_pin, 2, await createMapPinImage());
     }
     if (!await map.styleLayerExists(_pin)) {
       await map.addLayer(
@@ -124,6 +115,8 @@ class MapboxLocationPickerMapService implements LocationPickerMapService {
           iconImage: _pin,
           iconAnchor: IconAnchor.BOTTOM,
           iconAllowOverlap: true,
+          iconIgnorePlacement: true,
+          iconEmissiveStrength: 1,
         ),
       );
     }

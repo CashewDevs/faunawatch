@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
-import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import '../../feed/fake_feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
-import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -47,7 +45,6 @@ void main() {
       );
       vm.selectPost('approved');
       expect(vm.selectedPreview!.author, 'Community spotter');
-      expect(vm.selectedPreview!.isDemo, isFalse);
       vm.seeMore();
       await pumpEventQueue();
       expect(container.read(feedViewModelProvider).focusedPostId, 'approved');
@@ -72,37 +69,28 @@ void main() {
     },
   );
 
-  test(
-    'selects only the demo pin or a loaded report, and can dismiss',
-    () async {
-      final vm = container.read(communityMapViewModelProvider.notifier);
-      vm.selectPost('unknown');
-      expect(
-        container.read(communityMapViewModelProvider).selectedPostId,
-        isNull,
-      );
-      vm.selectPost(MapPostPreview.demoId);
-      expect(
-        container.read(communityMapViewModelProvider).selectedPostId,
-        MapPostPreview.demoId,
-      );
-      expect(vm.selectedPreview, same(MapPostPreview.demo));
-      expect(vm.selectedPreview!.isDemo, isTrue);
-      vm.dismissPost();
-      expect(
-        container.read(communityMapViewModelProvider).selectedPostId,
-        isNull,
-      );
-    },
-  );
+  test('selects only loaded reports and can dismiss', () async {
+    final vm = container.read(communityMapViewModelProvider.notifier);
+    vm.selectPost('unknown');
+    vm.selectPost('sample-cebu-incident');
+    expect(
+      container.read(communityMapViewModelProvider).selectedPostId,
+      isNull,
+    );
+    await vm.onStyleLoaded();
+    vm.selectPost('approved');
+    expect(vm.selectedPreview!.id, 'approved');
+    vm.dismissPost();
+    expect(vm.selectedPreview, isNull);
+  });
 
-  test('see more does nothing without a selection or for the demo pin', () {
+  test('see more does nothing without a valid selection', () {
     final vm = container.read(communityMapViewModelProvider.notifier);
     container
         .read(shellViewModelProvider.notifier)
         .selectDestination(ShellDestination.chats);
     vm.seeMore();
-    vm.selectPost(MapPostPreview.demoId);
+    vm.selectPost('sample-cebu-incident');
     vm.seeMore();
     expect(container.read(shellViewModelProvider), ShellDestination.chats);
     expect(container.read(feedViewModelProvider).focusedPostId, isNull);
@@ -113,45 +101,54 @@ void main() {
 
     expect(state.is3dEnabled, isTrue);
     expect(state.brightness, Brightness.light);
-    expect(state.demoLevel, DemoWarningLevel.approaching);
   });
 
-  test('waits for the style then renders the selected demo level', () async {
-    final viewModel = container.read(communityMapViewModelProvider.notifier);
-    await viewModel.selectDemoLevel(DemoWarningLevel.danger);
-    expect(mapboxMapService.demoCalls, isEmpty);
-    await viewModel.onStyleLoaded();
-    expect(mapboxMapService.demoCalls.single.level, DemoWarningLevel.danger);
-    await viewModel.selectDemoLevel(DemoWarningLevel.near);
-    expect(mapboxMapService.demoCalls.last.level, DemoWarningLevel.near);
+  test('waits for style and frames the first nonempty result only', () async {
+    final vm = container.read(communityMapViewModelProvider.notifier);
+    await vm.refreshReports();
+    expect(mapboxMapService.reportCalls, isEmpty);
+    reports.items = [];
+    await vm.onStyleLoaded();
+    expect(mapboxMapService.reportCalls.single.recenter, isFalse);
+    reports.items = [_report];
+    await vm.refreshReports();
+    expect(mapboxMapService.reportCalls.last.recenter, isTrue);
+    await vm.refreshReports();
+    expect(mapboxMapService.reportCalls.last.recenter, isFalse);
+    await vm.onStyleLoaded();
+    expect(mapboxMapService.reportCalls.last.recenter, isFalse);
+  });
+
+  test('failed draw can retry and still frame the first reports', () async {
+    final vm = container.read(communityMapViewModelProvider.notifier);
+    mapboxMapService.failReports = true;
+    await vm.onStyleLoaded();
     expect(
-      container.read(communityMapViewModelProvider).demoLevel,
-      DemoWarningLevel.near,
+      container.read(communityMapViewModelProvider).reportsHaveError,
+      isTrue,
+    );
+    mapboxMapService.failReports = false;
+    await vm.refreshReports();
+    expect(mapboxMapService.reportCalls.last.recenter, isTrue);
+    expect(
+      container.read(communityMapViewModelProvider).reportsHaveError,
+      isFalse,
     );
   });
 
-  test('a failed demo draw can be retried by recentering', () async {
-    final viewModel = container.read(communityMapViewModelProvider.notifier);
-    mapboxMapService.failDemo = true;
-    await viewModel.onStyleLoaded();
-    expect(container.read(communityMapViewModelProvider).demoHasError, isTrue);
-    mapboxMapService.failDemo = false;
-    await viewModel.recenterDemo();
-    expect(mapboxMapService.demoCalls.last.recenter, isTrue);
-    expect(container.read(communityMapViewModelProvider).demoHasError, isFalse);
-  });
-
   test(
-    'rapid selections finish with the newest level and no concurrent draws',
+    'refresh removes a selection when the report is no longer approved',
     () async {
-      final viewModel = container.read(communityMapViewModelProvider.notifier);
-      await viewModel.onStyleLoaded();
-      await Future.wait([
-        viewModel.selectDemoLevel(DemoWarningLevel.near),
-        viewModel.selectDemoLevel(DemoWarningLevel.danger),
-      ]);
-      expect(mapboxMapService.demoCalls.last.level, DemoWarningLevel.danger);
-      expect(mapboxMapService.maxConcurrentDraws, 1);
+      final vm = container.read(communityMapViewModelProvider.notifier);
+      await vm.onStyleLoaded();
+      vm.selectPost('approved');
+      reports.items = [];
+      await vm.refreshReports();
+      expect(
+        container.read(communityMapViewModelProvider).selectedPostId,
+        isNull,
+      );
+      expect(vm.selectedPreview, isNull);
     },
   );
 
@@ -185,12 +182,17 @@ void main() {
 
 class _FakeMapboxMapService implements MapboxMapService {
   @override
-  Future<void> showReports(List<CommunityReport> reports) async {}
+  Future<void> showReports(
+    List<CommunityReport> reports, {
+    bool recenter = false,
+  }) async {
+    reportCalls.add((reports: reports, recenter: recenter));
+    if (failReports) throw StateError('Unavailable');
+  }
+
   final List<({Brightness brightness, bool is3dEnabled})> appearanceCalls = [];
-  final demoCalls = <({DemoWarningLevel level, bool recenter})>[];
-  bool failDemo = false;
-  int concurrentDraws = 0;
-  int maxConcurrentDraws = 0;
+  final reportCalls = <({List<CommunityReport> reports, bool recenter})>[];
+  bool failReports = false;
 
   @override
   Future<void> applyAppearance({
@@ -208,39 +210,22 @@ class _FakeMapboxMapService implements MapboxMapService {
 
   @override
   void detach() {}
-
-  @override
-  Future<void> showWarningDemo(
-    DemoWarningLevel level, {
-    bool recenter = false,
-  }) async {
-    demoCalls.add((level: level, recenter: recenter));
-    concurrentDraws++;
-    if (concurrentDraws > maxConcurrentDraws) {
-      maxConcurrentDraws = concurrentDraws;
-    }
-    try {
-      await Future<void>.delayed(Duration.zero);
-      if (failDemo) throw StateError('Unavailable');
-    } finally {
-      concurrentDraws--;
-    }
-  }
 }
 
 class _Reports implements CommunityReportsService {
   bool fail = false;
+  List<CommunityReport> items = [_report];
   @override
   Future<List<CommunityReport>> load() async {
     if (fail) throw StateError('offline');
-    return const [
-      CommunityReport(
-        id: 'approved',
-        category: 'animal_in_need',
-        latitude: 10.12,
-        longitude: 123.12,
-        description: 'Bird',
-      ),
-    ];
+    return items;
   }
 }
+
+const _report = CommunityReport(
+  id: 'approved',
+  category: 'animal_in_need',
+  latitude: 10.12,
+  longitude: 123.12,
+  description: 'Bird',
+);

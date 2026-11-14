@@ -6,7 +6,6 @@ import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
-import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 
 /// Coordinates community-map presentation state with the Mapbox service.
@@ -14,7 +13,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   late final MapboxMapService _mapboxMapService;
   var _isStyleLoaded = false;
   var _disposed = false;
-  Future<void> _demoQueue = Future.value();
+  var _hasCenteredReports = false;
 
   @override
   CommunityMapState build() {
@@ -29,24 +28,23 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
 
   /// Connects the platform map after it has been created.
   Future<void> onMapCreated(MapboxMap mapboxMap) async {
+    _isStyleLoaded = false;
+    _hasCenteredReports = false;
     await _mapboxMapService.attach(mapboxMap, onPostTap: selectPost);
   }
 
   void selectPost(String postId) {
-    if (!_disposed &&
-        (postId == MapPostPreview.demoId ||
-            state.reports.any((report) => report.id == postId))) {
+    if (!_disposed && state.reports.any((report) => report.id == postId)) {
       state = state.copyWith(selectedPostId: postId);
     }
   }
 
   void dismissPost() => state = state.copyWith(clearSelectedPost: true);
 
-  /// Opens the tapped report in the For You feed. The demo pin is not a report
-  /// and has no feed post, so it does nothing here (its dialog has no button).
+  /// Opens the tapped report in the For You feed.
   void seeMore() {
     final postId = state.selectedPostId;
-    if (postId == null || postId == MapPostPreview.demoId) return;
+    if (postId == null || selectedPreview == null) return;
     ref.read(feedViewModelProvider.notifier).openReport(postId);
     dismissPost();
     ref
@@ -59,14 +57,10 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   Future<void> onStyleLoaded() async {
     _isStyleLoaded = true;
     await _applyAppearance();
-    await _renderDemo();
     await refreshReports();
   }
 
   MapPostPreview? get selectedPreview {
-    if (state.selectedPostId == MapPostPreview.demoId) {
-      return MapPostPreview.demo;
-    }
     return state.reports
         .where((r) => r.id == state.selectedPostId)
         .firstOrNull
@@ -79,11 +73,16 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     try {
       final reports = await ref.read(communityReportsServiceProvider).load();
       if (_disposed) return;
-      await _mapboxMapService.showReports(reports);
+      await _mapboxMapService.showReports(
+        reports,
+        recenter: !_hasCenteredReports && reports.isNotEmpty,
+      );
       if (!_disposed) {
+        if (reports.isNotEmpty) _hasCenteredReports = true;
         state = state.copyWith(
           reports: List.unmodifiable(reports),
           isLoadingReports: false,
+          clearSelectedPost: !reports.any((r) => r.id == state.selectedPostId),
         );
       }
     } catch (_) {
@@ -91,33 +90,6 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
         state = state.copyWith(reportsHaveError: true, isLoadingReports: false);
       }
     }
-  }
-
-  Future<void> selectDemoLevel(DemoWarningLevel level) async {
-    state = state.copyWith(demoLevel: level);
-    if (_isStyleLoaded) await _renderDemo();
-  }
-
-  Future<void> recenterDemo() async {
-    if (_isStyleLoaded) await _renderDemo(recenter: true);
-  }
-
-  // Serialize updates so fast selections cannot create duplicate style layers
-  // or leave the marker showing an older selection.
-  Future<void> _renderDemo({bool recenter = false}) {
-    _demoQueue = _demoQueue.then((_) async {
-      if (_disposed) return;
-      try {
-        await _mapboxMapService.showWarningDemo(
-          state.demoLevel,
-          recenter: recenter,
-        );
-        if (!_disposed) state = state.copyWith(demoHasError: false);
-      } catch (_) {
-        if (!_disposed) state = state.copyWith(demoHasError: true);
-      }
-    });
-    return _demoQueue;
   }
 
   /// Keeps Mapbox Standard lighting aligned with the active app theme.

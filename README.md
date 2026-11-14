@@ -13,6 +13,19 @@ flutter run --dart-define=MAPBOX_PUBLIC_TOKEN=<your-public-token>
 The existing VS Code launch configuration reads the same value from the
 ignored `dart_defines.json` file.
 
+### Browser rendering
+
+The web bootstrap uses CanvasKit software rendering for Flutter's interface to
+avoid browser GPU stencil-buffer and shader failures. Mapbox still uses its own
+WebGL canvas for the map, so browser WebGL support remains necessary. This can
+use more CPU for the web interface; Android and iOS rendering are unaffected.
+
+After changing the bootstrap, stop the running Flutter session, start it again,
+and refresh the browser page. A Dart hot restart does not reload the bootstrap
+or replace an already failed browser graphics context.
+
+Reference: [Flutter web initialization](https://docs.flutter.dev/platform-integration/web/initialization#canvaskit-options).
+
 ## Google authentication (Android and iOS)
 
 Login and registration both use Supabase Google OAuth in the external browser.

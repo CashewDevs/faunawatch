@@ -35,11 +35,17 @@ class FakePickerMap implements LocationPickerMapService {
   void Function(PostLocation)? onTap;
   bool detached = false;
   final renders = <({PostLocation location, bool recenter})>[];
-  int configure3dCalls = 0;
+  final initialCameraLocations = <PostLocation?>[];
+  final appearanceCalls = <bool>[];
   final focuses = <PostLocation>[];
   @override
-  Future<void> configure3d() async {
-    configure3dCalls++;
+  Future<void> initializeCamera(PostLocation? initialLocation) async {
+    initialCameraLocations.add(initialLocation);
+  }
+
+  @override
+  Future<void> applyAppearance({required bool isDarkMode}) async {
+    appearanceCalls.add(isDarkMode);
   }
 
   @override

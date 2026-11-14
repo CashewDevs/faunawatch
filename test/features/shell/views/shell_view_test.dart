@@ -7,7 +7,6 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
-import 'package:faunawatch/features/community_map/models/warning_demo.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
@@ -119,7 +118,7 @@ void main() {
       await tester.tap(find.text('Map'));
       await tester.pumpAndSettle();
       expect(find.byType(CommunityMapView), findsOneWidget);
-      expect(find.text('Community map'), findsOneWidget);
+      expect(find.byTooltip('About this map'), findsOneWidget);
 
       await tester.tap(find.text('Chats'));
       await tester.pumpAndSettle();
@@ -143,7 +142,7 @@ void main() {
       await tester.tap(find.text('Feed'));
       await tester.pumpAndSettle();
       expect(find.byType(FeedView), findsOneWidget);
-      expect(find.text('Community map'), findsOneWidget);
+      expect(find.byTooltip('About this map'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -271,7 +270,10 @@ class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
 
 class _FakeMapboxMapService implements MapboxMapService {
   @override
-  Future<void> showReports(List<CommunityReport> reports) async {}
+  Future<void> showReports(
+    List<CommunityReport> reports, {
+    bool recenter = false,
+  }) async {}
   @override
   Future<void> applyAppearance({
     required Brightness brightness,
@@ -286,12 +288,6 @@ class _FakeMapboxMapService implements MapboxMapService {
 
   @override
   void detach() {}
-
-  @override
-  Future<void> showWarningDemo(
-    DemoWarningLevel level, {
-    bool recenter = false,
-  }) async {}
 }
 
 class _FakeProfilePictureViewModel extends ProfilePictureViewModel {

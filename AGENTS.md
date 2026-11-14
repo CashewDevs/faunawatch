@@ -24,6 +24,11 @@ This repository contains the FaunaWatch mobile application.
 - Mapping: Mapbox Maps SDK for Flutter (`mapbox_maps_flutter`); configure its
   public token through the `MAPBOX_PUBLIC_TOKEN` build-time define. The SDK
   requires iOS 14+.
+- Web preview rendering: `web/flutter_bootstrap.js` uses CPU-only CanvasKit for
+  Flutter's UI to avoid browser stencil-buffer/shader failures. Mapbox retains
+  its separate WebGL renderer. Web UI CPU usage can increase; Android/iOS are
+  unaffected. Bootstrap changes require restarting the run and refreshing the
+  browser; Dart hot restart alone is insufficient.
 - FaunaLens photo capture: `camera` (live preview), `exif` (location of gallery
   photos), and `geolocator_android` + `geolocator_apple` through
   `geolocator_platform_interface` (location of captured photos). Their
@@ -348,8 +353,15 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   (the latest 100; no paging yet).
 - The community map's report pins open the matching post in the For You tab
   (`FeedViewModel.openReport`, fetching it through `community_feed(p_report_id)`
-  when it is not loaded). The warning demo's "Sample incident" pin is not a
-  report: it keeps a map-local preview (`MapPostPreview.demo`) with no feed link.
+  when it is not loaded). The map shows only real approved reports at the
+  approximate coordinates returned by `community_reports()`. It fits the first
+  nonempty load into view; later refreshes preserve the current camera. There
+  are no sample pins, simulated positions, or demo warning zones.
+  Pin dialogs load the first available post photo on demand through
+  `MapPostThumbnailViewModel` and the existing `FeedService.fetchPost` signed-URL
+  flow. URLs are discarded when the dialog closes and reloaded on account
+  changes. Previews stay anonymous and show a placeholder when no photo is
+  attached or available; a failed photo load can be retried.
 
 Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
 View). A category and valid observation coordinates are required; photos and
@@ -383,6 +395,12 @@ search, or current GPS); the form does not expose coordinate entry.
 The picker opens in 3D and automatically centers on device GPS when available,
 without changing the observation pin. Denied/unavailable GPS keeps the existing
 location or regional fallback, with search and manual pinning still available.
+The map service explicitly initializes that camera after the native map and style
+are ready, independently of the GPS request, rather than relying only on the
+widget's opening viewport.
+Both map services share `applyMapLighting`: app dark mode uses Mapbox Standard's
+night preset and light mode uses its day preset. The picker reapplies lighting
+after style loads and theme changes without recentering or changing the pin.
 Search uses Mapbox Geocoding v6 with `permanent=true` because the chosen coordinates are saved.
 On submit, `PlaceNameService` makes one more permanent request, a reverse lookup of the
 final point, to save its area in `reports.place_name` (barangay or locality, city, province;
