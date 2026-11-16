@@ -16,7 +16,6 @@ class FeedTabBar extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTab(context, FeedTab.gallery, 'Your Gallery'),
           _buildTab(context, FeedTab.map, 'Map'),
           _buildTab(context, FeedTab.forYou, 'For You'),
         ],

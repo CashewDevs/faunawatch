@@ -5,9 +5,8 @@ import 'package:faunawatch/features/community_map/views/community_map_view.dart'
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_tab_bar.dart';
 import 'package:faunawatch/features/feed/views/widgets/for_you_feed.dart';
-import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 
-/// The primary Feed screen with Your Gallery, Map, and For You tabs. For You
+/// The primary Feed screen with Map and For You tabs. For You
 /// shows the approved reports of the community.
 class FeedView extends ConsumerStatefulWidget {
   const FeedView({super.key});
@@ -41,7 +40,6 @@ class _FeedViewState extends ConsumerState<FeedView> {
               index: tab.index,
               sizing: StackFit.expand,
               children: [
-                const GalleryView(),
                 if (_mapOpened)
                   const CommunityMapView()
                 else

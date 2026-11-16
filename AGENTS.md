@@ -324,6 +324,32 @@ description, category, AI severity/invasive flag (always with the "Preliminary
 AI-assisted suggestions" note), and the place name. Private photo URLs and
 uploaded avatars are signed for one hour (they refresh with the page).
 
+My Gallery (`lib/features/gallery/`) appears directly below Profile's banner,
+avatar, username and bio, in one scrollable page. Edit Profile, Change Theme and
+Settings live in `ProfilePreferencesDrawer`, opened by the hamburger icon at
+the top-right of the banner. Selecting an action closes the drawer before
+opening the existing editor, theme picker or settings screen.
+Gallery is absent from the feed tabs,
+which contain Map and For You only. Gallery shows only the signed-in user's
+approved reports in the three-column grid with yellow title/date footers.
+`SupabaseGalleryService` queries `reports` with both `user_id = current user`
+and `status = approved`, relying on existing owner RLS, and loads pages of 12
+by submission time and ID, newest first. It reuses `FeedPost` for title/category
+fallbacks and signs the first available private report photo for one hour.
+`GalleryViewModel` owns its independent pagination, refresh and category filter;
+it resets on account changes and discards superseded requests. Cards push a
+profile-local full-screen `GalleryPostViewer`, starting at the tapped post.
+Vertical swipes browse only the gallery's own posts (respecting its filter),
+and Back returns to the existing profile/grid scroll position. Neither the shell
+destination nor the For You tab/page changes. `GalleryPostViewModel` loads full
+photos and engagement through `FeedService.fetchPost`, checks the current owner,
+and manages local likes and comment counts. The shared post widgets accept
+action callbacks; the comments sheet can notify this local ViewModel of changes.
+Full post data is discarded when its page is disposed and on account changes.
+The Filter menu uses report categories
+on loaded pages; scrolling or "Load older posts" loads more, including when a
+filter currently has no matches. No dependency or migration is added.
+
 Apply `20261112100000_create_community_feed.sql` before using the feed. The user
 applies it manually in the Supabase SQL editor; agents must not apply hosted
 changes. It must be applied after `20261112090000_create_notifications.sql`. It

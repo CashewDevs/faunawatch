@@ -1,111 +1,208 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
+
 import 'package:faunawatch/core/constants/app_colors.dart';
-import 'package:faunawatch/features/gallery/models/gallery_item.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 
-class ImmediateGalleryService implements GalleryService {
-  @override
-  Future<List<GalleryItem>> fetchGalleryItems() async {
-    return const [
-      GalleryItem(
-        id: '1',
-        title: 'Barn Owl',
-        category: 'Birds',
-        date: 'Oct 19',
-      ),
-      GalleryItem(
-        id: '2',
-        title: 'Red Fox',
-        category: 'Mammals',
-        date: 'Oct 19',
-      ),
-      GalleryItem(
-        id: '3',
-        title: 'Peregrine Falcon',
-        category: 'Birds',
-        date: 'Oct 19',
-      ),
-    ];
-  }
-}
+import '../../feed/fake_feed_service.dart';
+import '../fake_gallery_service.dart';
 
 void main() {
-  Widget buildTestWidget() {
-    return ProviderScope(
-      overrides: [
-        galleryServiceProvider.overrideWithValue(ImmediateGalleryService()),
+  late FakeGalleryService service;
+
+  setUp(() {
+    service = FakeGalleryService(
+      posts: [
+        testPost(
+          'own',
+          authorId: 'me',
+          title: 'Barn Owl',
+          category: ReportCategory.animalInNeed,
+        ),
+        testPost(
+          'other',
+          title: 'Red Fox',
+          category: ReportCategory.otherWildlifeIncident,
+        ),
+        testPost(
+          'third',
+          title: 'Peregrine Falcon',
+          category: ReportCategory.animalInNeed,
+        ),
       ],
-      child: const MaterialApp(home: GalleryView()),
     );
+  });
+
+  Future<void> pumpGallery(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [galleryServiceProvider.overrideWithValue(service)],
+        child: const MaterialApp(home: GalleryView()),
+      ),
+    );
+    await tester.pumpAndSettle();
   }
 
-  group('GalleryView', () {
-    testWidgets('shows through the feed background and keeps the Filter', (
-      tester,
-    ) async {
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pumpAndSettle();
-
+  testWidgets(
+    'keeps the background, Filter and three-column yellow-footer grid',
+    (tester) async {
+      await pumpGallery(tester);
       expect(
         tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
         Colors.transparent,
       );
       expect(find.byType(GalleryHeader), findsOneWidget);
       expect(find.text('Filter'), findsOneWidget);
-      expect(find.text('Gallery'), findsNothing);
-    });
-
-    testWidgets(
-      'renders 3-column grid of GalleryCards with #FFF7D6 details footer',
-      (tester) async {
-        await tester.pumpWidget(buildTestWidget());
-        await tester.pumpAndSettle();
-
-        expect(find.byType(GalleryCard), findsNWidgets(3));
-        expect(find.text('Barn Owl'), findsOneWidget);
-        expect(find.text('Red Fox'), findsOneWidget);
-        expect(find.text('Peregrine Falcon'), findsOneWidget);
-
-        // Verify #FFF7D6 details container exists in each card
-        expect(
-          find.byWidgetPredicate(
-            (w) =>
-                w is Container && w.color == AppColors.galleryCardDetailsYellow,
-          ),
-          findsNWidgets(3),
-        );
-      },
-    );
-
-    testWidgets('tapping Filter button opens dropdown menu and filters items', (
-      tester,
-    ) async {
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pumpAndSettle();
-
       expect(find.byType(GalleryCard), findsNWidgets(3));
-
-      // Tap Filter dropdown button
-      await tester.tap(find.text('Filter'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Birds'), findsOneWidget);
-      expect(find.text('Mammals'), findsOneWidget);
-
-      // Tap Birds dropdown item
-      await tester.tap(find.text('Birds'));
-      await tester.pumpAndSettle();
-
-      // Only birds should remain (2 birds, 0 mammals)
-      expect(find.byType(GalleryCard), findsNWidgets(2));
+      final grid = tester.widget<SliverGrid>(find.byType(SliverGrid));
+      expect(
+        (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+            .crossAxisCount,
+        3,
+      );
       expect(find.text('Barn Owl'), findsOneWidget);
-      expect(find.text('Peregrine Falcon'), findsOneWidget);
-      expect(find.text('Red Fox'), findsNothing);
-    });
+      expect(find.text('Red Fox'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Container && w.color == AppColors.galleryCardDetailsYellow,
+        ),
+        findsNWidgets(3),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('filters by real report categories and restores All', (
+    tester,
+  ) async {
+    await pumpGallery(tester);
+    await tester.tap(find.text('Filter'));
+    await tester.pumpAndSettle();
+    for (final category in ReportCategory.values) {
+      expect(find.text(category.label), findsOneWidget);
+    }
+    await tester.tap(find.text(ReportCategory.animalInNeed.label));
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsNWidgets(2));
+    expect(find.text('Red Fox'), findsNothing);
+    await tester.tap(find.text('Filter'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsNWidgets(3));
+  });
+
+  testWidgets('uses network photos and handles missing or failed photos', (
+    tester,
+  ) async {
+    service.posts[0] = service.posts[0].copyWith(
+      photoUrls: ['https://photos.invalid/report.webp'],
+    );
+    await pumpGallery(tester);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(image.image, isA<NetworkImage>());
+    expect(
+      (image.image as NetworkImage).url,
+      'https://photos.invalid/report.webp',
+    );
+    expect(image.fit, BoxFit.cover);
+    expect(find.byIcon(Icons.image_outlined), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty gallery can be pulled to refresh', (tester) async {
+    service.posts = [];
+    await pumpGallery(tester);
+    expect(find.text('No posts yet.'), findsOneWidget);
+    service.posts = [testPost('new', title: 'Fresh sighting')];
+    await tester.fling(
+      find.byType(CustomScrollView),
+      const Offset(0, 400),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Fresh sighting'), findsOneWidget);
+  });
+
+  testWidgets('initial error retries and refresh failure preserves cards', (
+    tester,
+  ) async {
+    service.pageError = Exception('offline');
+    await pumpGallery(tester);
+    expect(find.text('Could not load your gallery.'), findsOneWidget);
+    service.pageError = null;
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsNWidgets(3));
+    service.pageError = Exception('offline');
+    await tester.fling(
+      find.byType(CustomScrollView),
+      const Offset(0, 400),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsNWidgets(3));
+  });
+
+  testWidgets('scrolling near the end loads older cards', (tester) async {
+    service.posts = [
+      for (var i = 0; i < 24; i++) testPost('p$i', index: i, title: 'Post $i'),
+    ];
+    await pumpGallery(tester);
+    expect(service.pageRequests, hasLength(1));
+    await tester.fling(
+      find.byType(CustomScrollView),
+      const Offset(0, -600),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(service.pageRequests.length, greaterThan(1));
+    expect(service.pageRequests[1]!.id, 'p11');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty filters can load older matches and retry failed pages', (
+    tester,
+  ) async {
+    service.posts = [
+      for (var i = 0; i < 12; i++)
+        testPost('p$i', index: i, category: ReportCategory.animalInNeed),
+      testPost(
+        'older',
+        index: 10,
+        title: 'Older fox',
+        category: ReportCategory.otherWildlifeIncident,
+      ),
+    ];
+    await pumpGallery(tester);
+    await tester.tap(find.text('Filter'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(ReportCategory.otherWildlifeIncident.label));
+    await tester.pumpAndSettle();
+    expect(find.text('No matching posts loaded.'), findsOneWidget);
+    service.pageError = Exception('offline');
+    await tester.tap(find.text('Load older posts'));
+    await tester.pumpAndSettle();
+    expect(find.text('Load older posts'), findsOneWidget);
+    service.pageError = null;
+    final gate = Completer<void>();
+    service.pageGate = gate;
+    await tester.tap(find.text('Load older posts'));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Older fox'), findsOneWidget);
+    expect(find.text('Load older posts'), findsNothing);
   });
 }

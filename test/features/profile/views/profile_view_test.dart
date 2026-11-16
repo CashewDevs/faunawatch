@@ -1,5 +1,12 @@
 import 'dart:async';
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
+import 'package:faunawatch/features/gallery/services/gallery_service.dart';
+import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
+import 'package:faunawatch/features/gallery/views/widgets/gallery_notice.dart';
+import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
+import 'package:faunawatch/features/profile/views/widgets/profile_preferences_drawer.dart';
+import '../../gallery/fake_gallery_service.dart';
+import '../../feed/fake_feed_service.dart';
 import '../fake_profile_service.dart';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
@@ -20,9 +27,14 @@ void main() {
     _FakeReader? reader,
     FakeProfileService? writer,
     _FakeKeyStorage? keyStorage,
+    FakeGalleryService? gallery,
+    ThemeData? theme,
   }) {
     return ProviderScope(
       overrides: [
+        galleryServiceProvider.overrideWithValue(
+          gallery ?? FakeGalleryService(),
+        ),
         aiApiKeyStorageServiceProvider.overrideWithValue(
           keyStorage ?? _FakeKeyStorage(),
         ),
@@ -33,17 +45,52 @@ void main() {
           writer ?? FakeProfileService(),
         ),
       ],
-      child: const MaterialApp(home: ProfileView()),
+      child: MaterialApp(theme: theme, home: const ProfileView()),
     );
   }
 
+  Future<void> openMenu(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Profile & preferences'));
+    await tester.pumpAndSettle();
+  }
+
   group('ProfileView', () {
+    testWidgets('shows My Gallery directly below the profile header', (
+      tester,
+    ) async {
+      final gallery = FakeGalleryService(
+        posts: [
+          testPost('own', authorId: 'user-a', title: 'My eagle sighting'),
+        ],
+      );
+      await tester.pumpWidget(buildTestProfile(gallery: gallery));
+      await tester.pumpAndSettle();
+      expect(find.text('Tester'), findsOneWidget);
+      expect(find.text('Edit Profile'), findsNothing);
+      expect(find.text('Change Theme'), findsNothing);
+      expect(find.text('Settings'), findsNothing);
+      expect(find.byTooltip('Profile & preferences'), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(GalleryHeader)).dy, lessThan(350));
+      await tester.scrollUntilVisible(
+        find.byType(GalleryCard),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('My Gallery'), findsOneWidget);
+      expect(find.text('My eagle sighting'), findsOneWidget);
+      expect(find.byType(GalleryCard), findsOneWidget);
+      expect(find.byType(CustomScrollView), findsOneWidget);
+      expect(gallery.pageRequests, hasLength(1));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('editing a banner saves the preset and displays it', (
       tester,
     ) async {
       final writer = FakeProfileService();
       await tester.pumpWidget(buildTestProfile(writer: writer));
       await tester.pumpAndSettle();
+      await openMenu(tester);
       await tester.tap(find.text('Edit Profile'));
       await tester.pumpAndSettle();
       final banner = find.bySemanticsLabel('Banner 2');
@@ -54,6 +101,7 @@ void main() {
       expect(writer.savedBanner, AppAssets.bannerSunset);
       expect(writer.savedColor, isNull);
       expect(find.byType(EditProfileView), findsNothing);
+      expect(find.text('Edit Profile'), findsNothing);
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -71,6 +119,7 @@ void main() {
       final writer = FakeProfileService()..succeeds = false;
       await tester.pumpWidget(buildTestProfile(writer: writer));
       await tester.pumpAndSettle();
+      await openMenu(tester);
       await tester.tap(find.text('Edit Profile'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Save'));
@@ -110,17 +159,27 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final scroll = tester.widget<SingleChildScrollView>(
-          find.byType(SingleChildScrollView).first,
+        await tester.scrollUntilVisible(
+          find.byType(GalleryNotice),
+          200,
+          scrollable: find.byType(Scrollable).first,
         );
-        return (scroll.padding! as EdgeInsets).bottom;
+        final padding = tester.widget<Padding>(
+          find
+              .ancestor(
+                of: find.byType(GalleryNotice),
+                matching: find.byType(Padding),
+              )
+              .first,
+        );
+        return (padding.padding as EdgeInsets).bottom;
       }
 
-      expect(await bottomPadding(0), 16);
-      expect(await bottomPadding(90), 106);
+      expect(await bottomPadding(0), 20);
+      expect(await bottomPadding(90), 110);
     });
 
-    testWidgets('renders profile header with username, bio, and action cards', (
+    testWidgets('hamburger menu holds profile actions and dismisses cleanly', (
       tester,
     ) async {
       await tester.pumpWidget(buildTestProfile());
@@ -137,9 +196,17 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.text('Edit Profile'), findsNothing);
+      expect(find.text('Watching wildlife responsibly.'), findsOneWidget);
+      await openMenu(tester);
+      expect(find.byType(ProfilePreferencesDrawer), findsOneWidget);
       expect(find.text('Edit Profile'), findsOneWidget);
       expect(find.text('Change Theme'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
+      await tester.tap(find.byTooltip('Close profile menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit Profile'), findsNothing);
+      expect(find.text('My Gallery'), findsOneWidget);
     });
 
     testWidgets('tapping Edit Profile navigates to EditProfileView', (
@@ -148,6 +215,7 @@ void main() {
       await tester.pumpWidget(buildTestProfile());
       await tester.pumpAndSettle();
 
+      await openMenu(tester);
       await tester.tap(find.text('Edit Profile'));
       await tester.pumpAndSettle();
 
@@ -159,6 +227,7 @@ void main() {
       await tester.pumpWidget(buildTestProfile());
       await tester.pumpAndSettle();
 
+      await openMenu(tester);
       await tester.tap(find.text('Change Theme'));
       await tester.pumpAndSettle();
 
@@ -173,12 +242,35 @@ void main() {
       await tester.pumpWidget(buildTestProfile());
       await tester.pumpAndSettle();
 
+      await openMenu(tester);
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
 
       expect(find.byType(SettingsView), findsOneWidget);
       expect(find.text('Theme Mode'), findsOneWidget);
       expect(find.text('Sign Out'), findsOneWidget);
+    });
+
+    testWidgets('phone-sized dark menu remains accessible and Back closes it', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(buildTestProfile(theme: ThemeData.dark()));
+      await tester.pumpAndSettle();
+      await openMenu(tester);
+      final drawer = find.byType(ProfilePreferencesDrawer);
+      expect(Theme.of(tester.element(drawer)).brightness, Brightness.dark);
+      expect(find.text('Edit Profile'), findsOneWidget);
+      expect(find.text('Change Theme'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Edit Profile'), findsNothing);
+      expect(find.text('Tester'), findsOneWidget);
+      expect(find.text('My Gallery'), findsOneWidget);
     });
   });
 }
@@ -191,6 +283,7 @@ class _FakeReader implements ProfileReaderService {
       ? load!()
       : const ProfileData(
           username: 'Tester',
+          bio: 'Watching wildlife responsibly.',
           presetAvatar: AppAssets.avatarBunny,
           bannerAsset: AppAssets.bannerDay,
         );

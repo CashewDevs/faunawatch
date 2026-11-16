@@ -142,6 +142,23 @@ void main() {
   });
 
   group('refresh', () {
+    test('supersedes an older page still loading', () async {
+      create(serviceWith(25));
+      await open();
+      final gate = Completer<void>();
+      service.pageGate = gate;
+      final older = vm().loadMore();
+      service.pageGate = null;
+      service.posts = [testPost('new'), ...service.posts];
+      await vm().refresh();
+      expect(ids().first, 'new');
+      expect(ids(), hasLength(FeedService.pageSize));
+      gate.complete();
+      await older;
+      expect(ids(), hasLength(FeedService.pageSize));
+      expect(state().isLoadingMore, isFalse);
+    });
+
     test('replaces the posts with the newest page', () async {
       create(serviceWith(25));
       await open();
@@ -275,7 +292,7 @@ void main() {
   group('openReport (map to feed)', () {
     test('selects For You and focuses a loaded post', () async {
       create(serviceWith(3));
-      container.read(feedTabViewModelProvider.notifier).select(FeedTab.gallery);
+      container.read(feedTabViewModelProvider.notifier).select(FeedTab.map);
       await open();
       await vm().openReport('p2');
       expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
