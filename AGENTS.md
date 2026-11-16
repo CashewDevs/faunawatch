@@ -324,8 +324,12 @@ description, category, AI severity/invasive flag (always with the "Preliminary
 AI-assisted suggestions" note), and the place name. Private photo URLs and
 uploaded avatars are signed for one hour (they refresh with the page).
 
-My Gallery (`lib/features/gallery/`) appears directly in Profile below its
-existing controls, in one scrollable page. It is absent from the feed tabs,
+My Gallery (`lib/features/gallery/`) appears directly below Profile's banner,
+avatar, username and bio, in one scrollable page. Edit Profile, Change Theme and
+Settings live in `ProfilePreferencesDrawer`, opened by the hamburger icon at
+the top-right of the banner. Selecting an action closes the drawer before
+opening the existing editor, theme picker or settings screen.
+Gallery is absent from the feed tabs,
 which contain Map and For You only. Gallery shows only the signed-in user's
 approved reports in the three-column grid with yellow title/date footers.
 `SupabaseGalleryService` queries `reports` with both `user_id = current user`

@@ -9,9 +9,10 @@ import 'package:faunawatch/features/profile/models/profile_data.dart';
 /// Top section of the Profile screen displaying the user's chosen banner,
 /// overlapping circular avatar, username, bio, and bottom divider line.
 class ProfileHeaderCard extends StatelessWidget {
-  const ProfileHeaderCard({super.key, required this.profile});
+  const ProfileHeaderCard({super.key, required this.profile, this.onOpenMenu});
 
   final ProfileData profile;
+  final VoidCallback? onOpenMenu;
 
   Widget _buildAvatar() {
     if (profile.avatarUrl != null) {
@@ -125,6 +126,25 @@ class ProfileHeaderCard extends StatelessWidget {
                 child: ClipOval(child: _buildAvatar()),
               ),
             ),
+            if (onOpenMenu != null)
+              Positioned(
+                top: 8,
+                right: 12,
+                child: SafeArea(
+                  bottom: false,
+                  child: IconButton.filledTonal(
+                    tooltip: 'Profile & preferences',
+                    onPressed: onOpenMenu,
+                    icon: const Icon(Icons.menu_rounded),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surface.withValues(alpha: 0.95),
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
         // Horizontal divider line
