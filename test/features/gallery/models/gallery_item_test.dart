@@ -9,14 +9,20 @@ void main() {
         title: 'Eagle',
         location: 'Zone A',
         date: 'Oct 19',
-        category: 'Birds',
+        category: 'Animal in need',
+        imageUrl: 'https://photos.invalid/eagle.webp',
       );
 
       final item2 = item1.copyWith(title: 'Golden Eagle');
 
       expect(item1 == item2, isFalse);
       expect(item2.title, 'Golden Eagle');
-      expect(item2.category, 'Birds');
+      expect(item2.category, 'Animal in need');
+      expect(item2.imageUrl, item1.imageUrl);
+      expect(
+        item1.copyWith(imageUrl: 'https://photos.invalid/new.webp'),
+        isNot(item1),
+      );
 
       final item1Clone = item1.copyWith();
       expect(item1 == item1Clone, isTrue);
@@ -24,20 +30,30 @@ void main() {
   });
 
   group('GalleryState', () {
-    const item1 = GalleryItem(id: '1', title: 'Hawk', category: 'Birds');
-    const item2 = GalleryItem(id: '2', title: 'Deer', category: 'Mammals');
+    const item1 = GalleryItem(
+      id: '1',
+      title: 'Hawk',
+      category: 'Animal in need',
+    );
+    const item2 = GalleryItem(
+      id: '2',
+      title: 'Deer',
+      category: 'Other wildlife incident',
+    );
 
     test('filteredItems filters by selectedCategory', () {
       const stateAll = GalleryState(items: [item1, item2]);
       expect(stateAll.filteredItems.length, 2);
 
-      final stateBirds = stateAll.copyWith(selectedCategory: 'Birds');
-      expect(stateBirds.filteredItems.length, 1);
-      expect(stateBirds.filteredItems.first.title, 'Hawk');
+      final stateInNeed = stateAll.copyWith(selectedCategory: 'Animal in need');
+      expect(stateInNeed.filteredItems.length, 1);
+      expect(stateInNeed.filteredItems.first.title, 'Hawk');
 
-      final stateMammals = stateAll.copyWith(selectedCategory: 'Mammals');
-      expect(stateMammals.filteredItems.length, 1);
-      expect(stateMammals.filteredItems.first.title, 'Deer');
+      final stateOther = stateAll.copyWith(
+        selectedCategory: 'Other wildlife incident',
+      );
+      expect(stateOther.filteredItems.length, 1);
+      expect(stateOther.filteredItems.first.title, 'Deer');
     });
   });
 }

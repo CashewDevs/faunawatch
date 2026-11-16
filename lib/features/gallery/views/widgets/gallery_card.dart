@@ -7,8 +7,8 @@ import 'package:faunawatch/features/gallery/models/gallery_item.dart';
 ///
 /// Features:
 /// - Rounded rectangular card (BorderRadius.circular(18))
-/// - Blue gradient photo display / placeholder area
-/// - Yellow [#FFF7D6] bottom section for photo details placeholder
+/// - Signed network photo over a blue gradient fallback
+/// - Yellow [#FFF7D6] bottom section for the title and submission date
 class GalleryCard extends StatelessWidget {
   const GalleryCard({super.key, required this.item, this.onTap});
 
@@ -48,13 +48,16 @@ class GalleryCard extends StatelessWidget {
             children: [
               // Top area: image or photo placeholder
               Expanded(
-                child: item.imageAsset != null
-                    ? Image.asset(
-                        item.imageAsset!,
+                child: item.imageUrl != null
+                    ? Image.network(
+                        item.imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox.expand(),
+                        loadingBuilder: (_, child, progress) => progress == null
+                            ? child
+                            : const _PhotoPlaceholder(),
+                        errorBuilder: (_, _, _) => const _PhotoPlaceholder(),
                       )
-                    : const SizedBox.expand(),
+                    : const _PhotoPlaceholder(),
               ),
 
               // Bottom details container: #FFF7D6
@@ -95,4 +98,13 @@ class GalleryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PhotoPlaceholder extends StatelessWidget {
+  const _PhotoPlaceholder();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Icon(Icons.image_outlined, color: Colors.white70, size: 28),
+  );
 }

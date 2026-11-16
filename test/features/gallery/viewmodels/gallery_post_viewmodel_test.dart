@@ -1,0 +1,189 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/feed/models/post_comment.dart';
+import 'package:faunawatch/features/feed/services/feed_service.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
+import 'package:faunawatch/features/gallery/viewmodels/gallery_post_viewmodel.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
+
+import '../../feed/fake_feed_service.dart';
+
+void main() {
+  late ProviderContainer container;
+  late FakeFeedService service;
+  final provider = galleryPostViewModelProvider('own');
+
+  Future<void> open({String? user = 'me'}) async {
+    container = ProviderContainer(
+      overrides: [
+        feedServiceProvider.overrideWithValue(service),
+        currentUserIdProvider.overrideWith((ref) => Stream.value(user)),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(currentUserIdProvider.future);
+    container.listen(provider, (_, _) {});
+    container
+        .read(shellViewModelProvider.notifier)
+        .selectDestination(ShellDestination.profile);
+    container.read(feedTabViewModelProvider.notifier).select(FeedTab.map);
+    expect(container.read(provider).isLoading, isTrue);
+    await pumpEventQueue();
+  }
+
+  GalleryPostViewModel vm() => container.read(provider.notifier);
+
+  setUp(() {
+    service = FakeFeedService(
+      posts: [
+        testPost(
+          'own',
+          authorId: 'me',
+          likeCount: 4,
+          commentCount: 150,
+          photoUrls: [
+            'https://photos.invalid/one.webp',
+            'https://photos.invalid/two.webp',
+          ],
+        ),
+      ],
+    );
+  });
+
+  test('loads the full own post without moving or loading the feed', () async {
+    await open();
+    expect(container.read(provider).post!.photoUrls, hasLength(2));
+    expect(container.read(provider).isLoading, isFalse);
+    expect(service.postRequests, ['own']);
+    expect(service.pageRequests, isEmpty);
+    expect(container.read(shellViewModelProvider), ShellDestination.profile);
+    expect(container.read(feedTabViewModelProvider), FeedTab.map);
+  });
+
+  test('missing and other users posts are unavailable', () async {
+    service.posts = [testPost('own', authorId: 'someone-else')];
+    await open();
+    expect(container.read(provider).post, isNull);
+    expect(container.read(provider).hasError, isFalse);
+    service.posts = [];
+    await vm().retry();
+    expect(container.read(provider).post, isNull);
+  });
+
+  test('signed-out viewers do not fetch a post', () async {
+    await open(user: null);
+    expect(service.postRequests, isEmpty);
+    expect(container.read(provider).post, isNull);
+    expect(container.read(provider).isLoading, isFalse);
+  });
+
+  test('failed load can retry without leaving Profile', () async {
+    service.postError = Exception('offline');
+    await open();
+    expect(container.read(provider).hasError, isTrue);
+    service.postError = null;
+    await vm().retry();
+    expect(container.read(provider).post!.id, 'own');
+    expect(container.read(provider).hasError, isFalse);
+  });
+
+  test('likes are optimistic, ignore duplicate taps and can unlike', () async {
+    await open();
+    final gate = Completer<void>();
+    service.likeGate = gate;
+    final saving = vm().toggleLike();
+    expect(container.read(provider).post!.likedByMe, isTrue);
+    expect(container.read(provider).post!.likeCount, 5);
+    await vm().toggleLike();
+    expect(service.likes, ['own']);
+    gate.complete();
+    await saving;
+    await vm().toggleLike();
+    expect(service.unlikes, ['own']);
+    expect(container.read(provider).post!.likeCount, 4);
+  });
+
+  test(
+    'a failed like rolls back and keeps concurrently updated comments',
+    () async {
+      await open();
+      final gate = Completer<void>();
+      service.likeGate = gate;
+      service.likeError = Exception('offline');
+      final saving = vm().toggleLike();
+      vm().commentsChanged(
+        null,
+        PostCommentsState(comments: [testComment('c')]),
+      );
+      gate.complete();
+      await saving;
+      final state = container.read(provider);
+      expect(state.post!.likedByMe, isFalse);
+      expect(state.post!.likeCount, 4);
+      expect(state.post!.commentCount, 1);
+      expect(state.message, 'Could not update your like.');
+      vm().clearMessage();
+      expect(container.read(provider).message, isNull);
+    },
+  );
+
+  test(
+    'comment totals preserve unloaded comments and count successful sends',
+    () async {
+      await open();
+      final comments = [for (var i = 0; i < 100; i++) testComment('c$i')];
+      final loaded = PostCommentsState(comments: comments);
+      vm().commentsChanged(null, loaded);
+      expect(container.read(provider).post!.commentCount, 150);
+      vm().commentsChanged(
+        loaded.copyWith(isSending: true),
+        loaded.copyWith(comments: [testComment('new'), ...comments]),
+      );
+      expect(container.read(provider).post!.commentCount, 151);
+      vm().commentsChanged(null, const PostCommentsState(hasError: true));
+      expect(container.read(provider).post!.commentCount, 151);
+      vm().commentsChanged(null, const PostCommentsState());
+      expect(container.read(provider).post!.commentCount, 0);
+    },
+  );
+
+  test('account changes discard a pending post and its signed URLs', () async {
+    final owner = StateProvider<String?>((ref) => 'me');
+    final gate = Completer<void>();
+    service.postGate = gate;
+    container = ProviderContainer(
+      overrides: [
+        feedServiceProvider.overrideWithValue(service),
+        currentUserIdProvider.overrideWith(
+          (ref) => Stream.value(ref.watch(owner)),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(currentUserIdProvider.future);
+    container.listen(provider, (_, _) {});
+    await pumpEventQueue();
+    container.read(owner.notifier).state = 'different-user';
+    await pumpEventQueue();
+    gate.complete();
+    await pumpEventQueue();
+    expect(container.read(provider).post, isNull);
+    expect(container.read(provider).isLoading, isFalse);
+  });
+
+  test(
+    'late comment-sheet callbacks are ignored after the page is disposed',
+    () async {
+      await open();
+      final viewModel = vm();
+      container.invalidate(provider);
+      expect(
+        () => viewModel.commentsChanged(null, const PostCommentsState()),
+        returnsNormally,
+      );
+    },
+  );
+}

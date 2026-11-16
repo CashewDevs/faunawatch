@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/edit_profile_view.dart';
@@ -88,9 +89,8 @@ class ProfileView extends ConsumerWidget {
                 ],
         ),
       ),
-      child: SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: bottomInset + 16),
-        child: Column(
+      child: GalleryView(
+        header: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Topmost user chosen set: banner goes to top edge!

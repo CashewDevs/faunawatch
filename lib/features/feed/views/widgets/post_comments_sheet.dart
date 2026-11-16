@@ -12,10 +12,17 @@ import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
 /// Comments are plain text: `report_comments` has no replies, reactions or
 /// photo attachments, so the sheet offers none, and there is no "top" sort.
 class PostCommentsSheet extends ConsumerWidget {
-  const PostCommentsSheet({super.key, required this.postId});
+  const PostCommentsSheet({super.key, required this.postId, this.onChanged});
   final String postId;
+  final void Function(PostCommentsState? previous, PostCommentsState next)?
+  onChanged;
 
-  static Future<void> show(BuildContext context, String postId) {
+  static Future<void> show(
+    BuildContext context,
+    String postId, {
+    void Function(PostCommentsState? previous, PostCommentsState next)?
+    onChanged,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return showModalBottomSheet<void>(
       context: context,
@@ -25,13 +32,14 @@ class PostCommentsSheet extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => PostCommentsSheet(postId: postId),
+      builder: (_) => PostCommentsSheet(postId: postId, onChanged: onChanged),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = postCommentsViewModelProvider(postId);
+    if (onChanged != null) ref.listen(provider, onChanged!);
     final state = ref.watch(provider);
     final viewModel = ref.read(provider.notifier);
     final profile = ref.watch(profileViewModelProvider).asData?.value;

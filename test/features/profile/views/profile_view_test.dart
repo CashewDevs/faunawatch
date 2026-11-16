@@ -1,5 +1,10 @@
 import 'dart:async';
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
+import 'package:faunawatch/features/gallery/services/gallery_service.dart';
+import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
+import 'package:faunawatch/features/gallery/views/widgets/gallery_notice.dart';
+import '../../gallery/fake_gallery_service.dart';
+import '../../feed/fake_feed_service.dart';
 import '../fake_profile_service.dart';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
@@ -20,9 +25,13 @@ void main() {
     _FakeReader? reader,
     FakeProfileService? writer,
     _FakeKeyStorage? keyStorage,
+    FakeGalleryService? gallery,
   }) {
     return ProviderScope(
       overrides: [
+        galleryServiceProvider.overrideWithValue(
+          gallery ?? FakeGalleryService(),
+        ),
         aiApiKeyStorageServiceProvider.overrideWithValue(
           keyStorage ?? _FakeKeyStorage(),
         ),
@@ -38,6 +47,31 @@ void main() {
   }
 
   group('ProfileView', () {
+    testWidgets('shows My Gallery below profile controls in one scroll view', (
+      tester,
+    ) async {
+      final gallery = FakeGalleryService(
+        posts: [
+          testPost('own', authorId: 'user-a', title: 'My eagle sighting'),
+        ],
+      );
+      await tester.pumpWidget(buildTestProfile(gallery: gallery));
+      await tester.pumpAndSettle();
+      expect(find.text('Tester'), findsOneWidget);
+      expect(find.text('Edit Profile'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byType(GalleryCard),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('My Gallery'), findsOneWidget);
+      expect(find.text('My eagle sighting'), findsOneWidget);
+      expect(find.byType(GalleryCard), findsOneWidget);
+      expect(find.byType(CustomScrollView), findsOneWidget);
+      expect(gallery.pageRequests, hasLength(1));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('editing a banner saves the preset and displays it', (
       tester,
     ) async {
@@ -110,14 +144,24 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final scroll = tester.widget<SingleChildScrollView>(
-          find.byType(SingleChildScrollView).first,
+        await tester.scrollUntilVisible(
+          find.byType(GalleryNotice),
+          200,
+          scrollable: find.byType(Scrollable).first,
         );
-        return (scroll.padding! as EdgeInsets).bottom;
+        final padding = tester.widget<Padding>(
+          find
+              .ancestor(
+                of: find.byType(GalleryNotice),
+                matching: find.byType(Padding),
+              )
+              .first,
+        );
+        return (padding.padding as EdgeInsets).bottom;
       }
 
-      expect(await bottomPadding(0), 16);
-      expect(await bottomPadding(90), 106);
+      expect(await bottomPadding(0), 20);
+      expect(await bottomPadding(90), 110);
     });
 
     testWidgets('renders profile header with username, bio, and action cards', (

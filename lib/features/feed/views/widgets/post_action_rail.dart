@@ -11,8 +11,14 @@ import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart'
 /// The rail has no background, so a contrasting glow keeps theme-colored icons
 /// readable over both the photo and the screen background.
 class PostActionRail extends ConsumerWidget {
-  const PostActionRail({super.key, required this.post});
+  const PostActionRail({
+    super.key,
+    required this.post,
+    this.onLike,
+    this.onComments,
+  });
   final FeedPost post;
+  final VoidCallback? onLike, onComments;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,8 +49,10 @@ class PostActionRail extends ConsumerWidget {
           label: post.likedByMe ? 'Unlike' : 'Like',
           count: post.likeCount,
           shadows: shadows,
-          onTap: () =>
-              ref.read(feedViewModelProvider.notifier).toggleLike(post.id),
+          onTap:
+              onLike ??
+              () =>
+                  ref.read(feedViewModelProvider.notifier).toggleLike(post.id),
           child: AnimatedHeart(
             isLiked: post.likedByMe,
             size: 32,
@@ -57,7 +65,7 @@ class PostActionRail extends ConsumerWidget {
           label: 'Comments',
           count: post.commentCount,
           shadows: shadows,
-          onTap: () => PostCommentsSheet.show(context, post.id),
+          onTap: onComments ?? () => PostCommentsSheet.show(context, post.id),
           child: Icon(Icons.sms, color: color, size: 32, shadows: shadows),
         ),
       ],

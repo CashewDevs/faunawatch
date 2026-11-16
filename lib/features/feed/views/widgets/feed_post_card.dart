@@ -11,9 +11,12 @@ class FeedPostCard extends StatelessWidget {
     super.key,
     required this.post,
     required this.backgroundColor,
+    this.onLike,
+    this.onComments,
   });
   final FeedPost post;
   final Color backgroundColor;
+  final VoidCallback? onLike, onComments;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +51,11 @@ class FeedPostCard extends StatelessWidget {
             alignment: Alignment.bottomRight,
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: PostActionRail(post: post),
+              child: PostActionRail(
+                post: post,
+                onLike: onLike,
+                onComments: onComments,
+              ),
             ),
           ),
         ),

@@ -22,8 +22,6 @@ import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_action_rail.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
-import 'package:faunawatch/features/gallery/models/gallery_item.dart';
-import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
@@ -610,26 +608,13 @@ void main() {
   });
 
   group('tabs', () {
-    testWidgets('Your Gallery tab shows gallery cards and filters them', (
-      tester,
-    ) async {
-      await pumpFeed(
-        tester,
-        more: [galleryServiceProvider.overrideWithValue(_FakeGalleryService())],
-      );
+    testWidgets('feed has only Map and For You tabs', (tester) async {
+      await pumpFeed(tester);
+      expect(find.text('Gallery'), findsNothing);
+      expect(find.byType(GalleryView), findsNothing);
       expect(find.byType(GalleryCard), findsNothing);
-
-      await tester.tap(find.text('Your Gallery'));
-      await tester.pumpAndSettle();
-      expect(find.byType(GalleryView), findsOneWidget);
-      expect(find.byType(GalleryCard), findsNWidgets(2));
-
-      await tester.tap(find.text('Filter'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Birds'));
-      await tester.pumpAndSettle();
-      expect(find.byType(GalleryCard), findsOneWidget);
-      expect(find.text('Barn Owl'), findsOneWidget);
+      expect(find.text('Map'), findsOneWidget);
+      expect(find.text('For You'), findsOneWidget);
     });
 
     testWidgets('Map tab creates one map and keeps it across tab switches', (
@@ -711,7 +696,7 @@ void main() {
       tester,
     ) async {
       await pumpFeed(tester);
-      for (final label in ['Your Gallery', 'Map', 'For You']) {
+      for (final label in ['Map', 'For You']) {
         expect(
           find.descendant(
             of: find.byType(FeedView),
@@ -746,14 +731,6 @@ void main() {
       }
     });
   });
-}
-
-class _FakeGalleryService implements GalleryService {
-  @override
-  Future<List<GalleryItem>> fetchGalleryItems() async => const [
-    GalleryItem(id: '1', title: 'Barn Owl', category: 'Birds', date: 'Oct 19'),
-    GalleryItem(id: '2', title: 'Red Fox', category: 'Mammals', date: 'Oct 19'),
-  ];
 }
 
 class _FakeReports implements CommunityReportsService {
