@@ -1,4 +1,4 @@
-/// Model representing a photo item in the gallery.
+/// Presentation data for one of the signed-in user's approved reports.
 class GalleryItem {
   const GalleryItem({
     required this.id,
@@ -6,7 +6,7 @@ class GalleryItem {
     this.location = '',
     this.date = '',
     this.category = 'All',
-    this.imageAsset,
+    this.imageUrl,
   });
 
   final String id;
@@ -14,7 +14,9 @@ class GalleryItem {
   final String location;
   final String date;
   final String category;
-  final String? imageAsset;
+
+  /// First available signed report photo, refreshed with the gallery page.
+  final String? imageUrl;
 
   GalleryItem copyWith({
     String? id,
@@ -22,7 +24,7 @@ class GalleryItem {
     String? location,
     String? date,
     String? category,
-    String? imageAsset,
+    String? imageUrl,
   }) {
     return GalleryItem(
       id: id ?? this.id,
@@ -30,7 +32,7 @@ class GalleryItem {
       location: location ?? this.location,
       date: date ?? this.date,
       category: category ?? this.category,
-      imageAsset: imageAsset ?? this.imageAsset,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 
@@ -43,12 +45,12 @@ class GalleryItem {
         other.location == location &&
         other.date == date &&
         other.category == category &&
-        other.imageAsset == imageAsset;
+        other.imageUrl == imageUrl;
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, title, location, date, category, imageAsset);
+      Object.hash(id, title, location, date, category, imageUrl);
 }
 
 /// State container for the Gallery screen.
@@ -57,11 +59,19 @@ class GalleryState {
     this.items = const [],
     this.selectedCategory = 'All',
     this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = false,
+    this.hasError = false,
+    this.isRefreshing = false,
+    this.message,
   });
 
   final List<GalleryItem> items;
   final String selectedCategory;
   final bool isLoading;
+  final bool isLoadingMore, hasMore, hasError;
+  final bool isRefreshing;
+  final String? message;
 
   /// Returns items filtered by [selectedCategory].
   List<GalleryItem> get filteredItems {
@@ -73,11 +83,22 @@ class GalleryState {
     List<GalleryItem>? items,
     String? selectedCategory,
     bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    bool? hasError,
+    bool? isRefreshing,
+    String? message,
+    bool clearMessage = false,
   }) {
     return GalleryState(
       items: items ?? this.items,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      hasError: hasError ?? this.hasError,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      message: clearMessage ? null : message ?? this.message,
     );
   }
 
@@ -87,9 +108,23 @@ class GalleryState {
     return other is GalleryState &&
         other.items == items &&
         other.selectedCategory == selectedCategory &&
-        other.isLoading == isLoading;
+        other.isLoading == isLoading &&
+        other.isLoadingMore == isLoadingMore &&
+        other.hasMore == hasMore &&
+        other.hasError == hasError &&
+        other.isRefreshing == isRefreshing &&
+        other.message == message;
   }
 
   @override
-  int get hashCode => Object.hash(items, selectedCategory, isLoading);
+  int get hashCode => Object.hash(
+    items,
+    selectedCategory,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    hasError,
+    isRefreshing,
+    message,
+  );
 }

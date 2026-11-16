@@ -13,6 +13,7 @@ class FeedViewModel extends Notifier<FeedState> {
   // Bumped whenever the state is rebuilt or disposed (e.g. the account
   // changed), so answers to older requests are ignored.
   int _generation = 0;
+  int _pageRevision = 0;
   final _likesInFlight = <String>{};
 
   @override
@@ -28,6 +29,8 @@ class FeedViewModel extends Notifier<FeedState> {
   bool _isCurrent(int generation) => generation == _generation;
 
   Future<void> _loadFirstPage(int generation, {bool dropPinned = false}) async {
+    // A refresh supersedes any older-page request still in flight.
+    ++_pageRevision;
     try {
       final page = await _service.fetchPage();
       if (!_isCurrent(generation)) return;
@@ -76,10 +79,11 @@ class FeedViewModel extends Notifier<FeedState> {
       return;
     }
     final generation = _generation;
+    final pageRevision = _pageRevision;
     state = state.copyWith(isLoadingMore: true);
     try {
       final page = await _service.fetchPage(before: last);
-      if (!_isCurrent(generation)) return;
+      if (!_isCurrent(generation) || pageRevision != _pageRevision) return;
       final known = {for (final post in state.posts) post.id};
       state = state.copyWith(
         posts: [
@@ -91,7 +95,7 @@ class FeedViewModel extends Notifier<FeedState> {
         hasMore: page.length >= FeedService.pageSize,
       );
     } catch (_) {
-      if (!_isCurrent(generation)) return;
+      if (!_isCurrent(generation) || pageRevision != _pageRevision) return;
       state = state.copyWith(
         isLoadingMore: false,
         message: 'Could not load more posts.',
@@ -194,7 +198,7 @@ final feedViewModelProvider = NotifierProvider<FeedViewModel, FeedState>(
   FeedViewModel.new,
 );
 
-enum FeedTab { gallery, map, forYou }
+enum FeedTab { map, forYou }
 
 /// Holds the tab selected at the top of the feed.
 class FeedTabViewModel extends Notifier<FeedTab> {

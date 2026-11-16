@@ -85,9 +85,7 @@ void main() {
       expect(find.byType(ShellHeader), findsOneWidget);
     });
 
-    testWidgets('moves Gallery and Map from the nav bar into feed tabs', (
-      tester,
-    ) async {
+    testWidgets('keeps Map in the feed and Gallery in Profile', (tester) async {
       await tester.pumpWidget(buildTestShell());
       final navBar = find.byType(ShellNavBar);
 
@@ -111,9 +109,8 @@ void main() {
     ) async {
       await tester.pumpWidget(buildTestShell());
 
-      await tester.tap(find.text('Your Gallery'));
-      await tester.pumpAndSettle();
-      expect(find.byType(GalleryView), findsOneWidget);
+      expect(find.byType(GalleryView), findsNothing);
+      expect(find.text('Gallery'), findsNothing);
 
       await tester.tap(find.text('Map'));
       await tester.pumpAndSettle();
@@ -137,6 +134,8 @@ void main() {
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
       expect(find.byType(ProfileView), findsOneWidget);
+      expect(find.byType(GalleryView), findsOneWidget);
+      expect(find.text('My Gallery'), findsOneWidget);
 
       // Returning to Feed keeps the selected tab
       await tester.tap(find.text('Feed'));

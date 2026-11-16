@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/models/post_comment.dart';
@@ -12,6 +13,8 @@ FeedPost testPost(
   String title = 'Philippine Eagle',
   String description = 'Seen near the ridge.',
   String authorName = 'spotter_one',
+  String? authorId,
+  ReportCategory? category,
   String? placeName = 'Lusod, Kabayan, Benguet',
   int likeCount = 0,
   bool likedByMe = false,
@@ -28,8 +31,10 @@ FeedPost testPost(
     title: title,
     createdAt: base.subtract(Duration(minutes: index + 5)),
     feedAt: base.subtract(Duration(minutes: index)),
-    authorId: 'author-$id',
+    authorId: authorId ?? 'author-$id',
     authorName: authorName,
+    category: category,
+    categoryLabel: category?.label ?? FeedPost.fallbackTitle,
     description: description,
     placeName: placeName,
     likeCount: likeCount,
@@ -75,10 +80,11 @@ class FakeFeedService implements FeedService {
   final pageRequests = <FeedPost?>[];
   final likes = <String>[], unlikes = <String>[];
   final added = <String>[];
-  Object? pageError, likeError, commentsError, addError;
+  Object? pageError, likeError, commentsError, addError, postError;
+  final postRequests = <String>[];
 
   /// While set, likes and pages wait for it.
-  Completer<void>? likeGate, pageGate;
+  Completer<void>? likeGate, pageGate, postGate;
 
   @override
   Future<List<FeedPost>> fetchPage({FeedPost? before}) async {
@@ -92,8 +98,15 @@ class FakeFeedService implements FeedService {
   }
 
   @override
-  Future<FeedPost?> fetchPost(String postId) async =>
-      [...posts, ...unlisted].where((post) => post.id == postId).firstOrNull;
+  Future<FeedPost?> fetchPost(String postId) async {
+    postRequests.add(postId);
+    await postGate?.future;
+    if (postError != null) throw postError!;
+    return [
+      ...posts,
+      ...unlisted,
+    ].where((post) => post.id == postId).firstOrNull;
+  }
 
   @override
   Future<void> like(String postId) async {
