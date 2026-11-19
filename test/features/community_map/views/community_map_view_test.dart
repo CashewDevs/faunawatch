@@ -2,6 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
+import 'package:faunawatch/features/fauna_guard/services/guard_location_service.dart';
+import 'package:faunawatch/features/fauna_guard/services/guard_notification_service.dart';
+import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_intro_dialog.dart';
+import '../../fauna_guard/guard_fakes.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
@@ -24,6 +29,7 @@ void main() {
     ThemeData? theme,
     double textScale = 1,
     bool disableAnimations = false,
+    String? userId,
     List<Override> extraOverrides = const [],
   }) {
     return ProviderScope(
@@ -32,7 +38,7 @@ void main() {
           _FakeMapboxMapCanvasBuilder(),
         ),
         mapboxMapServiceProvider.overrideWithValue(_FakeMapboxMapService()),
-        currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
+        currentUserIdProvider.overrideWith((ref) => Stream.value(userId)),
         ...extraOverrides,
       ],
       child: MaterialApp(
@@ -48,6 +54,85 @@ void main() {
       ),
     );
   }
+
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'FaunaGuard ${reducedMotion ? 'reduces motion' : 'flips its introduction'} and requires opt-in',
+      (tester) async {
+        final location = FakeGuardLocation();
+        final notifications = FakeGuardNotifications();
+        addTearDown(location.fixes.close);
+        await tester.pumpWidget(
+          buildMap(
+            userId: 'guard-user',
+            disableAnimations: reducedMotion,
+            extraOverrides: [
+              communityReportsServiceProvider.overrideWithValue(
+                FakeGuardReports(),
+              ),
+              guardLocationServiceProvider.overrideWithValue(location),
+              guardNotificationServiceProvider.overrideWithValue(notifications),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(location.requests, 0);
+        await tester.tap(find.byTooltip('Turn on FaunaGuard'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        final transition = tester.widget<FaunaGuardFlipTransition>(
+          find.byType(FaunaGuardFlipTransition),
+        );
+        expect(
+          transition.animation.value,
+          reducedMotion ? 1 : inExclusiveRange(0, 1),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Meet FaunaGuard'), findsOneWidget);
+        expect(find.textContaining('500 m'), findsOneWidget);
+        expect(location.requests, 0);
+        await tester.ensureVisible(find.text('Not now'));
+        await tester.tap(find.text('Not now'));
+        await tester.pumpAndSettle();
+        expect(location.requests, 0);
+        await tester.tap(find.byTooltip('Turn on FaunaGuard'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Turn on FaunaGuard'));
+        await tester.tap(find.text('Turn on FaunaGuard'));
+        await tester.pumpAndSettle();
+        expect(location.requests, 1);
+        expect(find.byTooltip('Turn off FaunaGuard'), findsOneWidget);
+        location.fixes.add(guardFix(900));
+        await tester.pumpAndSettle();
+        expect(find.text('FaunaGuard: getting closer'), findsOneWidget);
+        expect(notifications.shown, hasLength(1));
+        await tester.tap(find.byTooltip('Turn off FaunaGuard'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Turn on FaunaGuard'), findsOneWidget);
+        expect(location.fixes.hasListener, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'FaunaGuard introduction fits a small dark screen with large text',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        buildMap(theme: ThemeData.dark(), textScale: 1.8),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Turn on FaunaGuard'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Not now'));
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+    },
+  );
 
   for (final reducedMotion in [false, true]) {
     testWidgets(
@@ -344,6 +429,7 @@ void main() {
         overrides: [
           mapboxMapCanvasBuilderProvider.overrideWithValue(canvasBuilder),
           mapboxMapServiceProvider.overrideWithValue(_FakeMapboxMapService()),
+          currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
         ],
         child: const MaterialApp(home: CommunityMapView()),
       ),
@@ -379,6 +465,8 @@ class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  @override
+  Future<void> showGuardLocation(GuardLocation? location) async {}
   @override
   Future<void> applyAppearance({
     required Brightness brightness,

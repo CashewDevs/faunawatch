@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/community_reports_service.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
+import 'package:faunawatch/features/fauna_guard/viewmodels/fauna_guard_viewmodel.dart';
 import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
@@ -14,11 +16,17 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   var _isStyleLoaded = false;
   var _disposed = false;
   var _hasCenteredReports = false;
+  bool _updatingGuard = false;
+  int _guardRevision = 0;
 
   @override
   CommunityMapState build() {
     _mapboxMapService = ref.watch(mapboxMapServiceProvider);
     _disposed = false;
+    ref.listen(
+      faunaGuardViewModelProvider.select((guard) => guard.location),
+      (_, next) => _updateGuardLocation(),
+    );
     ref.onDispose(() {
       _disposed = true;
       _mapboxMapService.detach();
@@ -58,6 +66,28 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     _isStyleLoaded = true;
     await _applyAppearance();
     await refreshReports();
+    await _updateGuardLocation();
+  }
+
+  Future<void> _updateGuardLocation() async {
+    ++_guardRevision;
+    if (_disposed || !_isStyleLoaded || _updatingGuard) return;
+    _updatingGuard = true;
+    try {
+      int revision;
+      do {
+        revision = _guardRevision;
+        final GuardLocation? location = ref
+            .read(faunaGuardViewModelProvider)
+            .location;
+        await _mapboxMapService.showGuardLocation(location);
+      } while (!_disposed && revision != _guardRevision);
+    } catch (_) {
+      // GPS alerts remain active if the map renderer is temporarily unavailable.
+      // A later fix or style reload retries the marker.
+    } finally {
+      _updatingGuard = false;
+    }
   }
 
   MapPostPreview? get selectedPreview {
@@ -75,7 +105,10 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       if (_disposed) return;
       await _mapboxMapService.showReports(
         reports,
-        recenter: !_hasCenteredReports && reports.isNotEmpty,
+        recenter:
+            !_hasCenteredReports &&
+            reports.isNotEmpty &&
+            !ref.read(faunaGuardViewModelProvider).isEnabled,
       );
       if (!_disposed) {
         if (reports.isNotEmpty) _hasCenteredReports = true;

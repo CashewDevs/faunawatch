@@ -38,7 +38,13 @@
 	<key>NSCameraUsageDescription</key>
 	<string>FaunaWatch uses the camera to photograph wildlife you want to report.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>FaunaWatch uses your location to record where a wildlife photo was taken.</string>
+	<string>FaunaWatch uses your location for wildlife photo locations and, when you turn on FaunaGuard, nearby report alerts even while the app is in the background.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>While FaunaGuard is on, your location is used on this device to alert you to nearby wildlife reports, including when your phone is locked.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>FaunaWatch uses your photo library so you can choose wildlife photos to report.</string>
 	<key>UIApplicationSceneManifest</key>

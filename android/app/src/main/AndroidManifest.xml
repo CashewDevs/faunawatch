@@ -1,9 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- FaunaLens tags photos with where they were taken. -->
+    <!-- FaunaLens photo locations and opt-in FaunaGuard tracking. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- FaunaGuard starts its location foreground service from the visible app. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- The camera plugin requests this for video, which FaunaLens doesn't record. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
     <application

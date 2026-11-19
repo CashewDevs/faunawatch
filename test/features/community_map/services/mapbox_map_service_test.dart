@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart' show Brightness;
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/create_post/models/post_location.dart';
 import 'package:faunawatch/features/create_post/services/location_picker_map_service.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
@@ -26,6 +27,46 @@ void main() {
     service.detach();
     expect(platform.interactions, isEmpty);
   });
+
+  test(
+    'FaunaGuard draws live fixes, follows movement, preserves zoom and removes location on stop',
+    () async {
+      await service.showGuardLocation(null);
+      expect(platform.style.sources, isEmpty);
+      final fix = GuardLocation(
+        latitude: 14.6,
+        longitude: 121,
+        accuracy: 8,
+        timestamp: DateTime.now(),
+      );
+      await service.showGuardLocation(fix);
+      expect(platform.cameras.last.zoom, 14);
+      expect(platform.cameras.last.center!.coordinates.toJson(), [121.0, 14.6]);
+      expect(platform.style.layers['fauna-guard-marker']!['type'], 'circle');
+      await service.showGuardLocation(
+        GuardLocation(
+          latitude: 14.61,
+          longitude: 121.01,
+          accuracy: 5,
+          timestamp: DateTime.now(),
+        ),
+      );
+      expect(platform.cameras.last.zoom, isNull);
+      expect(platform.cameras.last.center!.coordinates.toJson(), [
+        121.01,
+        14.61,
+      ]);
+      final cameras = platform.cameras.length;
+      await service.showGuardLocation(null);
+      expect(platform.style.data['fauna-guard-location']['features'], isEmpty);
+      expect(platform.cameras.length, cameras);
+      await service.showGuardLocation(fix);
+      expect(platform.cameras.last.zoom, 14);
+      service.detach();
+      await service.showGuardLocation(fix);
+      expect(platform.cameras.length, cameras + 1);
+    },
+  );
 
   test(
     'both maps use matching day and night lighting without picker camera changes',
@@ -107,6 +148,43 @@ void main() {
     expect(platform.cameras.last.pitch, 0);
     expect(platform.style.importSettings['basemap/show3dObjects'], false);
   });
+
+  test(
+    'a slow report fit cannot override FaunaGuard following the user',
+    () async {
+      final fit = Completer<CameraOptions>();
+      final fitting = Completer<void>();
+      platform.fitOverride = () {
+        fitting.complete();
+        return fit.future;
+      };
+      final reports = service.showReports(const [
+        CommunityReport(
+          id: 'r1',
+          category: 'animal_in_need',
+          latitude: 10,
+          longitude: 123,
+          description: '',
+        ),
+      ], recenter: true);
+      await fitting.future;
+      await service.showGuardLocation(
+        GuardLocation(
+          latitude: 14.6,
+          longitude: 121,
+          accuracy: 5,
+          timestamp: DateTime.now(),
+        ),
+      );
+      final cameraCount = platform.cameras.length;
+      fit.complete(
+        CameraOptions(center: Point(coordinates: Position(123, 10)), zoom: 12),
+      );
+      await reports;
+      expect(platform.cameras, hasLength(cameraCount));
+      expect(platform.cameras.last.center!.coordinates.toJson(), [121.0, 14.6]);
+    },
+  );
 
   for (final initially3d in [true, false]) {
     test(

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:faunawatch/core/services/map_lighting.dart';
 import 'package:faunawatch/core/services/map_pin_image.dart';
 import '../models/community_report.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,8 @@ abstract interface class MapboxMapService {
   });
 
   void detach();
+
+  Future<void> showGuardLocation(GuardLocation? location);
 }
 
 /// Mapbox implementation using the Standard style's light and 3D settings.
@@ -29,6 +32,67 @@ class MapboxCommunityMapService implements MapboxMapService {
   MapboxMap? _mapboxMap;
   double _pitch = 55;
   static const _pinImage = 'community-report-logo-pin';
+  bool _guardHasCentered = false;
+
+  @override
+  Future<void> showGuardLocation(GuardLocation? location) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    const source = 'fauna-guard-location';
+    final exists = await map.styleSourceExists(source);
+    if (location == null && !exists) {
+      _guardHasCentered = false;
+      return;
+    }
+    final data = jsonEncode({
+      'type': 'FeatureCollection',
+      'features': [
+        if (location != null)
+          {
+            'type': 'Feature',
+            'properties': <String, Object>{},
+            'geometry': {
+              'type': 'Point',
+              'coordinates': [location.longitude, location.latitude],
+            },
+          },
+      ],
+    });
+    if (exists) {
+      await map.setStyleSourceProperty(source, 'data', data);
+    } else {
+      await map.addSource(GeoJsonSource(id: source, data: data));
+    }
+    if (!await map.styleLayerExists('fauna-guard-marker')) {
+      await map.addLayer(
+        CircleLayer(
+          id: 'fauna-guard-marker',
+          sourceId: source,
+          slot: 'top',
+          circleRadius: 9,
+          circleColor: const Color(0xFF1976D2).toARGB32(),
+          circleStrokeColor: Colors.white.toARGB32(),
+          circleStrokeWidth: 3,
+          circleEmissiveStrength: 1,
+        ),
+      );
+    }
+    if (_mapboxMap != map) return;
+    if (location == null) {
+      _guardHasCentered = false;
+    } else {
+      await map.setCamera(
+        CameraOptions(
+          center: Point(
+            coordinates: Position(location.longitude, location.latitude),
+          ),
+          zoom: _guardHasCentered ? null : 14,
+          pitch: _pitch,
+        ),
+      );
+      _guardHasCentered = true;
+    }
+  }
 
   @override
   Future<void> showReports(
@@ -87,6 +151,8 @@ class MapboxCommunityMapService implements MapboxMapService {
       );
       // Keep the selected mode even if it changed while fitting the reports.
       camera.pitch = _pitch;
+      // A GPS fix may have taken over the camera while the fit was pending.
+      if (_mapboxMap != map || _guardHasCentered) return;
       await map.setCamera(camera);
     }
   }
@@ -97,6 +163,7 @@ class MapboxCommunityMapService implements MapboxMapService {
     void Function(String)? onPostTap,
   }) async {
     _mapboxMap = mapboxMap;
+    _guardHasCentered = false;
     mapboxMap.addInteraction(
       TapInteraction(FeaturesetDescriptor(layerId: 'community-report-pins'), (
         feature,
