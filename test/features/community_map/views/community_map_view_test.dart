@@ -354,6 +354,8 @@ void main() {
     final viewport = viewportBeforeToggle as CameraViewportState;
     expect(viewport.center!.coordinates.lng, 122);
     expect(viewport.center!.coordinates.lat, 12);
+    expect(viewport.pitch, 55);
+    expect(find.byTooltip('Switch to 2D'), findsOneWidget);
     await tester.tap(find.text('3D'));
     await tester.pump();
 

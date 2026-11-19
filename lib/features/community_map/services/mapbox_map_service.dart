@@ -27,6 +27,7 @@ abstract interface class MapboxMapService {
 /// Mapbox implementation using the Standard style's light and 3D settings.
 class MapboxCommunityMapService implements MapboxMapService {
   MapboxMap? _mapboxMap;
+  double _pitch = 55;
   static const _pinImage = 'community-report-logo-pin';
 
   @override
@@ -79,11 +80,13 @@ class MapboxCommunityMapService implements MapboxMapService {
           for (final report in reports)
             Point(coordinates: Position(report.longitude, report.latitude)),
         ],
-        CameraOptions(),
+        CameraOptions(pitch: _pitch),
         MbxEdgeInsets(top: 180, left: 48, bottom: 80, right: 48),
         12,
         null,
       );
+      // Keep the selected mode even if it changed while fitting the reports.
+      camera.pitch = _pitch;
       await map.setCamera(camera);
     }
   }
@@ -111,6 +114,7 @@ class MapboxCommunityMapService implements MapboxMapService {
     required Brightness brightness,
     required bool is3dEnabled,
   }) async {
+    _pitch = is3dEnabled ? 55 : 0;
     final mapboxMap = _mapboxMap;
     if (mapboxMap == null) {
       return;
@@ -126,7 +130,7 @@ class MapboxCommunityMapService implements MapboxMapService {
       'show3dObjects',
       is3dEnabled,
     );
-    await mapboxMap.setCamera(CameraOptions(pitch: is3dEnabled ? 55 : 0));
+    await mapboxMap.setCamera(CameraOptions(pitch: _pitch));
   }
 
   @override

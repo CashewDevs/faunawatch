@@ -1,5 +1,6 @@
 // The SDK's controller constructor accepts this test-only platform contract.
 // ignore_for_file: depend_on_referenced_packages, invalid_use_of_internal_member
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart' show Brightness;
 import 'package:faunawatch/features/create_post/models/post_location.dart';
@@ -77,7 +78,8 @@ void main() {
     ]);
     expect(platform.maxZoom, 12);
     expect(platform.cameras, hasLength(1));
-    expect(platform.cameras.single.pitch, isNull);
+    expect(platform.fitOptions!.pitch, 55);
+    expect(platform.cameras.single.pitch, 55);
     await service.showReports(reports);
     await service.showReports([], recenter: true);
     expect(platform.cameras, hasLength(1));
@@ -85,6 +87,72 @@ void main() {
     await service.showReports(reports, recenter: true);
     expect(platform.cameras, hasLength(1));
   });
+
+  test('report fitting preserves an explicitly selected 2D view', () async {
+    await service.applyAppearance(
+      brightness: Brightness.light,
+      is3dEnabled: false,
+    );
+    await service.showReports(const [
+      CommunityReport(
+        id: 'r1',
+        category: 'animal_in_need',
+        latitude: 14.6,
+        longitude: 121,
+        description: 'Bird',
+      ),
+    ], recenter: true);
+
+    expect(platform.fitOptions!.pitch, 0);
+    expect(platform.cameras.last.pitch, 0);
+    expect(platform.style.importSettings['basemap/show3dObjects'], false);
+  });
+
+  for (final initially3d in [true, false]) {
+    test(
+      'keeps the latest mode when toggled from ${initially3d ? '3D' : '2D'} during report fitting',
+      () async {
+        await service.applyAppearance(
+          brightness: Brightness.light,
+          is3dEnabled: initially3d,
+        );
+        final fitStarted = Completer<void>();
+        final fittedCamera = Completer<CameraOptions>();
+        platform.fitOverride = () {
+          fitStarted.complete();
+          return fittedCamera.future;
+        };
+        final showingReports = service.showReports(const [
+          CommunityReport(
+            id: 'r1',
+            category: 'animal_in_need',
+            latitude: 14.6,
+            longitude: 121,
+            description: 'Bird',
+          ),
+        ], recenter: true);
+        await fitStarted.future;
+
+        await service.applyAppearance(
+          brightness: Brightness.light,
+          is3dEnabled: !initially3d,
+        );
+        final center = Point(coordinates: Position(121, 14.6));
+        fittedCamera.complete(
+          CameraOptions(center: center, zoom: 12, pitch: initially3d ? 55 : 0),
+        );
+        await showingReports;
+
+        expect(platform.cameras.last.pitch, initially3d ? 0 : 55);
+        expect(platform.cameras.last.center, center);
+        expect(platform.cameras.last.zoom, 12);
+        expect(
+          platform.style.importSettings['basemap/show3dObjects'],
+          !initially3d,
+        );
+      },
+    );
+  }
 
   test(
     'draws approved report markers with RPC coordinates and replaces on refresh',
@@ -254,6 +322,8 @@ class _FakeMapPlatform implements MapboxMapPlatformInterface {
   final cameras = <CameraOptions>[];
   List<Point> fittedPoints = [];
   double? maxZoom;
+  CameraOptions? fitOptions;
+  Future<CameraOptions> Function()? fitOverride;
   @override
   Future<CameraOptions> cameraForCoordinatesPadding(
     List<Point> coordinates,
@@ -264,7 +334,9 @@ class _FakeMapPlatform implements MapboxMapPlatformInterface {
   ) async {
     fittedPoints = coordinates;
     this.maxZoom = maxZoom;
-    return CameraOptions(center: coordinates.first, zoom: maxZoom);
+    fitOptions = camera;
+    return fitOverride?.call() ??
+        CameraOptions(center: coordinates.first, zoom: maxZoom, pitch: 0);
   }
 
   final interactions = <String, Interaction>{};
