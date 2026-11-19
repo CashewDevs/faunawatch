@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/edit_profile_view.dart';
@@ -83,13 +83,15 @@ class ProfileView extends ConsumerWidget {
               end: Alignment.bottomCenter,
               stops: const [0.3, 1.0],
               colors: isDark
-                  ? const [
-                      AppColors.darkProfileGradientStart,
-                      AppColors.darkProfileGradientEnd,
+                  ? [
+                      AppPaletteColors.of(context).darkProfileGradientStart,
+                      AppPaletteColors.of(context).darkProfileGradientEnd,
                     ]
-                  : const [
-                      AppColors.profileBackgroundGradientStart,
-                      AppColors.profileBackgroundGradientEnd,
+                  : [
+                      AppPaletteColors.of(
+                        context,
+                      ).profileBackgroundGradientStart,
+                      AppPaletteColors.of(context).profileBackgroundGradientEnd,
                     ],
             ),
           ),

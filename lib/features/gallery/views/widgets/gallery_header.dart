@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 
 /// My Gallery section title and the report category filter.
@@ -34,18 +34,19 @@ class GalleryHeader extends StatelessWidget {
             onSelected: onCategorySelected,
             offset: const Offset(0, 36),
             elevation: 4,
-            color: AppColors.galleryFilterButtonBackground,
+            color: AppPaletteColors.of(context).galleryFilterButtonBackground,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(
-                color: AppColors.galleryFilterButtonBorder,
+              side: BorderSide(
+                color: AppPaletteColors.of(context).galleryFilterButtonBorder,
                 width: 1.5,
               ),
             ),
             itemBuilder: (context) => [
-              _buildMenuItem('All', selectedCategory == 'All'),
+              _buildMenuItem(context, 'All', selectedCategory == 'All'),
               for (final category in ReportCategory.values)
                 _buildMenuItem(
+                  context,
                   category.label,
                   selectedCategory == category.label,
                 ),
@@ -53,10 +54,12 @@ class GalleryHeader extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.galleryFilterButtonBackground,
+                color: AppPaletteColors.of(
+                  context,
+                ).galleryFilterButtonBackground,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: AppColors.galleryFilterButtonBorder,
+                  color: AppPaletteColors.of(context).galleryFilterButtonBorder,
                   width: 1.5,
                 ),
                 boxShadow: [
@@ -70,10 +73,10 @@ class GalleryHeader extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.tune_rounded,
                     size: 16,
-                    color: AppColors.galleryTitleBlue,
+                    color: AppPaletteColors.of(context).galleryTitleBlue,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -81,7 +84,7 @@ class GalleryHeader extends StatelessWidget {
                     style: GoogleFonts.dmSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.galleryTitleBlue,
+                      color: AppPaletteColors.of(context).galleryTitleBlue,
                     ),
                   ),
                 ],
@@ -93,7 +96,11 @@ class GalleryHeader extends StatelessWidget {
     );
   }
 
-  PopupMenuItem<String> _buildMenuItem(String label, bool isSelected) {
+  PopupMenuItem<String> _buildMenuItem(
+    BuildContext context,
+    String label,
+    bool isSelected,
+  ) {
     return PopupMenuItem<String>(
       value: label,
       child: Row(
@@ -105,15 +112,15 @@ class GalleryHeader extends StatelessWidget {
               style: GoogleFonts.dmSans(
                 fontSize: 14,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: AppColors.galleryTitleBlue,
+                color: AppPaletteColors.of(context).galleryTitleBlue,
               ),
             ),
           ),
           if (isSelected)
-            const Icon(
+            Icon(
               Icons.check_rounded,
               size: 18,
-              color: AppColors.galleryTitleBlue,
+              color: AppPaletteColors.of(context).galleryTitleBlue,
             ),
         ],
       ),

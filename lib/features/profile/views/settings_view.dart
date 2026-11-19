@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -49,13 +50,13 @@ class SettingsView extends ConsumerWidget {
             end: Alignment.bottomCenter,
             stops: const [0.3, 1.0],
             colors: isDark
-                ? const [
-                    AppColors.darkProfileGradientStart,
-                    AppColors.darkProfileGradientEnd,
+                ? [
+                    AppPaletteColors.of(context).darkProfileGradientStart,
+                    AppPaletteColors.of(context).darkProfileGradientEnd,
                   ]
-                : const [
-                    AppColors.profileBackgroundGradientStart,
-                    AppColors.profileBackgroundGradientEnd,
+                : [
+                    AppPaletteColors.of(context).profileBackgroundGradientStart,
+                    AppPaletteColors.of(context).profileBackgroundGradientEnd,
                   ],
           ),
         ),
@@ -75,9 +76,9 @@ class SettingsView extends ConsumerWidget {
                       child: GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
                         behavior: HitTestBehavior.opaque,
-                        child: const Icon(
+                        child: Icon(
                           Icons.chevron_left_rounded,
-                          color: AppColors.shellHeaderBlue,
+                          color: AppPaletteColors.of(context).shellHeaderBlue,
                           size: 32,
                         ),
                       ),
@@ -86,7 +87,7 @@ class SettingsView extends ConsumerWidget {
                     Text(
                       'Settings',
                       style: GoogleFonts.dmSans(
-                        color: AppColors.shellHeaderBlue,
+                        color: AppPaletteColors.of(context).shellHeaderBlue,
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
@@ -250,7 +251,9 @@ class SettingsView extends ConsumerWidget {
                                       : const Color(0xFF64748B),
                                 ),
                               ),
-                              activeTrackColor: AppColors.shellHeaderBlue,
+                              activeTrackColor: AppPaletteColors.of(
+                                context,
+                              ).shellHeaderBlue,
                             ),
                             Divider(
                               height: 1,
@@ -286,7 +289,9 @@ class SettingsView extends ConsumerWidget {
                                       : const Color(0xFF64748B),
                                 ),
                               ),
-                              activeTrackColor: AppColors.shellHeaderBlue,
+                              activeTrackColor: AppPaletteColors.of(
+                                context,
+                              ).shellHeaderBlue,
                             ),
                           ],
                         ),
@@ -467,12 +472,12 @@ class SettingsView extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.shellHeaderBlue
+              ? AppPaletteColors.of(context).shellHeaderBlue
               : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? AppColors.shellHeaderBlue
+                ? AppPaletteColors.of(context).shellHeaderBlue
                 : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
             width: 1.5,
           ),
@@ -483,7 +488,7 @@ class SettingsView extends ConsumerWidget {
               icon,
               size: 22,
               color: isSelected
-                  ? Colors.white
+                  ? AppPaletteColors.of(context).onPrimary
                   : (isDark
                         ? const Color(0xFF94A3B8)
                         : const Color(0xFF475569)),
@@ -495,7 +500,7 @@ class SettingsView extends ConsumerWidget {
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: isSelected
-                    ? Colors.white
+                    ? AppPaletteColors.of(context).onPrimary
                     : (isDark
                           ? const Color(0xFF94A3B8)
                           : const Color(0xFF475569)),

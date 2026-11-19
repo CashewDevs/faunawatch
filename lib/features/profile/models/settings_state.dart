@@ -3,7 +3,7 @@ class SettingsState {
   const SettingsState({
     this.pushNotificationsEnabled = true,
     this.locationPrivacyEnabled = true,
-    this.activePaletteId = 'forest',
+    this.activePaletteId = 'apollo',
   });
 
   final bool pushNotificationsEnabled;

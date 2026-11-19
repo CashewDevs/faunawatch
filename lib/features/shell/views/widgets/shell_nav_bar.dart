@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/widgets/local_image.dart';
@@ -44,7 +45,10 @@ class ShellNavBar extends ConsumerWidget {
               painter: _NotchedBarPainter(
                 fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                 borderColor: isDark
-                    ? const Color(0xFF334155)
+                    ? AppPaletteColors.of(context).resolve(
+                        const Color(0xFF334155),
+                        Theme.of(context).colorScheme.primaryContainer,
+                      )
                     : const Color(0xFFD6E2EE),
                 shadowColor: Colors.black.withValues(
                   alpha: isDark ? 0.35 : 0.08,
@@ -56,6 +60,7 @@ class ShellNavBar extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildNavItem(
+                      context: context,
                       destination: ShellDestination.feed,
                       label: 'Feed',
                       unpressedAsset: AppAssets.navFeedUnpressed,
@@ -63,6 +68,7 @@ class ShellNavBar extends ConsumerWidget {
                       isDark: isDark,
                     ),
                     _buildNavItem(
+                      context: context,
                       destination: ShellDestination.chats,
                       label: 'Chats',
                       unpressedAsset: AppAssets.navChatsUnpressed,
@@ -72,6 +78,7 @@ class ShellNavBar extends ConsumerWidget {
                     // Keeps the items clear of the Add post button.
                     const SizedBox(width: _notchHalfWidth * 2),
                     _buildNavItem(
+                      context: context,
                       destination: ShellDestination.notifs,
                       label: 'Notifs',
                       unpressedAsset: AppAssets.navNotifsUnpressed,
@@ -79,7 +86,7 @@ class ShellNavBar extends ConsumerWidget {
                       hasBadge: hasUnreadNotifications,
                       isDark: isDark,
                     ),
-                    _buildProfileItem(pictureState, isDark: isDark),
+                    _buildProfileItem(context, pictureState, isDark: isDark),
                   ],
                 ),
               ),
@@ -98,6 +105,7 @@ class ShellNavBar extends ConsumerWidget {
   }
 
   Widget _buildNavItem({
+    required BuildContext context,
     required ShellDestination destination,
     required String label,
     required String unpressedAsset,
@@ -153,14 +161,17 @@ class ShellNavBar extends ConsumerWidget {
                   color: isSelected
                       ? (isDark
                             ? const Color(0xFF334155)
-                            : AppColors.navActiveBackground)
+                            : AppPaletteColors.of(context).navActiveBackground)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isSelected
                         ? (isDark
-                              ? const Color(0xFF64748B)
-                              : AppColors.navActiveBorder)
+                              ? AppPaletteColors.of(context).resolve(
+                                  const Color(0xFF64748B),
+                                  Theme.of(context).colorScheme.primary,
+                                )
+                              : AppPaletteColors.of(context).navActiveBorder)
                         : Colors.transparent,
                     width: 2.0,
                   ),
@@ -170,7 +181,7 @@ class ShellNavBar extends ConsumerWidget {
                   style: GoogleFonts.dmSans(
                     color: isDark
                         ? (isSelected ? Colors.white : const Color(0xFF94A3B8))
-                        : AppColors.navLabelBlue,
+                        : AppPaletteColors.of(context).navLabelBlue,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),
@@ -184,6 +195,7 @@ class ShellNavBar extends ConsumerWidget {
   }
 
   Widget _buildProfileItem(
+    BuildContext context,
     ProfilePictureState pictureState, {
     required bool isDark,
   }) {
@@ -239,7 +251,7 @@ class ShellNavBar extends ConsumerWidget {
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isSelected
-                        ? AppColors.navLabelBlue
+                        ? AppPaletteColors.of(context).navLabelBlue
                         : Colors.transparent,
                     width: 1.5,
                   ),
@@ -253,14 +265,14 @@ class ShellNavBar extends ConsumerWidget {
                   color: isSelected
                       ? (isDark
                             ? const Color(0xFF334155)
-                            : AppColors.navActiveBackground)
+                            : AppPaletteColors.of(context).navActiveBackground)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isSelected
                         ? (isDark
                               ? const Color(0xFF64748B)
-                              : AppColors.navActiveBorder)
+                              : AppPaletteColors.of(context).navActiveBorder)
                         : Colors.transparent,
                     width: 2.0,
                   ),
@@ -270,7 +282,7 @@ class ShellNavBar extends ConsumerWidget {
                   style: GoogleFonts.dmSans(
                     color: isDark
                         ? (isSelected ? Colors.white : const Color(0xFF94A3B8))
-                        : AppColors.navLabelBlue,
+                        : AppPaletteColors.of(context).navLabelBlue,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),
@@ -307,27 +319,30 @@ class _AddPostButton extends StatelessWidget {
           height: _addButtonSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                AppColors.profileButtonGradientStart,
-                AppColors.profileButtonGradientEnd,
+                AppPaletteColors.of(context).profileButtonGradientStart,
+                AppPaletteColors.of(context).profileButtonGradientEnd,
               ],
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.profileButtonGradientEnd.withValues(
-                  alpha: 0.45,
-                ),
+                color: AppPaletteColors.of(
+                  context,
+                ).profileButtonGradientEnd.withValues(alpha: 0.45),
                 offset: const Offset(0, 4),
                 blurRadius: 12,
               ),
             ],
           ),
-          child: const Icon(
+          child: Icon(
             Icons.add_rounded,
-            color: AppColors.shellHeaderBlue,
+            color: AppPaletteColors.of(context).resolve(
+              AppColors.shellHeaderBlue,
+              Theme.of(context).colorScheme.onPrimary,
+            ),
             size: 36,
           ),
         ),

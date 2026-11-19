@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
@@ -39,8 +40,8 @@ class NotificationTile extends StatelessWidget {
         child: Container(
           color: isUnread
               ? (isDark
-                    ? AppColors.darkUnreadBackground
-                    : AppColors.messagesUnreadBackground)
+                    ? AppPaletteColors.of(context).darkUnreadBackground
+                    : AppPaletteColors.of(context).messagesUnreadBackground)
               : Colors.transparent,
           child: IntrinsicHeight(
             child: Row(
@@ -48,7 +49,10 @@ class NotificationTile extends StatelessWidget {
               children: [
                 // Left accent bar for new notifications: #FECE01
                 if (isUnread)
-                  Container(width: 8, color: AppColors.messagesUnreadBar)
+                  Container(
+                    width: 8,
+                    color: AppPaletteColors.of(context).messagesUnreadBar,
+                  )
                 else
                   const SizedBox(width: 8),
 
@@ -60,7 +64,7 @@ class NotificationTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Circular icon placeholder: gray #D9D9D9
-                        _buildLeadingIcon(isDark),
+                        _buildLeadingIcon(context, isDark),
                         const SizedBox(width: 14),
 
                         // Notification details
@@ -101,10 +105,14 @@ class NotificationTile extends StatelessWidget {
                                           : FontWeight.w400,
                                       color: isDark
                                           ? (isUnread
-                                                ? AppColors.darkAccentBlue
+                                                ? AppPaletteColors.of(
+                                                    context,
+                                                  ).darkAccentBlue
                                                 : AppColors.darkTextSecondary)
                                           : (isUnread
-                                                ? AppColors.messagesHeaderBlue
+                                                ? AppPaletteColors.of(
+                                                    context,
+                                                  ).messagesHeaderBlue
                                                 : const Color(0xFF90A4AE)),
                                     ),
                                   ),
@@ -144,14 +152,16 @@ class NotificationTile extends StatelessWidget {
     );
   }
 
-  Widget _buildLeadingIcon(bool isDark) {
+  Widget _buildLeadingIcon(BuildContext context, bool isDark) {
     IconData iconData;
     Color iconColor;
 
     switch (item.type) {
       case NotificationType.sighting:
         iconData = Icons.pets_rounded;
-        iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF1A5DC9);
+        iconColor = isDark
+            ? AppPaletteColors.of(context).darkAccentBlue
+            : const Color(0xFF1A5DC9);
         break;
       case NotificationType.alert:
         iconData = Icons.warning_amber_rounded;
@@ -163,7 +173,9 @@ class NotificationTile extends StatelessWidget {
         break;
       case NotificationType.system:
         iconData = Icons.notifications_none_rounded;
-        iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF005A97);
+        iconColor = isDark
+            ? AppPaletteColors.of(context).darkAccentBlue
+            : const Color(0xFF005A97);
         break;
       case NotificationType.reportStatus:
         iconData = Icons.fact_check_outlined;
@@ -171,11 +183,15 @@ class NotificationTile extends StatelessWidget {
         break;
       case NotificationType.comment:
         iconData = Icons.chat_bubble_outline_rounded;
-        iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF1A5DC9);
+        iconColor = isDark
+            ? AppPaletteColors.of(context).darkAccentBlue
+            : const Color(0xFF1A5DC9);
         break;
       case NotificationType.chat:
         iconData = Icons.mail_outline_rounded;
-        iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF005A97);
+        iconColor = isDark
+            ? AppPaletteColors.of(context).darkAccentBlue
+            : const Color(0xFF005A97);
         break;
     }
 

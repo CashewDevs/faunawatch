@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
@@ -103,8 +104,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _handleSend(),
                   cursorColor: isDark
-                      ? AppColors.darkAccentBlue
-                      : AppColors.messagesHeaderBlue,
+                      ? AppPaletteColors.of(context).darkAccentBlue
+                      : AppPaletteColors.of(context).messagesHeaderBlue,
                   style: GoogleFonts.dmSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -142,14 +143,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       width: 32,
                       height: 32,
                       fit: BoxFit.contain,
-                      color: isDark ? AppColors.darkAccentBlue : null,
+                      color: isDark
+                          ? AppPaletteColors.of(context).darkAccentBlue
+                          : null,
                       colorBlendMode: isDark ? BlendMode.srcIn : null,
                       errorBuilder: (_, _, _) => Icon(
                         Icons.send_rounded,
                         size: 32,
                         color: isDark
-                            ? AppColors.darkAccentBlue
-                            : AppColors.messagesHeaderBlue,
+                            ? AppPaletteColors.of(context).darkAccentBlue
+                            : AppPaletteColors.of(context).messagesHeaderBlue,
                       ),
                     ),
                   ),

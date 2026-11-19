@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
@@ -106,8 +107,8 @@ class NotificationActionSheet extends StatelessWidget {
                   : Icons.mark_email_unread_outlined,
               label: item.isUnread ? 'Mark as read' : 'Mark as unread',
               iconColor: isDark
-                  ? AppColors.darkAccentBlue
-                  : AppColors.messagesHeaderBlue,
+                  ? AppPaletteColors.of(context).darkAccentBlue
+                  : AppPaletteColors.of(context).messagesHeaderBlue,
               textColor: isDark
                   ? AppColors.darkTextPrimary
                   : const Color(0xFF1E293B),
