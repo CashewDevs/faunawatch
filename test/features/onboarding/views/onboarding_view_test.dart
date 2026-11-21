@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
 import 'package:faunawatch/features/onboarding/views/onboarding_view.dart';
 import 'package:faunawatch/features/onboarding/views/widgets/begin_watch_button.dart';
 import 'package:faunawatch/features/onboarding/views/widgets/onboarding_indicator.dart';
 import 'package:faunawatch/features/shell/views/shell_view.dart';
+import '../../profile/fake_profile_service.dart';
 
 void main() {
   Widget createWidgetUnderTest() {
     return ProviderScope(
+      overrides: [
+        currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
+        profileServiceProvider.overrideWithValue(FakeProfileService()),
+      ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
         home: const OnboardingView(),

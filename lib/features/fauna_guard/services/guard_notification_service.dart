@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/push/services/local_notification_service.dart';
 import '../models/fauna_guard_state.dart';
 
 abstract interface class GuardNotificationService {
@@ -10,12 +11,15 @@ abstract interface class GuardNotificationService {
 }
 
 class LocalGuardNotificationService implements GuardNotificationService {
-  LocalGuardNotificationService({FlutterLocalNotificationsPlugin? plugin})
-    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  LocalGuardNotificationService({
+    FlutterLocalNotificationsPlugin? plugin,
+    bool pluginInitialized = false,
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+       _initialized = pluginInitialized;
 
   static const notificationId = 73001;
   final FlutterLocalNotificationsPlugin _plugin;
-  bool _initialized = false;
+  bool _initialized;
 
   @override
   Future<void> requestAccess() async {
@@ -68,6 +72,7 @@ class LocalGuardNotificationService implements GuardNotificationService {
             'fauna_guard_proximity',
             'FaunaGuard nearby reports',
             channelDescription: 'Distance alerts while FaunaGuard is enabled.',
+            icon: 'ic_fauna_guard',
             importance: Importance.high,
             priority: Priority.high,
             styleInformation: BigTextStyleInformation(body),
@@ -86,5 +91,8 @@ class LocalGuardNotificationService implements GuardNotificationService {
 }
 
 final guardNotificationServiceProvider = Provider<GuardNotificationService>(
-  (ref) => LocalGuardNotificationService(),
+  (ref) => LocalGuardNotificationService(
+    // Reinitializing the singleton would replace the push tap callback.
+    pluginInitialized: ref.watch(localNotificationServiceProvider).isAvailable,
+  ),
 );

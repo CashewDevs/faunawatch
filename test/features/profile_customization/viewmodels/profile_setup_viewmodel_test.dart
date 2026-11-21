@@ -35,7 +35,11 @@ class _FakeProfileService implements ProfileService {
 void main() {
   group('ProfileSetupViewModel', () {
     test('initial state has empty fields and disabled continue', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          profileServiceProvider.overrideWithValue(_FakeProfileService()),
+        ],
+      );
       addTearDown(container.dispose);
 
       final state = container.read(profileSetupViewModelProvider);
@@ -48,7 +52,11 @@ void main() {
     test(
       'updating username and bio modifies state and activates continue button',
       () {
-        final container = ProviderContainer();
+        final container = ProviderContainer(
+          overrides: [
+            profileServiceProvider.overrideWithValue(_FakeProfileService()),
+          ],
+        );
         addTearDown(container.dispose);
 
         container

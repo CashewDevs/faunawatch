@@ -26,6 +26,80 @@ or replace an already failed browser graphics context.
 
 Reference: [Flutter web initialization](https://docs.flutter.dev/platform-integration/web/initialization#canvaskit-options).
 
+## Enable push notifications
+
+Push notifications (Firebase Cloud Messaging) are built in but stay **off**
+until you add your Firebase config. Without the config files the app builds and
+runs exactly as before; push is silently disabled. Nothing below is applied by
+the repository: you run each step yourself.
+
+1. **Create a Firebase project** at <https://console.firebase.google.com>.
+2. **Android app.** Add an Android app whose package name is the real
+   `applicationId` in `android/app/build.gradle.kts`, currently
+   `com.example.faunawatch` (not `com.faunawatch.app`, which is only the OAuth
+   URL scheme). If you change the application ID to a final one first, use that.
+   Download `google-services.json` and put it in `android/app/` (git-ignored,
+   never committed; share it privately with teammates). The Android build applies
+   the `com.google.gms.google-services` Gradle plugin automatically when it
+   exists; without it the app builds with push disabled.
+3. **iOS app.** Add an iOS app with the bundle ID from Xcode (currently
+   `com.example.faunawatch`), download `GoogleService-Info.plist`, and add it to
+   `ios/Runner` **through Xcode** (the file is git-ignored in `ios/Runner`, never
+   committed; share it privately with teammates; drag it into the Runner group, tick "Copy
+   items if needed" and the Runner target). On a Mac, open `ios/Runner.xcworkspace`
+   and under Signing & Capabilities check that "Push Notifications" and
+   "Background Modes > Remote notifications" are present (they are already
+   configured through `Runner.entitlements` and `Info.plist`; enable Push
+   Notifications for the App ID in the Apple Developer portal if Xcode asks).
+4. **APNs key.** In the Apple Developer portal create an APNs Authentication
+   Key (.p8), then in Firebase > Project settings > Cloud Messaging > Apple app
+   configuration, upload it with your Key ID and Team ID. Push cannot be tested
+   in the iOS simulator; use a real device.
+5. **Service account key.** In Firebase > Project settings > Service accounts,
+   generate a new private key (JSON). Keep it outside git, e.g. in `keys/`
+   (git-ignored; the build never uses it). Never commit it.
+6. **Set the Edge Function secrets and deploy** (Supabase CLI; the repo's
+   untracked `tools/supabase/supabase.exe` also works):
+
+   ```bash
+   supabase secrets set WEBHOOK_SECRET=<a-long-random-string>      FIREBASE_SERVICE_ACCOUNT="$(cat keys/service-account.json)"
+   supabase functions deploy send-push --no-verify-jwt
+   ```
+
+   After changing the function (for example the Android banner channel below)
+   it must be **redeployed**:
+   `.\tools\supabase\supabase.exe functions deploy send-push --no-verify-jwt --use-api`.
+
+   `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided by Supabase.
+   `--no-verify-jwt` (also set in `supabase/config.toml`) is needed because the
+   webhook authenticates with the shared secret, not a user JWT.
+7. **Apply the migration** `supabase/migrations/20261120100000_create_device_tokens.sql`
+   in the Supabase SQL editor, after the notification migrations
+   (`20261112090000`, `20261120090000`, `20261120090100`).
+8. **Create the Database Webhook.** Supabase Dashboard > Database > Webhooks >
+   Create a new hook: table `public.notifications`, events **Insert** and
+   **Update** (not Delete), type "HTTP Request", method `POST`, URL
+   `https://<project-ref>.supabase.co/functions/v1/send-push`, and an HTTP
+   header `x-webhook-secret` with the same value as `WEBHOOK_SECRET`. The
+   function sends a push for new notifications and for grouped refreshes (a new
+   chat message or like on an unread notification), never for marking read.
+9. **Test.** Install a build on a real device, sign in and allow notifications,
+   then have another account message or like a report. The app registers its
+   token on sign-in, and Settings > Push notifications turns this device's
+   pushes on or off.
+
+**Pop-up banners (Android).** The app creates a high-importance notification
+channel, `faunawatch_default` ("Notifications"), at start, the manifest makes it
+the default for pushes, and `send-push` addresses it, so pushes pop up on screen
+like a messaging app; pushes received while the app is open are shown as a
+banner too (on iOS the system shows them). If the app was installed before this
+channel existed, or the channel was changed in the system settings, check
+Android Settings > Apps > FaunaWatch > Notifications > "Notifications" category
+> "Pop on screen" is on (importance Urgent/High), and redeploy `send-push`.
+
+See `supabase/functions/send-push/README.md` for details. Nearby alerts are not
+generated yet, so they produce no pushes.
+
 ## Google authentication (Android and iOS)
 
 Login and registration both use Supabase Google OAuth in the external browser.

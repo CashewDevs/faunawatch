@@ -186,6 +186,10 @@ void main() {
         notificationTypeFromDb('report_comment'),
         NotificationType.comment,
       );
+      expect(
+        notificationTypeFromDb('report_like'),
+        NotificationType.reportLike,
+      );
       expect(notificationTypeFromDb('chat_message'), NotificationType.chat);
       expect(notificationTypeFromDb('nearby_alert'), NotificationType.alert);
     });

@@ -67,6 +67,15 @@ class FakeNotificationsService implements NotificationsService {
     }
   }
 
+  int deleteAllCalls = 0;
+
+  @override
+  Future<void> deleteAllNotifications() async {
+    deleteAllCalls++;
+    if (failChanges) throw StateError('delete failed');
+    items.clear();
+  }
+
   @override
   Stream<void> watchNotifications() {
     listeners++;

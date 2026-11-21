@@ -73,3 +73,8 @@ policy = "oneshot"
 
 [analytics]
 enabled = false
+
+# send-push is called by a Database Webhook with its own shared secret header
+# (x-webhook-secret), not a Supabase user JWT.
+[functions.send-push]
+verify_jwt = false

@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
+import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
 import 'package:faunawatch/features/profile_customization/views/profile_picture_view.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/profile_continue_button.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/spotter_avatar_item.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/upload_picture_button.dart';
+import '../../profile/fake_profile_service.dart';
 
 class _FakeImagePickerService implements ImagePickerService {
   String? pickedPath = 'assets/images/garfield.webp';
@@ -21,6 +23,7 @@ void main() {
   Widget createWidgetUnderTest({ImagePickerService? imagePickerService}) {
     return ProviderScope(
       overrides: [
+        profileServiceProvider.overrideWithValue(FakeProfileService()),
         if (imagePickerService != null)
           imagePickerServiceProvider.overrideWithValue(imagePickerService),
       ],

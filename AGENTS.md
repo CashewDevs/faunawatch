@@ -36,6 +36,25 @@ This repository contains the FaunaWatch mobile application.
   depend on the `geolocator` package itself: its Linux plugin pulls in
   `package_info_plus`, which either fails on AGP 9 built-in Kotlin or conflicts
   with `flutter_secure_storage` 9.
+- Push notifications: `firebase_core` + `firebase_messaging` (FCM; Android and
+  iOS), used only through `PushMessagingService` in `lib/features/push/`.
+  Firebase is initialized in `main` through `initializePushMessaging()`, which
+  never throws: without `google-services.json` / `GoogleService-Info.plist` it
+  returns a no-op service and the app runs as before. The Android
+  `com.google.gms.google-services` Gradle plugin (declared in
+  `android/settings.gradle.kts`) is applied by `android/app/build.gradle.kts`
+  only when `android/app/google-services.json` exists; that file is git-ignored
+  (shared privately with teammates; there is no copy in `keys/`).
+  `flutter_local_notifications` (^22.3.2, compatible with this project's
+  AGP 9.0.1 / SDK 36) is shared by `LocalGuardNotificationService` in
+  `lib/features/fauna_guard/services/` and `LocalNotificationService` in
+  `lib/features/push/services/`, the latter showing a
+  heads-up banner on Android when a push arrives while the app is open (FCM
+  shows nothing in the foreground). It needs core library desugaring, enabled in
+  `android/app/build.gradle.kts`. `firebase_messaging` 17 deprecates `getToken` and
+  `onTokenRefresh` in favour of Firebase Installation IDs; the FCM HTTP v1
+  sender needs registration tokens, so the deprecated calls are used (with
+  `ignore` comments) in `FirebasePushMessagingService` only.
 - External links (provider key consoles and terms): `url_launcher`, already
   pulled in by `supabase_flutter`, used only through `ExternalLinkService`
   in `lib/core/services/`.
@@ -298,20 +317,102 @@ notified of a new comment by someone else; and the other participant of a chat i
 notified of a new message, folded into one unread row per conversation, shown as
 "Sent a photo" for photos, and skipped for suspended recipients. Relative times
 ("5m ago", "Yesterday") are formatted in the app from `createdAt` with an
-injectable clock. Tapping a notification only marks it read for now: opening the
-related report or chat is a TODO (no route by report id, and the chat screen
-needs the other user's name and avatar).
+injectable clock.
+
+Further notifications: when a report enters `pending` (a new report, or the owner
+resubmitting after changes were requested) its owner gets a `report_status`
+notification ("Your report is pending review" / "Your resubmitted report is
+pending review"). This is the one exception to the owner's-own-actions rule; an
+admin withdrawing a change request does not notify. Likes create `report_like`
+notifications for the report's owner, never for the owner's own like or an
+unlike, grouped per report like chat: an existing UNREAD one is updated (title,
+actor, time) instead of a new row ("<name> liked your report", then "<name> and
+N others liked your report" by the number of likes from other users). The body
+is the report's species, else its category (reports have no title column).
+
+The list's header menu has "Clear all": after a confirmation dialog the service
+deletes all of the user's notification rows (including unloaded older pages; RLS
+allows deleting own rows) and the ViewModel empties the list and unread count.
+The menu is hidden while the list is empty. Tapping a notification marks it read
+and `NotificationsViewModel.open` returns the target (`notificationTargetFor`),
+which the View navigates to: `report_status`, `report_comment` and `report_like`
+open `ReportDetailScreen` in `lib/features/report_detail/` (Model → Service →
+ViewModel → View) for that report id; comment notifications also open the
+comments sheet. `SupabaseReportDetailService` loads the signed-in user's own
+report in any status (pending, changes requested, approved, declined) through
+owner RLS, signs its photos for one hour and shows the status clearly. Approved
+reports reuse `FeedPostCard` with likes and comments from `FeedService.fetchPost`;
+other statuses show photos and details. A deleted or missing report shows "This
+report is no longer available". `chat_message` switches the shell to the Messages
+tab (not a specific thread); `nearby_alert` and unknown types only mark read.
 
 Apply `20261112090000_create_notifications.sql` before using Notifications. The
 user applies it manually in the Supabase SQL editor; agents must not apply
 hosted changes. It must be applied after `20261111150721_add_report_change_requests.sql`,
-and it creates no notifications for past events. Push notifications (FCM,
-device tokens, an Edge Function) are NOT implemented: this is in-app only, and
-no push package or `device_tokens` table exists. The `nearby_alert` type exists
-so the app can render it, but nothing generates it yet; that is pending the
-decision on the `warning_zones` radius values and how proximity is generated
-(`alerts` is unchanged and unused by the app). FaunaGuard's local device
-notifications are separate from this server inbox; see below.
+and it creates no notifications for past events. Pending and like notifications
+need two more migrations, applied in this order after
+`20261112100000_create_community_feed.sql` (which creates `report_likes`) and
+`20261114041037_derive_report_ai_status.sql`:
+`20261120090000_add_report_like_notification_type.sql` (only adds the
+`report_like` enum value; run it on its own and let it finish, because Postgres
+cannot use a new enum value in the transaction that added it) and then
+`20261120090100_add_like_and_pending_notifications.sql` (the pending and like
+trigger functions and the `notifications_report_ref` check now covering
+`report_like`; re-runnable). The `nearby_alert` type exists so the app can
+render it, but nothing generates it yet; that is pending the decision on the
+`warning_zones` radius values and how proximity is generated (`alerts` is
+unchanged and unused by the app). FaunaGuard's local device notifications are
+separate from this server inbox; see below.
+
+Push notifications live in `lib/features/push/` (Model → Service → ViewModel;
+there is no View: the Settings switch and the shell use the ViewModel).
+`PushMessagingService` wraps `firebase_messaging` (permission, token, token
+refresh, launch message, tap while backgrounded) with `NoopPushMessagingService`
+when Firebase is not configured; `SupabaseDeviceTokenService` calls the
+`register_device_token` / `unregister_device_token` RPCs;
+`SecurePushPreferencesService` keeps the per-DEVICE choice (default on) in
+`flutter_secure_storage` under `faunawatch.push.enabled`. `PushViewModel` (kept
+alive by `FaunaWatchApp`) registers this device's token on sign-in and on token
+refresh when push is on and the user allowed notifications (Android 13+
+`POST_NOTIFICATIONS`, declared in the manifest, and iOS), and unregisters it when
+the switch is turned off; `SettingsViewModel.signOut` calls
+`onBeforeSignOut` first so the token is removed while the session still works.
+The Settings switch (`SettingsViewModel.togglePushNotifications`) is now real.
+A tapped push (backgrounded or launching the app) carries `notification_id`,
+`type`, `report_id`, `thread_id`; `PushPayload` feeds the existing
+`notificationTargetFor` mapping, the notification is marked read through
+`NotificationsService`, and `PushViewModel.pendingTarget` is consumed by
+`ShellView` (so a cold start waits until the shell is shown) and opened with
+`openNotificationTarget`, shared with the notifications list. Banners: the app
+creates the high-importance (heads-up, sound, vibration) Android channel
+`faunawatch_default` ("Notifications") at start (`initializeLocalNotifications`
+in `main`), the manifest's `default_notification_channel_id` points to it, and
+`send-push` sets `android.notification.channel_id` to it, so background pushes
+pop up on screen. A push received in the foreground is shown by
+`PushViewModel` through `LocalNotificationService` on Android only (same
+channel, tag = `PushPayload.groupKey`, the same key `send-push` uses, so grouped
+updates replace the banner; payload = the push data as JSON). Nothing is shown
+when the Settings push switch is off. Tapping it, or launching the app from it,
+follows the same `PushPayload` pending-target flow as a push tap. On iOS the
+system presents foreground pushes
+(`setForegroundNotificationPresentationOptions`), so no local notification is
+posted. Server side: migration
+`20261120100000_create_device_tokens.sql` (apply after the notification
+migrations) adds `device_tokens` and the two RPCs, and the Edge Function
+`supabase/functions/send-push/` (Deno; see its README) sends via FCM HTTP v1
+for a Database Webhook on `notifications` INSERT and UPDATE (grouped refreshes
+only), skips suspended users, groups by chat thread / report with a tag and
+collapse id, and deletes dead tokens. Agents must not deploy it or apply
+hosted changes. Still manual for the user: the Firebase project and config
+files (both git-ignored: `android/app/google-services.json`, and
+`ios/Runner/GoogleService-Info.plist`, which on a Mac is added to the Runner target
+through Xcode; `keys/` holds only the service account JSON and webhook secret and
+is never used by the build), the APNs key, the service account secret, the
+`supabase secrets set` / `functions deploy` steps, the migration and the
+webhook (README: "Enable push notifications"). The Android application ID and
+iOS bundle ID are currently `com.example.faunawatch`. iOS has
+`UIBackgroundModes: remote-notification` and `Runner.entitlements`
+(`aps-environment`), configured but untested (Windows development).
 
 The For You feed lives in `lib/features/feed/` (Model → Service → ViewModel →
 View). Once a report is approved it appears there for every signed-in user,
@@ -371,7 +472,8 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
 - **Likes** are real: `report_likes` (report, user) rows that a user can add or
   remove only for themselves, only on approved reports and not while suspended.
   Counts and `liked_by_me` come from the RPC; the app likes optimistically and
-  rolls back on failure. There are no like notifications.
+  rolls back on failure. Likes notify the report's owner (see Notifications; migration
+  `20261120090100_add_like_and_pending_notifications.sql`).
 - **Comments** are real for every post: the app reads and writes
   `report_comments` (visibility and insert rules from
   `20261111144014_fix_comment_access_rules.sql`), so the `notify_report_comment`
@@ -411,8 +513,10 @@ notification; the app declares FOREGROUND_SERVICE, FOREGROUND_SERVICE_LOCATION,
 WAKE_LOCK and POST_NOTIFICATIONS. iOS enables UIBackgroundModes/location and
 background updates with a visible location indicator. Shared photo/map
 behavior remains in its existing Services. `flutter_local_notifications`
-22.x adds immediate Android/iOS system proximity notifications; Android
-requires Java desugaring and the retained ic_fauna_guard drawable. No FCM,
+22.x adds immediate Android/iOS system proximity notifications. When Android
+push has initialized the shared plugin, FaunaGuard reuses it to preserve the
+push tap handler and sets its own icon per notification. Android requires Java
+desugaring and the retained ic_fauna_guard drawable. No FCM,
 scheduled notifications, backend migration, warning_zones writes, or server
 notification rows are added. Background operation continues while the session
 and app process live, including across tabs and while locked; force-close,

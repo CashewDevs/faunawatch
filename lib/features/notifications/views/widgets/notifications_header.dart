@@ -5,7 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 /// Top header for the Notifications screen featuring a horizontal blue gradient
 /// and the "Notifications" title in DM Sans extrabold with a yellow accent underline.
 class NotificationsHeader extends StatelessWidget {
-  const NotificationsHeader({super.key});
+  const NotificationsHeader({super.key, this.onClearAll});
+
+  /// Called when "Clear all" is chosen. When null (nothing to clear) the menu
+  /// is hidden.
+  final VoidCallback? onClearAll;
 
   @override
   Widget build(BuildContext context) {
@@ -32,40 +36,60 @@ class NotificationsHeader extends StatelessWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IntrinsicWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Notifications',
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.visible,
-                      style: GoogleFonts.dmSans(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: isDark
-                            ? AppPaletteColors.of(context).darkAccentBlue
-                            : AppPaletteColors.of(context).messagesHeaderBlue,
-                        letterSpacing: -0.5,
+              Flexible(
+                child: IntrinsicWidth(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Notifications',
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.visible,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          color: isDark
+                              ? AppPaletteColors.of(context).darkAccentBlue
+                              : AppPaletteColors.of(context).messagesHeaderBlue,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      height: 3.5,
-                      decoration: BoxDecoration(
-                        color: AppPaletteColors.of(
-                          context,
-                        ).messagesHeaderUnderline,
-                        borderRadius: BorderRadius.circular(2),
+                      const SizedBox(height: 4),
+                      Container(
+                        height: 3.5,
+                        decoration: BoxDecoration(
+                          color: AppPaletteColors.of(
+                            context,
+                          ).messagesHeaderUnderline,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+              if (onClearAll != null)
+                PopupMenuButton<String>(
+                  tooltip: 'Notification options',
+                  icon: Icon(
+                    Icons.more_vert_rounded,
+                    color: isDark
+                        ? AppPaletteColors.of(context).darkAccentBlue
+                        : AppPaletteColors.of(context).messagesHeaderBlue,
+                  ),
+                  onSelected: (_) => onClearAll!(),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem<String>(
+                      value: 'clear_all',
+                      child: Text('Clear all'),
                     ),
                   ],
                 ),
-              ),
             ],
           ),
         ),

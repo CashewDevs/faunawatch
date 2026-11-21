@@ -44,6 +44,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>remote-notification</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>FaunaWatch uses your photo library so you can choose wildlife photos to report.</string>

@@ -1,8 +1,10 @@
 import 'package:faunawatch/features/fauna_guard/models/fauna_guard_state.dart';
 import 'package:faunawatch/features/fauna_guard/services/guard_notification_service.dart';
+import 'package:faunawatch/features/push/services/local_notification_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -81,5 +83,43 @@ void main() {
       ),
     );
     expect(calls.where((c) => c.method == 'show'), isEmpty);
+  });
+
+  test('enabling FaunaGuard preserves push notification taps', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    AndroidFlutterLocalNotificationsPlugin.registerWith();
+    final local = await initializeLocalNotifications();
+    expect(local.isAvailable, isTrue);
+    final taps = <Map<String, dynamic>>[];
+    final subscription = local.onTap.listen(taps.add);
+    addTearDown(subscription.cancel);
+    final container = ProviderContainer(
+      overrides: [localNotificationServiceProvider.overrideWithValue(local)],
+    );
+    addTearDown(container.dispose);
+
+    final guard = container.read(guardNotificationServiceProvider);
+    await guard.requestAccess();
+    await guard.show(title: 'Nearby', body: 'Approximate report location.');
+    await guard.clear();
+
+    ServicesBinding.instance.channelBuffers.push(
+      channel.name,
+      const StandardMethodCodec().encodeMethodCall(
+        const MethodCall('didReceiveNotificationResponse', {
+          'notificationId': 0,
+          'notificationResponseType': 0,
+          'payload': '{"notification_id":"n1","type":"chat_message"}',
+        }),
+      ),
+      (_) {},
+    );
+    await pumpEventQueue();
+
+    expect(taps, [
+      {'notification_id': 'n1', 'type': 'chat_message'},
+    ]);
+    final showing = calls.firstWhere((call) => call.method == 'show');
+    expect(showing.arguments['platformSpecifics']['icon'], 'ic_fauna_guard');
   });
 }
