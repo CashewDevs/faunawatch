@@ -487,11 +487,12 @@ for less motion. No dependency or migration is added.
 Public account profiles live in `lib/features/public_profile/`
 (Model → Service → ViewModel → View). A post author's name/avatar, a chat
 list name/avatar, and the conversation header name/avatar open a separate
-`PublicProfileScreen`. The chat preview still opens the conversation. Opening
-from the list does not mark it read; opening from the conversation pauses its
-active/read state until Back, preserving the draft. Profile navigation preserves
-the shell destination, feed page and the owner's gallery. Missing chat user IDs
-disable only the profile action.
+`PublicProfileScreen`. In For You, tapping the signed-in user's own name/avatar
+selects the existing Profile shell destination instead. The chat preview still
+opens the conversation. Opening from the list does not mark it read; opening
+from the conversation pauses its active/read state until Back, preserving the
+draft. Opening another account preserves the shell destination, feed page and
+the owner's gallery. Missing chat user IDs disable only the profile action.
 
 Public profiles reuse `ProfileHeaderCard`, `GalleryHeader`, the three-column
 gallery cards, and DM Sans/theme styles, with no preferences or pending-status

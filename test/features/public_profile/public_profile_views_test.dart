@@ -18,6 +18,7 @@ import 'package:faunawatch/features/public_profile/services/public_profile_servi
 import 'package:faunawatch/features/public_profile/views/screens/public_gallery_post_viewer.dart';
 import 'package:faunawatch/features/public_profile/views/screens/public_profile_screen.dart';
 import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -131,6 +132,38 @@ void main() {
   }
 
   for (final avatar in [false, true]) {
+    testWidgets(
+      'own feed ${avatar ? 'avatar' : 'name'} selects the existing Profile tab',
+      (tester) async {
+        feed.posts = [publicPost('own', authorId: 'viewer')];
+        await pump(
+          tester,
+          const Scaffold(
+            body: ForYouFeed(backgroundColor: Colors.white, isDark: false),
+          ),
+        );
+        final context = tester.element(find.byType(ForYouFeed));
+        final container = ProviderScope.containerOf(context, listen: false);
+        expect(container.read(shellViewModelProvider), ShellDestination.feed);
+
+        await tester.tap(
+          avatar
+              ? find.byType(PostAvatar)
+              : find.textContaining('Forest Ranger', findRichText: true),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          container.read(shellViewModelProvider),
+          ShellDestination.profile,
+        );
+        expect(find.byType(PublicProfileScreen), findsNothing);
+        expect(Navigator.of(context).canPop(), isFalse);
+        expect(public.profileRequests, isEmpty);
+        expect(public.postRequests, isEmpty);
+      },
+    );
+
     testWidgets(
       'feed ${avatar ? 'avatar' : 'name'} opens the author and Back restores its card',
       (tester) async {
