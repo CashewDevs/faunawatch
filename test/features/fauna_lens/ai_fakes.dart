@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:faunawatch/core/services/ai/ai_vision_client.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/services/ai_photo_service.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_reference_service.dart';
@@ -11,6 +12,23 @@ import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/models/ai_preferences.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
+
+/// A box found by the AI, for tests.
+AnimalBox sampleBox({
+  AnimalBoxColor color = AnimalBoxColor.red,
+  String name = 'turtle',
+  double left = 0.1,
+  double top = 0.2,
+  double right = 0.5,
+  double bottom = 0.6,
+}) => AnimalBox(
+  left: left,
+  top: top,
+  right: right,
+  bottom: bottom,
+  color: color,
+  name: name,
+);
 
 /// The curated reference entry used for invasive results in tests.
 const sampleInvasiveMatch = SpeciesReferenceMatch(
@@ -83,10 +101,17 @@ class FakeAiPhotoService implements AiPhotoService {
   bool fails = false;
   final List<String> prepared = [];
 
+  /// The boxes drawn on each prepared photo.
+  final List<List<AnimalBox>> boxesDrawn = [];
+
   @override
-  Future<AiPhoto> prepare(String path) async {
+  Future<AiPhoto> prepare(
+    String path, {
+    List<AnimalBox> boxes = const [],
+  }) async {
     if (fails) throw const FormatException('bad photo');
     prepared.add(path);
+    boxesDrawn.add(boxes);
     return AiPhoto(bytes: Uint8List.fromList([7, 7, 7]), mimeType: 'image/png');
   }
 }
@@ -95,6 +120,7 @@ class FakeVisionClient implements AiVisionClient {
   FakeVisionClient({this.reply = '{}', this.defaultModel = 'fake-model'});
 
   String reply;
+  final List<String> instructionsSent = [];
   AiVisionFailure? failure;
   List<AiModelOption> models = const [AiModelOption(id: 'listed-model')];
   final List<String> keysUsed = [];
@@ -115,6 +141,7 @@ class FakeVisionClient implements AiVisionClient {
   }) async {
     keysUsed.add(apiKey);
     modelsUsed.add(model);
+    instructionsSent.add(instructions);
     mimeTypes.add(mimeType);
     imagesSent.add(imageBytes);
     if (failure != null) throw AiVisionException(failure!);
@@ -161,16 +188,38 @@ class FakeIdentificationService implements SpeciesIdentificationService {
   IdentificationFailure? failure;
   String photoSubject = '';
   final List<String> photoPaths = [];
+  final List<List<AnimalBox>> boxesAnalysed = [];
+
+  /// What findAnimals returns; one box by default.
+  List<AnimalBox> found = [sampleBox()];
+  IdentificationFailure? findFailure;
+  final List<String> searchedPaths = [];
 
   /// When set, identify waits for it, holding the screen in its loading state.
   Completer<void>? gate;
+
+  /// When set, findAnimals waits for it.
+  Completer<void>? findGate;
+
+  @override
+  Future<List<AnimalBox>> findAnimals({
+    required String userId,
+    required String photoPath,
+  }) async {
+    searchedPaths.add(photoPath);
+    await findGate?.future;
+    if (findFailure != null) throw IdentificationException(findFailure!);
+    return found;
+  }
 
   @override
   Future<AiIdentification> identify({
     required String userId,
     required String photoPath,
+    required List<AnimalBox> boxes,
   }) async {
     photoPaths.add(photoPath);
+    boxesAnalysed.add(boxes);
     await gate?.future;
     if (failure != null) {
       throw IdentificationException(failure!, photoSubject: photoSubject);

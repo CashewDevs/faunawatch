@@ -1,5 +1,6 @@
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -259,6 +260,86 @@ void main() {
       expect(row.containsKey('input_fingerprint'), isFalse);
       expect(row.containsKey('severity_reason'), isFalse);
       expect(row.containsKey('photo_subject'), isFalse);
+    });
+  });
+
+  group('several animals', () {
+    const red = AnimalBox(
+      left: 0,
+      top: 0,
+      right: 0.4,
+      bottom: 0.4,
+      color: AnimalBoxColor.red,
+    );
+    const blue = AnimalBox(
+      left: 0.5,
+      top: 0.5,
+      right: 0.9,
+      bottom: 0.9,
+      color: AnimalBoxColor.blue,
+    );
+
+    AiIdentification parseFor(List<AnimalBox> boxes, String reply) =>
+        AiIdentification.fromModelReply(
+          reply,
+          provider: AiProvider.gemini,
+          model: 'test-model',
+          promptVersion: 'v-test',
+          boxes: boxes,
+        );
+
+    test('one animal keeps three ranked guesses and ignores box names', () {
+      final result = parseFor(
+        [red],
+        '{"possible_species": [{"box": "red", "common_name": "A"}, '
+        '{"common_name": "B"}, {"common_name": "C"}, {"common_name": "D"}]}',
+      );
+      expect(result.animalCount, 1);
+      expect(result.coversSeveralAnimals, isFalse);
+      expect(result.possibleSpecies, hasLength(3));
+      expect(result.possibleSpecies.first.boxColor, isNull);
+      expect(result.speciesSummary, 'A');
+      expect(result.guessesToCheck.map((s) => s.commonName), ['A']);
+    });
+
+    test('keeps one guess per animal and only known box colours', () {
+      final result = parseFor(
+        [red, blue],
+        '{"possible_species": [{"box": "green", "common_name": "A", "scientific_name": "Aa"}, '
+        '{"box": "blue", "common_name": "B"}, {"common_name": "C"}]}',
+      );
+      expect(result.animalCount, 2);
+      expect(result.possibleSpecies.map((s) => s.commonName), ['A', 'B']);
+      expect(result.possibleSpecies.map((s) => s.boxColor), [
+        null,
+        AnimalBoxColor.blue,
+      ]);
+      expect(result.speciesSummary, 'A (Aa), B');
+      expect(result.guessesToCheck, hasLength(2));
+    });
+
+    test('saves the guesses in the usual shape, without box colours', () {
+      final row = parseFor(
+        [red, blue],
+        '{"possible_species": [{"box": "red", "common_name": "A"}, '
+        '{"box": "blue", "common_name": "B"}]}',
+      ).toAnalysisRow('report-1');
+      final species = row['possible_species'] as List;
+      expect(species, hasLength(2));
+      expect((species.first as Map).keys, [
+        'common_name',
+        'scientific_name',
+        'confidence',
+      ]);
+    });
+
+    test('the invasive match survives with the animal count', () {
+      final result = parseFor([red, blue], '{"possible_species": []}')
+          .withInvasiveMatch(
+            const SpeciesReferenceMatch(id: 'ref-1', commonName: 'A'),
+          );
+      expect(result.animalCount, 2);
+      expect(result.possibleInvasive, isTrue);
     });
   });
 }

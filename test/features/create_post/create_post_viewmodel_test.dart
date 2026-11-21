@@ -23,6 +23,12 @@ class FakeCreatePostService implements CreatePostService {
   }
 }
 
+/// A photo without a location, so the form's location stays empty.
+const _galleryPhoto = FaunaLensPhoto(
+  path: 'bird.jpg',
+  source: FaunaLensPhotoSource.gallery,
+);
+
 class FakeLocations implements PhotoLocationService {
   GeoCoordinates? location;
   @override
@@ -76,6 +82,16 @@ void main() {
       }
       expect(service.drafts, isEmpty);
       vm.edit(latitude: '0', longitude: '0');
+      // Everything is filled in except the photo, which every post needs.
+      expect(container.read(createPostViewModelProvider).canSubmit, isFalse);
+      expect(await vm.submit(), isFalse);
+      expect(
+        container.read(createPostViewModelProvider).error,
+        contains('Add a photo'),
+      );
+      expect(service.drafts, isEmpty);
+      picker.path = 'bird.jpg';
+      await vm.pickPhoto();
       expect(await vm.submit(), isTrue);
       expect(service.drafts.single.latitude, 0);
     },
@@ -84,7 +100,8 @@ void main() {
   test(
     'preserves draft on failure, hides raw errors, and permits retry',
     () async {
-      final vm = container.read(createPostViewModelProvider.notifier);
+      final vm = container.read(createPostViewModelProvider.notifier)
+        ..usePhoto(_galleryPhoto);
       vm.edit(
         category: ReportCategory.otherWildlifeIncident,
         latitude: '10.3',
@@ -111,7 +128,8 @@ void main() {
   );
 
   test('ignores duplicate submissions and edits while submitting', () async {
-    final vm = container.read(createPostViewModelProvider.notifier);
+    final vm = container.read(createPostViewModelProvider.notifier)
+      ..usePhoto(_galleryPhoto);
     vm.edit(
       category: ReportCategory.animalInNeed,
       latitude: '-90',

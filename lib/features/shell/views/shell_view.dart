@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/create_post/views/create_post_view.dart';
+import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
@@ -105,6 +106,14 @@ class _ShellViewState extends ConsumerState<ShellView> {
         child: ShellNavBar(
           currentDestination: currentDestination,
           onSelectDestination: (destination) {
+            // "+" opens the FaunaLens camera; FaunaLens switches to the post
+            // form once there is a photo.
+            if (destination == ShellDestination.addPost) {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const FaunaLensView()),
+              );
+              return;
+            }
             ref
                 .read(shellViewModelProvider.notifier)
                 .selectDestination(destination);

@@ -526,8 +526,31 @@ preview shows the intro but reports background tracking as mobile-only.
 Verify background/locked operation on real Android/iOS devices before release.
 
 Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
-View). A category and valid observation coordinates are required; photos and
+View). A photo, a category and valid observation coordinates are required;
 description/species/notes are optional. Reports are saved with `status = pending`.
+Posting starts with the camera: the "+" in the bottom bar opens FaunaLens
+(`lib/features/fauna_lens/`) instead of the form, and the top bar has no camera
+button. The camera screen keeps its gallery option. After the "Happy with this
+photo?" review, "Skip AI" goes to Create Post with the photo and no analysis, and
+"Ask AI" opens "Choose animals" (`FaunaLensBoxesScreen`, `AnimalBoxesViewModel`).
+There `SpeciesIdentificationService.findAnimals` asks the user's provider for a box
+around each animal: `box_2d` as [ymin, xmin, ymax, xmax] on a 0–1000 scale, read
+by `AnimalBox.listFromModelReply` into fractions of the photo. It uses the same
+`AiVisionClient.describeImage` request as the analysis, so it works on all three
+providers. Each box has its own colour (`AnimalBoxColor`, at most six boxes). A
+single animal found is chosen automatically; the user can choose up to three
+(`AnimalBox.maxChosen`, because `ai_analyses.possible_species` holds at most three)
+and can draw boxes by hand. When nothing is found the screen offers "Draw a box" or
+"Retake photo". The chosen boxes are drawn on the resized copy sent to the AI
+(`AiPhotoService.prepare(boxes:)`) and listed by colour and position in the
+prompt, which returns ONE combined analysis saved as ONE post: one animal gets up
+to three ranked guesses; several get one best guess each (the reply's `box` colour
+is only shown on screen, never saved); severity is the most urgent; there is one
+category for the report; and every animal's guess is checked against
+`species_reference` (the first match is kept). The species field gets the guesses
+joined with commas. The AI Result offers "Use these results", "Analyse again"
+(same photo and boxes) and "Retake photo". Boxes are never saved; there is no
+database or admin site change.
 When the user chooses "use AI results" in FaunaLens, the analysis is carried into
 Create Post with its photo, shown in a card that states it will be saved, and can
 be detached there (`removeAiResult`; the form's species/category are kept). It is
@@ -542,7 +565,7 @@ to `completed`; removing that analysis turns it `unavailable`; and a signed-in
 update of `ai_status` that disagrees with `ai_analyses` raises `FW409
 ai_status_mismatch`. Clients don't need to write it (the insert value from
 `PostDraft.toRow` is harmless).
-The report category comes from the AI result: prompt `fauna_lens_identify_v3`
+The report category comes from the AI result: prompt `fauna_lens_identify_v4`
 picks among `animal_in_need`, `potentially_dangerous_animal` and
 `other_wildlife_incident` (unknown or missing falls back to the last), and a
 `species_reference` match forces "Possible invasive species" (never the AI).

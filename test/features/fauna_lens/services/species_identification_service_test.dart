@@ -1,6 +1,7 @@
 import 'package:faunawatch/core/services/ai/ai_vision_client.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
 import 'package:faunawatch/features/settings/models/ai_preferences.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
@@ -43,8 +44,12 @@ void main() {
     );
   });
 
-  Future<AiIdentification> identify() =>
-      service.identify(userId: _user, photoPath: 'photo.jpg');
+  Future<AiIdentification> identify({List<AnimalBox>? boxes}) =>
+      service.identify(
+        userId: _user,
+        photoPath: 'photo.jpg',
+        boxes: boxes ?? [sampleBox()],
+      );
 
   Matcher failsWith(IdentificationFailure failure) => throwsA(
     isA<IdentificationException>().having((e) => e.failure, 'failure', failure),
@@ -65,14 +70,14 @@ void main() {
     expect(result.possibleInvasive, isFalse);
   });
 
-  test('prompt v3 asks for a category but not the invasive one', () async {
+  test('prompt v4 asks for a category but not the invasive one', () async {
     keys.keys[(_user, AiProvider.groq)] = 'groq-key';
     await identify();
     expect(
       SpeciesIdentificationService.promptVersion,
-      'fauna_lens_identify_v3',
+      'fauna_lens_identify_v4',
     );
-    const prompt = SpeciesIdentificationService.instructions;
+    final prompt = clients[AiProvider.groq]!.instructionsSent.single;
     expect(prompt, contains('"category"'));
     expect(prompt, contains('animal_in_need'));
     expect(prompt, contains('potentially_dangerous_animal'));
@@ -225,6 +230,143 @@ void main() {
       expect(references.asked, isEmpty);
     },
   );
+
+  group('with boxes', () {
+    final red = sampleBox();
+    final blue = sampleBox(
+      color: AnimalBoxColor.blue,
+      name: 'heron',
+      left: 0.6,
+      right: 0.9,
+    );
+
+    test('draws the chosen box on the photo and points the AI at it', () async {
+      keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
+      await identify(boxes: [red]);
+
+      expect(photos.boxesDrawn.single, [red]);
+      final prompt = clients[AiProvider.gemini]!.instructionsSent.single;
+      expect(prompt, contains('the red box, from 10% to 50% across'));
+      expect(prompt, contains('at most 3 guesses for the animal in the box'));
+      expect(prompt, isNot(contains('blue')));
+    });
+
+    test('several animals get one guess each, tied to their box', () async {
+      keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
+      clients[AiProvider.gemini]!.reply =
+          '{"animal_present": true, "possible_species": ['
+          '{"box": "blue", "common_name": "Grey Heron", "confidence": "high"}, '
+          '{"box": "red", "common_name": "Red-eared Slider", "confidence": "medium"}, '
+          '{"box": "red", "common_name": "Extra", "confidence": "low"}], '
+          '"severity": "moderate"}';
+
+      final result = await identify(boxes: [red, blue]);
+
+      expect(photos.boxesDrawn.single, [red, blue]);
+      final prompt = clients[AiProvider.gemini]!.instructionsSent.single;
+      expect(prompt, contains('2 coloured boxes'));
+      expect(prompt, contains('the red box'));
+      expect(prompt, contains('the blue box'));
+      expect(prompt, contains('exactly one entry per box'));
+      expect(result.animalCount, 2);
+      expect(result.possibleSpecies.map((s) => s.commonName), [
+        'Grey Heron',
+        'Red-eared Slider',
+      ]);
+      expect(result.possibleSpecies.map((s) => s.boxColor), [
+        AnimalBoxColor.blue,
+        AnimalBoxColor.red,
+      ]);
+      expect(result.speciesSummary, 'Grey Heron, Red-eared Slider');
+    });
+
+    test(
+      'several animals: each guess is checked against the invasive list',
+      () async {
+        keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
+        clients[AiProvider.gemini]!.reply =
+            '{"possible_species": ['
+            '{"box": "red", "common_name": "Grey Heron"}, '
+            '{"box": "blue", "common_name": "Red-eared Slider"}]}';
+        references.match = null;
+
+        final plain = await identify(boxes: [red, blue]);
+        expect(references.asked.map((s) => s.commonName), [
+          'Grey Heron',
+          'Red-eared Slider',
+        ]);
+        expect(plain.possibleInvasive, isFalse);
+
+        references.asked.clear();
+        references.match = sampleInvasiveMatch;
+        final matched = await identify(boxes: [red, blue]);
+        // The first match is kept; there is room for only one.
+        expect(references.asked, hasLength(1));
+        expect(matched.invasiveMatch, sampleInvasiveMatch);
+      },
+    );
+
+    test('needs one to three boxes', () async {
+      keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
+      await expectLater(identify(boxes: []), throwsArgumentError);
+      await expectLater(
+        identify(boxes: [red, blue, red, blue]),
+        throwsArgumentError,
+      );
+      expect(clients[AiProvider.gemini]!.instructionsSent, isEmpty);
+    });
+  });
+
+  group('findAnimals', () {
+    Future<List<AnimalBox>> find() =>
+        service.findAnimals(userId: _user, photoPath: 'photo.jpg');
+
+    test('asks the chosen provider for boxes on the plain photo', () async {
+      keys.keys[(_user, AiProvider.openRouter)] = 'or-key';
+      preferences.saved[_user] = const AiPreferences(
+        provider: AiProvider.openRouter,
+      );
+      clients[AiProvider.openRouter]!.reply =
+          '{"animals": [{"name": "dog", "box_2d": [100, 200, 600, 700]}]}';
+
+      final boxes = await find();
+
+      expect(clients[AiProvider.openRouter]!.keysUsed, ['or-key']);
+      expect(photos.boxesDrawn.single, isEmpty);
+      final prompt = clients[AiProvider.openRouter]!.instructionsSent.single;
+      expect(prompt, contains('box_2d'));
+      expect(prompt, contains('[ymin, xmin, ymax, xmax]'));
+      expect(boxes.single.name, 'dog');
+      expect(boxes.single.left, closeTo(0.2, 1e-9));
+      expect(boxes.single.top, closeTo(0.1, 1e-9));
+      expect(boxes.single.color, AnimalBoxColor.red);
+    });
+
+    test('no animal is an empty list, not a failure', () async {
+      keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
+      clients[AiProvider.gemini]!.reply = '{"animals": []}';
+      expect(await find(), isEmpty);
+    });
+
+    test('maps failures like the analysis does', () async {
+      await expectLater(find(), failsWith(IdentificationFailure.noKey));
+
+      keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
+      clients[AiProvider.gemini]!.failure = AiVisionFailure.rateLimited;
+      await expectLater(find(), failsWith(IdentificationFailure.rateLimited));
+
+      clients[AiProvider.gemini]!
+        ..failure = null
+        ..reply = 'no boxes here';
+      await expectLater(find(), failsWith(IdentificationFailure.badResponse));
+
+      photos.fails = true;
+      await expectLater(
+        find(),
+        failsWith(IdentificationFailure.unreadablePhoto),
+      );
+    });
+  });
 
   test('no reference lookup when the AI suggests no species', () async {
     keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';

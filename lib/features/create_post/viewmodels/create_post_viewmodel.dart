@@ -166,7 +166,7 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
     if (!state.canSubmit) {
       state = state.copyWith(
         error:
-            'Choose a category and select an observation location on the map.',
+            'Add a photo, choose a category and select an observation location on the map.',
       );
       return false;
     }

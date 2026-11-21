@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/ai_result_cards.dart';
@@ -38,6 +39,7 @@ void main() {
   Future<void> open(
     WidgetTester tester, {
     FaunaLensPhoto photo = _photo,
+    List<AnimalBox>? boxes,
     bool settle = true,
   }) async {
     tester.view.physicalSize = const Size(1080, 2400);
@@ -58,7 +60,10 @@ void main() {
                 onPressed: () async {
                   choice = await Navigator.of(context).push<AiResultChoice>(
                     MaterialPageRoute(
-                      builder: (_) => FaunaLensAiResultScreen(photo: photo),
+                      builder: (_) => FaunaLensAiResultScreen(
+                        photo: photo,
+                        boxes: boxes ?? [sampleBox()],
+                      ),
                     ),
                   );
                   popped = true;
@@ -130,6 +135,12 @@ void main() {
     expect(
       find.text('Keep your distance and do not pick up the animal.'),
       findsOneWidget,
+    );
+    // The disclaimer is at the end of the scrolling list.
+    await tester.scrollUntilVisible(
+      find.textContaining('from Gemini'),
+      200,
+      scrollable: find.byType(Scrollable).first,
     );
     expect(find.textContaining('from Gemini'), findsOneWidget);
     expect(find.byType(InvasiveHintCard), findsNothing);
@@ -255,6 +266,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Possible species'), findsOneWidget);
+  });
+
+  testWidgets('Analyse again asks again about the same animals', (
+    tester,
+  ) async {
+    final boxes = [
+      sampleBox(),
+      sampleBox(color: AnimalBoxColor.blue, left: 0.6, right: 0.9),
+    ];
+    await open(tester, boxes: boxes);
+    expect(service.boxesAnalysed, [boxes]);
+
+    await tester.tap(find.text('Analyse again'));
+    await tester.pumpAndSettle();
+
+    expect(service.photoPaths, ['missing.jpg', 'missing.jpg']);
+    expect(service.boxesAnalysed, [boxes, boxes]);
+    expect(find.text('Possible species'), findsOneWidget);
+    expect(popped, isFalse);
+  });
+
+  testWidgets('Analyse again waits while the AI is still working', (
+    tester,
+  ) async {
+    service.gate = Completer<void>();
+    await open(tester, settle: false);
+
+    await tester.tap(find.text('Analyse again'));
+    await tester.pump();
+    expect(service.photoPaths, hasLength(1));
+
+    service.gate!.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('several animals are listed as one guess each', (tester) async {
+    service.result = AiIdentification.fromModelReply(
+      '{"possible_species": ['
+      '{"box": "red", "common_name": "Grey Heron"}, '
+      '{"box": "blue", "common_name": "Red-eared Slider"}]}',
+      provider: AiProvider.gemini,
+      model: 'm',
+      promptVersion: 'v',
+      boxes: [
+        sampleBox(),
+        sampleBox(color: AnimalBoxColor.blue),
+      ],
+    );
+    await open(tester);
+
+    expect(
+      find.text(
+        'One guess for each animal you chose. None of these is confirmed.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Grey Heron'), findsOneWidget);
+    expect(find.text('Red-eared Slider'), findsOneWidget);
   });
 
   testWidgets('an unreadable photo offers no retry', (tester) async {

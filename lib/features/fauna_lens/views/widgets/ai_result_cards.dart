@@ -57,7 +57,9 @@ class PossibleSpeciesCard extends StatelessWidget {
           Text('Possible species', style: aiResultTitleStyle()),
           const SizedBox(height: 2),
           Text(
-            'Up to ${AiIdentification.maxSpecies} guesses. None of these is confirmed.',
+            result.coversSeveralAnimals
+                ? 'One guess for each animal you chose. None of these is confirmed.'
+                : 'Up to ${AiIdentification.maxSpecies} guesses. None of these is confirmed.',
             style: aiResultMutedStyle(),
           ),
           const SizedBox(height: 6),
@@ -74,7 +76,11 @@ class PossibleSpeciesCard extends StatelessWidget {
             for (final (index, species) in result.possibleSpecies.indexed) ...[
               if (index > 0)
                 const Divider(height: 1, color: AppColors.aiResultCardBorder),
-              _SpeciesRow(rank: index + 1, species: species),
+              _SpeciesRow(
+                rank: index + 1,
+                species: species,
+                showBox: result.coversSeveralAnimals,
+              ),
             ],
         ],
       ),
@@ -83,14 +89,33 @@ class PossibleSpeciesCard extends StatelessWidget {
 }
 
 class _SpeciesRow extends StatelessWidget {
-  const _SpeciesRow({required this.rank, required this.species});
+  const _SpeciesRow({
+    required this.rank,
+    required this.species,
+    required this.showBox,
+  });
 
   final int rank;
   final PossibleSpecies species;
 
+  /// Several animals: the circle shows the box colour instead of a rank,
+  /// since each row is a different animal rather than a weaker guess.
+  final bool showBox;
+
   @override
   Widget build(BuildContext context) {
-    final isTop = rank == 1;
+    final boxColor = showBox && species.boxColor != null
+        ? Color(species.boxColor!.argb)
+        : null;
+    // With several animals every row is an equal; only one animal's guesses
+    // are ranked.
+    final isTop = showBox || rank == 1;
+    final background =
+        boxColor ??
+        (isTop ? AppColors.faunaLensBlue : AppColors.aiResultRankBackground);
+    final foreground = boxColor != null
+        ? (boxColor.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+        : (isTop ? Colors.white : AppColors.faunaLensBlue);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -100,15 +125,16 @@ class _SpeciesRow extends StatelessWidget {
             height: 24,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isTop
-                  ? AppColors.faunaLensBlue
-                  : AppColors.aiResultRankBackground,
+              color: background,
               shape: BoxShape.circle,
             ),
             child: Text(
               '$rank',
+              semanticsLabel: species.boxColor != null && showBox
+                  ? '${species.boxColor!.value} box'
+                  : null,
               style: GoogleFonts.dmSans(
-                color: isTop ? Colors.white : AppColors.faunaLensBlue,
+                color: foreground,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -322,6 +348,58 @@ class AiResultInfoCard extends StatelessWidget {
           const SizedBox(height: 6),
           ...children,
         ],
+      ),
+    );
+  }
+}
+
+/// The white top bar of the FaunaLens result pages: a back chevron and a
+/// title on the right.
+class FaunaLensPageHeader extends StatelessWidget {
+  const FaunaLensPageHeader({
+    super.key,
+    required this.title,
+    required this.onBack,
+  });
+
+  final String title;
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.aiResultHeader,
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Back',
+                onPressed: onBack,
+                icon: const Icon(
+                  Icons.chevron_left_rounded,
+                  color: AppColors.aiResultBackChevron,
+                  size: 34,
+                ),
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.only(right: 20),
+                child: Text(
+                  title,
+                  style: GoogleFonts.dmSans(
+                    color: AppColors.faunaLensBlue,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
