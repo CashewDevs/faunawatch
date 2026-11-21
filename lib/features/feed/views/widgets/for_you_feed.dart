@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
+import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
@@ -118,11 +120,20 @@ class _ForYouFeedState extends ConsumerState<ForYouFeed> {
                 viewModel.loadMore();
               }
             },
-            itemBuilder: (context, index) => FeedPostCard(
-              key: ValueKey(posts[index].id),
-              post: posts[index],
-              backgroundColor: widget.backgroundColor,
-            ),
+            itemBuilder: (context, index) {
+              final post = posts[index];
+              final focus = MapFocus.fromPost(post, isPublic: true);
+              return FeedPostCard(
+                key: ValueKey(post.id),
+                post: post,
+                backgroundColor: widget.backgroundColor,
+                onLocation: focus == null
+                    ? null
+                    : () => ref
+                          .read(communityMapViewModelProvider.notifier)
+                          .focusOn(focus),
+              );
+            },
           ),
         ),
         if (state.isLoadingMore)

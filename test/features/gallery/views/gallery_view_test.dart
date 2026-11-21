@@ -117,14 +117,14 @@ void main() {
     service.statuses['other'] = ReportStatus.pending;
     await pumpGallery(tester);
     expect(find.byType(GalleryCard), findsNWidgets(3));
-    expect(find.byType(PendingReviewBadge), findsOneWidget);
+    expect(find.byType(PostStatusBadge), findsOneWidget);
     expect(find.text('Pending review'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byWidgetPredicate(
           (w) => w is GalleryCard && w.item.id == 'other',
         ),
-        matching: find.byType(PendingReviewBadge),
+        matching: find.byType(PostStatusBadge),
       ),
       findsOneWidget,
     );
@@ -138,11 +138,11 @@ void main() {
     await tester.tap(find.text('Approved'));
     await tester.pumpAndSettle();
     expect(find.byType(GalleryCard), findsNWidgets(2));
-    expect(find.byType(PendingReviewBadge), findsNothing);
+    expect(find.byType(PostStatusBadge), findsNothing);
 
     await tester.tap(find.text('All'));
     await tester.pumpAndSettle();
-    expect(find.byType(PendingReviewBadge), findsOneWidget);
+    expect(find.byType(PostStatusBadge), findsOneWidget);
   });
 
   testWidgets('uses network photos and handles missing or failed photos', (

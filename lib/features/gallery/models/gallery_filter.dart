@@ -3,15 +3,20 @@ import 'package:faunawatch/features/report_detail/models/own_report.dart';
 
 /// The status chips under the My Gallery title.
 enum GalleryStatusFilter {
-  all('All', [ReportStatus.approved, ReportStatus.pending]),
+  all('All', [
+    ReportStatus.approved,
+    ReportStatus.pending,
+    ReportStatus.declined,
+  ]),
   pending('Pending', [ReportStatus.pending]),
-  approved('Approved', [ReportStatus.approved]);
+  approved('Approved', [ReportStatus.approved]),
+  declined('Declined', [ReportStatus.declined]);
 
   const GalleryStatusFilter(this.label, this.statuses);
   final String label;
 
-  /// Report statuses this chip shows. Changes-requested and declined reports
-  /// are never part of the gallery.
+  /// Report statuses this chip shows. Changes-requested reports are never
+  /// part of the gallery.
   final List<ReportStatus> statuses;
 }
 

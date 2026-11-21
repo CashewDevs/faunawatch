@@ -19,6 +19,7 @@ import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
+import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
@@ -465,6 +466,9 @@ class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  @override
+  Future<void> showFocus(MapFocus? focus, {bool moveCamera = true}) async {}
+
   @override
   Future<void> showGuardLocation(GuardLocation? location) async {}
   @override
