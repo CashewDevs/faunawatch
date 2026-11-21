@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
+import 'package:faunawatch/features/gallery/views/widgets/gallery_skeleton.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
 import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
 import 'package:faunawatch/features/report_detail/views/screens/report_detail_screen.dart';
@@ -228,6 +231,67 @@ void main() {
     expect(service.pageRequests.length, greaterThan(1));
     expect(service.pageRequests[1]!.id, 'p11');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('switching from All to Pending shows a skeleton, not a spinner', (
+    tester,
+  ) async {
+    service.statuses['other'] = ReportStatus.pending;
+    await pumpGallery(tester);
+    expect(find.byType(GallerySkeleton), findsNothing);
+    final gate = Completer<void>();
+    service.pageGate = gate;
+    await tester.tap(find.text('Pending'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(GallerySkeleton), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(GalleryCard), findsNothing);
+    expect(find.bySemanticsLabel('Loading your posts'), findsOneWidget);
+    // The skeleton keeps the real grid's three columns.
+    final grid = tester.widget<SliverGrid>(
+      find.descendant(
+        of: find.byType(GallerySkeleton),
+        matching: find.byType(SliverGrid),
+      ),
+    );
+    expect(grid.gridDelegate, galleryGridDelegate);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(GallerySkeleton), findsNothing);
+    expect(find.byType(GalleryCard), findsOneWidget);
+    expect(find.text('Red Fox'), findsOneWidget);
+  });
+
+  testWidgets('the skeleton holds still when the device asks for less motion', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    service.pageGate = gate;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [galleryServiceProvider.overrideWithValue(service)],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: true),
+            child: GalleryView(),
+          ),
+        ),
+      ),
+    );
+    // Settles only because nothing is animating while the page loads.
+    await tester.pumpAndSettle();
+    expect(find.byType(GallerySkeleton), findsOneWidget);
+    expect(
+      tester
+          .widget<SliverFadeTransition>(find.byType(SliverFadeTransition))
+          .opacity
+          .value,
+      1,
+    );
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsNWidgets(3));
   });
 
   testWidgets('each filter shows its own empty message', (tester) async {
