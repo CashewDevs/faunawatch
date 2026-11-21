@@ -8,7 +8,6 @@ import 'package:faunawatch/features/notifications/views/notification_navigation.
 import 'package:faunawatch/features/notifications/views/notifications_view.dart';
 import 'package:faunawatch/features/push/viewmodels/push_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
-import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/ai_key_settings_view.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
@@ -24,13 +23,9 @@ class ShellView extends ConsumerStatefulWidget {
 }
 
 class _ShellViewState extends ConsumerState<ShellView> {
-  // Cached because `ref` cannot be used inside dispose().
-  late final AiKeySettingsViewModel _aiKeySettingsViewModel;
-
   @override
   void initState() {
     super.initState();
-    _aiKeySettingsViewModel = ref.read(aiKeySettingsViewModelProvider.notifier);
     // A push that launched the app waits here until the shell is shown.
     WidgetsBinding.instance.addPostFrameCallback((_) => _openPushTarget());
   }
@@ -46,29 +41,12 @@ class _ShellViewState extends ConsumerState<ShellView> {
   }
 
   @override
-  void dispose() {
-    // Ensure FLAG_SECURE is cleared when the shell is removed from the tree.
-    _aiKeySettingsViewModel.disableWindowSecurity();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final currentDestination = ref.watch(shellViewModelProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Toggle FLAG_SECURE based on whether the Profile (key-settings) tab
-    // is active. This avoids blocking screenshots on unrelated tabs, which
-    // happened previously because IndexedStack builds all children at
-    // launch and initState ran unconditionally.
-    ref.listen<ShellDestination>(shellViewModelProvider, (previous, next) {
-      final viewModel = ref.read(aiKeySettingsViewModelProvider.notifier);
-      if (next == ShellDestination.profile) {
-        viewModel.enableWindowSecurity();
-      } else if (previous == ShellDestination.profile) {
-        viewModel.disableWindowSecurity();
-      }
-    });
+    // Screenshots are allowed on every tab, Profile included. Only the AI key
+    // screen (AiKeySetupView) blocks them, while it is open.
 
     // A push tapped while the app is open in the background.
     ref.listen(pushViewModelProvider.select((push) => push.pendingTarget), (

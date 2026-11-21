@@ -218,36 +218,18 @@ void main() {
         expect(find.byType(ShellView), findsOneWidget);
       },
     );
-    testWidgets('enables window security only while Profile is selected', (
+    testWidgets('screenshots stay allowed on every tab, Profile included', (
       tester,
     ) async {
       await tester.pumpWidget(buildTestShell());
       await tester.pumpAndSettle();
-
-      // Feed tab: not secure
-      expect(windowSecurity.isSecure, isFalse);
-      expect(windowSecurity.enableCalls, 0);
-
-      // Profile tab: secure
-      await tester.tap(find.text('Profile'));
-      await tester.pumpAndSettle();
-
-      expect(windowSecurity.isSecure, isTrue);
-
-      // Chats tab: not secure again
-      await tester.tap(find.text('Chats'));
-      await tester.pumpAndSettle();
-
-      expect(windowSecurity.isSecure, isFalse);
-
-      // Removing the shell while on Profile clears security
-      await tester.tap(find.text('Profile'));
-      await tester.pumpAndSettle();
-      expect(windowSecurity.isSecure, isTrue);
-
+      for (final tab in ['Profile', 'Chats', 'Profile']) {
+        await tester.tap(find.text(tab));
+        await tester.pumpAndSettle();
+        expect(windowSecurity.isSecure, isFalse);
+      }
       await tester.pumpWidget(const SizedBox());
-
-      expect(windowSecurity.isSecure, isFalse);
+      expect(windowSecurity.enableCalls, 0);
     });
   });
 }

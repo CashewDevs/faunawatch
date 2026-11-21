@@ -126,6 +126,7 @@ class FeedPost {
     bool? likedByMe,
     int? commentCount,
     List<String>? photoUrls,
+    String? authorName,
     String? authorAvatarAsset,
     String? authorAvatarUrl,
   }) {
@@ -135,7 +136,7 @@ class FeedPost {
       createdAt: createdAt,
       feedAt: feedAt,
       authorId: authorId,
-      authorName: authorName,
+      authorName: authorName ?? this.authorName,
       category: category,
       categoryLabel: categoryLabel,
       description: description,

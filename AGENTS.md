@@ -230,6 +230,11 @@ A user's AI API key is runtime user data, not application configuration.
 
 ## Security
 
+Screenshots are blocked (Android `FLAG_SECURE` through `WindowSecurityService`)
+only while the AI key screen (`AiKeySetupView`, onboarding and Settings › AI
+Integration › manage keys) is open; it turns the block on and off itself. Every
+other screen, including the Profile tab, allows screenshots.
+
 Treat all API keys, tokens, passwords, credentials, and private user data
 as secrets. Never commit them. Before adding a new config file, check
 whether it could contain sensitive data — use placeholder/example configs
@@ -447,25 +452,33 @@ in the chosen statuses and the optional `category`, relying on existing owner RL
 pages of 12 by submission time and ID, newest first. It returns `GalleryPost`
 (a `FeedPost`, reused for title/category fallbacks, plus its `ReportStatus`) and
 signs the first available private report photo for one hour.
-`GalleryViewModel` owns its independent pagination, refresh and filters; changing
-a filter reloads the first page, and it resets on account changes and discards
-superseded requests. `reload()` always starts over (unlike pull to refresh,
-which is ignored while loading); `CreatePostViewModel.submit` calls it after a
-successful submit when the gallery is already open, so the new pending post
-appears. Pending tiles open `ReportDetailScreen` (`lib/features/report_detail/`),
-which shows the status. Approved tiles push a profile-local full-screen
-`GalleryPostViewer`, starting at the tapped post.
-Vertical swipes browse only the gallery's own approved posts (respecting its
-filters; pending ones are skipped because the viewer loads through the
-approved-only `FeedService.fetchPost`), and Back returns to the existing
-profile/grid scroll position. Neither the shell
-destination nor the For You tab/page changes. `GalleryPostViewModel` loads full
-photos and engagement through `FeedService.fetchPost`, checks the current owner,
-and manages local likes and comment counts. The shared post widgets accept
-action callbacks; the comments sheet can notify this local ViewModel of changes.
-Full post data is discarded when its page is disposed and on account changes.
-Scrolling or "Load older posts" loads more. While the first page loads (opening
-the gallery, switching a status chip or category, or refreshing an empty grid)
+`GalleryViewModel` owns its independent pagination, refresh and filters, and
+discards superseded requests. Each filter (status chip + category) remembers its
+loaded posts for the session: the first visit to a filter shows the skeleton, and
+returning to it shows its posts at once while its newest page is fetched again in
+the background and merged in (new posts appear; posts approved, declined or deleted
+meanwhile leave it; older loaded pages are kept; a failed check keeps what is
+shown). Everything is forgotten on account changes. `reload()` always starts over
+(unlike pull to refresh, which is ignored while loading);
+`CreatePostViewModel.submit` calls it after a successful submit when the gallery
+is already open, so the new pending post appears. Every tile pushes a
+profile-local full-screen `GalleryPostViewer` (TikTok-style vertical swiping under
+a "My posts" bar), starting at the tapped post; it swipes through the gallery's
+own approved and pending posts, respecting its filters, and Back returns to the
+existing profile/grid scroll position. Neither the shell destination nor the For
+You tab/page changes. `GalleryPostViewModel` (keyed by `GalleryPostRef`: id and
+whether it is pending) loads approved posts with photos and engagement through
+`FeedService.fetchPost`, checks the current owner, and manages local likes and
+comment counts. Pending posts are not in that approved-only feed, so they load
+through `ReportDetailService.fetchOwnReport` (owner RLS) with the owner's profile
+name and avatar, show a large "Pending review" badge, and their like and comment
+buttons open a "This post is still pending" dialog instead (likes are also ignored
+by the ViewModel). A pending post reviewed meanwhile loads from the feed if it was
+approved and is otherwise unavailable. The shared post widgets accept action
+callbacks; the comments sheet can notify this local ViewModel of changes. Full
+post data is discarded when its page is disposed and on account changes.
+Scrolling or "Load older posts" loads more. While a filter's first page loads
+(opening the gallery, a filter's first visit, or refreshing an empty grid)
 `GallerySkeleton` shows pulsing placeholder tiles in the same three-column layout
 (`galleryGridDelegate`) instead of a spinner; they stay still when the device asks
 for less motion. No dependency or migration is added.

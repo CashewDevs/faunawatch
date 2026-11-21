@@ -91,11 +91,6 @@ class GalleryState {
   final bool isRefreshing;
   final String? message;
 
-  /// The tiles the full-screen viewer can show. Pending reports are not in
-  /// the public feed it loads from, so they open the report detail instead.
-  List<GalleryItem> get approvedItems =>
-      items.where((item) => item.status == ReportStatus.approved).toList();
-
   /// Title and hint shown when the current filter has no posts.
   ({String title, String hint}) get emptyMessage {
     if (filter.category != null) {

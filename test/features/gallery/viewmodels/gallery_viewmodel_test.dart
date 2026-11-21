@@ -100,7 +100,6 @@ void main() {
     ]);
     expect(state().items.map((item) => item.isPending), [true, false, true]);
     expect(service.filterRequests.single, const GalleryFilter());
-    expect(state().approvedItems.single.id, 'approved');
   });
 
   test('filters reload from the server, combine and survive paging', () async {
@@ -174,6 +173,122 @@ void main() {
     await pumpEventQueue();
     expect(state().filter, const GalleryFilter());
     expect(state().items.first.id, 'p0');
+  });
+
+  group('remembered filters', () {
+    test('returning to a filter shows its posts at once and merges a '
+        'background check', () async {
+      create(
+        FakeGalleryService(
+          posts: [
+            testPost('a', index: 0),
+            testPost('b', index: 1),
+            testPost('c', index: 2),
+          ],
+          statuses: {'a': ReportStatus.pending, 'b': ReportStatus.pending},
+        ),
+      );
+      await open();
+      vm().setStatus(GalleryStatusFilter.pending);
+      await pumpEventQueue();
+      expect(state().items.map((item) => item.id), ['a', 'b']);
+      vm().setStatus(GalleryStatusFilter.all);
+      await pumpEventQueue();
+
+      // While away: 'a' was approved and a new post was submitted.
+      service.statuses['a'] = ReportStatus.approved;
+      service.posts = [testPost('new', index: -1), ...service.posts];
+      service.statuses['new'] = ReportStatus.pending;
+      final gate = Completer<void>();
+      service.pageGate = gate;
+      final requests = service.pageRequests.length;
+
+      vm().setStatus(GalleryStatusFilter.pending);
+      // No skeleton: the remembered posts show straight away.
+      expect(state().isLoading, isFalse);
+      expect(state().items.map((item) => item.id), ['a', 'b']);
+      await pumpEventQueue();
+      expect(service.pageRequests, hasLength(requests + 1));
+
+      gate.complete();
+      await pumpEventQueue();
+      expect(state().items.map((item) => item.id), ['new', 'b']);
+      expect(state().filter.status, GalleryStatusFilter.pending);
+    });
+
+    test('older pages stay loaded after the background check', () async {
+      create(
+        FakeGalleryService(
+          posts: [for (var i = 0; i < 20; i++) testPost('p$i', index: i)],
+        ),
+      );
+      await open();
+      await vm().loadMore();
+      expect(state().items, hasLength(20));
+      expect(state().hasMore, isFalse);
+      vm().setStatus(GalleryStatusFilter.pending);
+      await pumpEventQueue();
+      service.posts = [testPost('new', index: -1), ...service.posts];
+      vm().setStatus(GalleryStatusFilter.all);
+      expect(state().items, hasLength(20));
+      await pumpEventQueue();
+      expect(state().items, hasLength(21));
+      expect(state().items.first.id, 'new');
+      expect(state().items.last.id, 'p19');
+      expect(state().hasMore, isFalse);
+    });
+
+    test('a failed background check keeps the remembered posts', () async {
+      create(FakeGalleryService(posts: [testPost('p0')]));
+      await open();
+      vm().setStatus(GalleryStatusFilter.pending);
+      await pumpEventQueue();
+      service.pageError = Exception('offline');
+      vm().setStatus(GalleryStatusFilter.all);
+      await pumpEventQueue();
+      expect(state().items.single.id, 'p0');
+      expect(state().hasError, isFalse);
+      expect(state().message, isNull);
+    });
+
+    test('a filter that failed to load is not remembered', () async {
+      create(FakeGalleryService(posts: [testPost('p0')]));
+      await open();
+      service.pageError = Exception('offline');
+      vm().setStatus(GalleryStatusFilter.pending);
+      await pumpEventQueue();
+      expect(state().hasError, isTrue);
+      service.pageError = null;
+      vm().setStatus(GalleryStatusFilter.all);
+      vm().setStatus(GalleryStatusFilter.pending);
+      expect(state().isLoading, isTrue);
+      await pumpEventQueue();
+      expect(state().hasError, isFalse);
+    });
+
+    test('account changes forget every remembered filter', () async {
+      final first = FakeGalleryService(posts: [testPost('old-account')]);
+      final active = StateProvider<GalleryService>((ref) => first);
+      container = ProviderContainer(
+        overrides: [
+          galleryServiceProvider.overrideWith((ref) => ref.watch(active)),
+        ],
+      );
+      addTearDown(container.dispose);
+      await open();
+      vm().setStatus(GalleryStatusFilter.pending);
+      await pumpEventQueue();
+      container.read(active.notifier).state = FakeGalleryService(
+        posts: [testPost('new-account')],
+      );
+      await pumpEventQueue();
+      vm().setStatus(GalleryStatusFilter.approved);
+      vm().setStatus(GalleryStatusFilter.all);
+      expect(state().items, isEmpty);
+      expect(state().isLoading, isTrue);
+      await pumpEventQueue();
+      expect(state().items.single.id, 'new-account');
+    });
   });
 
   test('a filter change drops the reply for the previous filter', () async {

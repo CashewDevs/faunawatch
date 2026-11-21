@@ -2,14 +2,24 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/models/post_comment.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:faunawatch/features/gallery/models/gallery_post_state.dart';
+import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
+import 'package:faunawatch/features/report_detail/models/own_report.dart';
+import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
+
+export 'package:faunawatch/features/gallery/models/gallery_post_state.dart';
 
 /// Loads a full own post and manages its actions without changing feed state
 /// or the shell destination. All account changes discard the previous result.
+///
+/// Approved posts load from the public feed (with likes and comments). Pending
+/// posts are not in it, so they load through the owner's own report access and
+/// keep likes and comments closed until an admin approves them.
 class GalleryPostViewModel
-    extends AutoDisposeFamilyNotifier<GalleryPostState, String> {
+    extends AutoDisposeFamilyNotifier<GalleryPostState, GalleryPostRef> {
   late FeedService _service;
   String? _ownerId;
   int _generation = 0;
@@ -17,7 +27,7 @@ class GalleryPostViewModel
   bool _disposed = false;
 
   @override
-  GalleryPostState build(String arg) {
+  GalleryPostState build(GalleryPostRef arg) {
     _service = ref.watch(feedServiceProvider);
     _ownerId = ref.watch(currentUserIdProvider).valueOrNull;
     final generation = ++_generation;
@@ -39,13 +49,47 @@ class GalleryPostViewModel
       return;
     }
     try {
-      final post = await _service.fetchPost(arg);
+      if (arg.isPending) {
+        // Account changes rebuild this ViewModel, so reading is enough.
+        final report = await ref
+            .read(reportDetailServiceProvider)
+            .fetchOwnReport(arg.id);
+        if (generation != _generation) return;
+        if (report?.status == ReportStatus.pending) {
+          final post = await _withOwnProfile(report!.post);
+          if (generation != _generation) return;
+          state = GalleryPostState(post: post, isPending: true);
+          return;
+        }
+        // Reviewed since the gallery loaded: only an approval is still shown.
+        if (report?.status != ReportStatus.approved) {
+          state = const GalleryPostState();
+          return;
+        }
+      }
+      final post = await _service.fetchPost(arg.id);
       if (generation != _generation) return;
       state = GalleryPostState(post: post?.authorId == ownerId ? post : null);
     } catch (_) {
       if (generation == _generation) {
         state = const GalleryPostState(hasError: true);
       }
+    }
+  }
+
+  /// Shows the owner's own name and picture, which the report itself lacks.
+  /// Without a profile the report's placeholder author stays.
+  Future<FeedPost> _withOwnProfile(FeedPost post) async {
+    try {
+      final profile = await ref.read(profileViewModelProvider.future);
+      final name = profile.username.trim();
+      return post.copyWith(
+        authorName: name.isEmpty ? null : name,
+        authorAvatarAsset: profile.presetAvatar,
+        authorAvatarUrl: profile.avatarUrl,
+      );
+    } catch (_) {
+      return post;
     }
   }
 
@@ -57,7 +101,7 @@ class GalleryPostViewModel
 
   Future<void> toggleLike() async {
     final before = state.post;
-    if (before == null || _liking) return;
+    if (before == null || _liking || state.isPending) return;
     _liking = true;
     final generation = _generation;
     final liked = !before.likedByMe;
@@ -68,7 +112,7 @@ class GalleryPostViewModel
       ),
     );
     try {
-      await (liked ? _service.like(arg) : _service.unlike(arg));
+      await (liked ? _service.like(arg.id) : _service.unlike(arg.id));
     } catch (_) {
       if (generation == _generation) {
         state = state.copyWith(
@@ -114,6 +158,6 @@ class GalleryPostViewModel
 }
 
 final galleryPostViewModelProvider = NotifierProvider.autoDispose
-    .family<GalleryPostViewModel, GalleryPostState, String>(
+    .family<GalleryPostViewModel, GalleryPostState, GalleryPostRef>(
       GalleryPostViewModel.new,
     );
