@@ -6,6 +6,7 @@ import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_load_more.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_notice.dart';
+import 'package:faunawatch/features/report_detail/views/screens/report_detail_screen.dart';
 
 /// The profile's own-post gallery, sharing one scroll view with its header.
 class GalleryView extends ConsumerWidget {
@@ -17,7 +18,7 @@ class GalleryView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(galleryViewModelProvider);
     final viewModel = ref.read(galleryViewModelProvider.notifier);
-    final items = state.filteredItems;
+    final items = state.items;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     ref.listen(galleryViewModelProvider.select((state) => state.message), (
       _,
@@ -58,7 +59,8 @@ class GalleryView extends ConsumerWidget {
               if (header != null) SliverToBoxAdapter(child: header),
               SliverToBoxAdapter(
                 child: GalleryHeader(
-                  selectedCategory: state.selectedCategory,
+                  filter: state.filter,
+                  onStatusSelected: viewModel.setStatus,
                   onCategorySelected: viewModel.setCategory,
                 ),
               ),
@@ -75,7 +77,6 @@ class GalleryView extends ConsumerWidget {
                     child: GalleryNotice(
                       state: state,
                       onRetry: viewModel.refresh,
-                      onLoadMore: viewModel.loadMore,
                     ),
                   ),
                 )
@@ -94,12 +95,7 @@ class GalleryView extends ConsumerWidget {
                     itemBuilder: (context, index) => GalleryCard(
                       key: ValueKey(items[index].id),
                       item: items[index],
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              GalleryPostViewer(initialPostId: items[index].id),
-                        ),
-                      ),
+                      onTap: () => _open(context, items[index]),
                     ),
                   ),
                 ),
@@ -118,6 +114,18 @@ class GalleryView extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Pending posts are not in the public feed the post viewer loads from, so
+  /// they open the report detail, which shows their status.
+  void _open(BuildContext context, GalleryItem item) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => item.isPending
+            ? ReportDetailScreen(reportId: item.id)
+            : GalleryPostViewer(initialPostId: item.id),
       ),
     );
   }

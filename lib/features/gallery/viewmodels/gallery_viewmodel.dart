@@ -1,14 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/gallery/models/gallery_item.dart';
+import 'package:faunawatch/features/gallery/models/gallery_post.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 
 export 'package:faunawatch/features/gallery/models/gallery_item.dart';
 
-/// Loads and filters the current user's own posts independently of the feed.
+/// Loads the current user's approved and pending posts independently of the
+/// feed. Filters are applied by the server, so changing one reloads the grid.
 class GalleryViewModel extends Notifier<GalleryState> {
   late GalleryService _service;
-  List<FeedPost> _posts = [];
+  List<GalleryPost> _posts = [];
   int _generation = 0;
 
   @override
@@ -21,8 +23,8 @@ class GalleryViewModel extends Notifier<GalleryState> {
     return const GalleryState(isLoading: true);
   }
 
-  List<GalleryItem> _items(List<FeedPost> posts) => [
-    for (final post in posts)
+  List<GalleryItem> _items(List<GalleryPost> posts) => [
+    for (final GalleryPost(:post, :status) in posts)
       GalleryItem(
         id: post.id,
         title: post.title,
@@ -30,13 +32,14 @@ class GalleryViewModel extends Notifier<GalleryState> {
         date: formatGalleryDate(post.createdAt.toLocal()),
         category: post.categoryLabel,
         imageUrl: post.photoUrls.firstOrNull,
+        status: status,
       ),
   ];
 
   Future<void> _loadFirstPage(int generation) async {
     if (generation != _generation) return;
     try {
-      final posts = await _service.fetchPage();
+      final posts = await _service.fetchPage(filter: state.filter);
       if (generation != _generation) return;
       _posts = posts;
       state = state.copyWith(
@@ -57,8 +60,15 @@ class GalleryViewModel extends Notifier<GalleryState> {
     }
   }
 
+  /// Pull to refresh; ignored while a load is already running.
   Future<void> refresh() async {
     if (state.isLoading || state.isRefreshing) return;
+    await reload();
+  }
+
+  /// Loads the newest page again even if a load is running (its reply is then
+  /// ignored), e.g. after the user submitted a post that must appear.
+  Future<void> reload() async {
     state = state.copyWith(
       isLoading: state.items.isEmpty,
       isRefreshing: state.items.isNotEmpty,
@@ -80,13 +90,16 @@ class GalleryViewModel extends Notifier<GalleryState> {
     final generation = _generation;
     state = state.copyWith(isLoadingMore: true, clearMessage: true);
     try {
-      final page = await _service.fetchPage(before: _posts.last);
+      final page = await _service.fetchPage(
+        filter: state.filter,
+        before: _posts.last.post,
+      );
       if (generation != _generation) return;
-      final known = _posts.map((post) => post.id).toSet();
+      final known = _posts.map((entry) => entry.post.id).toSet();
       _posts = [
         ..._posts,
-        for (final post in page)
-          if (known.add(post.id)) post,
+        for (final entry in page)
+          if (known.add(entry.post.id)) entry,
       ];
       state = state.copyWith(
         items: _items(_posts),
@@ -104,9 +117,20 @@ class GalleryViewModel extends Notifier<GalleryState> {
 
   void clearMessage() => state = state.copyWith(clearMessage: true);
 
-  /// Sets the active category filter for the gallery photos.
-  void setCategory(String category) {
-    state = state.copyWith(selectedCategory: category);
+  /// Shows All, Pending or Approved posts.
+  void setStatus(GalleryStatusFilter status) =>
+      _applyFilter(state.filter.copyWith(status: status));
+
+  /// Shows one category, or every category when [category] is `null`.
+  void setCategory(ReportCategory? category) => _applyFilter(
+    state.filter.copyWith(category: category, clearCategory: category == null),
+  );
+
+  void _applyFilter(GalleryFilter filter) {
+    if (filter == state.filter) return;
+    _posts = [];
+    state = GalleryState(filter: filter, isLoading: true);
+    _loadFirstPage(++_generation);
   }
 }
 

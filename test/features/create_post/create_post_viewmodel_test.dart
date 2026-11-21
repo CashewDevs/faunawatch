@@ -11,7 +11,12 @@ import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
 
+import 'package:faunawatch/features/gallery/services/gallery_service.dart';
+import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart';
+
 import '../fauna_lens/ai_fakes.dart';
+import '../feed/fake_feed_service.dart';
+import '../gallery/fake_gallery_service.dart';
 
 class FakeCreatePostService implements CreatePostService {
   final drafts = <PostDraft>[];
@@ -125,6 +130,59 @@ void main() {
       expect(await vm.submit(), isFalse);
       vm.reset();
       expect(container.read(createPostViewModelProvider).category, isNull);
+    },
+  );
+
+  test(
+    'a successful submit reloads My Gallery to show the pending post',
+    () async {
+      final gallery = FakeGalleryService(posts: [testPost('older')]);
+      final withGallery = ProviderContainer(
+        overrides: [
+          currentUserIdProvider.overrideWith((ref) => const Stream.empty()),
+          createPostServiceProvider.overrideWithValue(service),
+          photoLocationServiceProvider.overrideWithValue(locations),
+          galleryServiceProvider.overrideWithValue(gallery),
+        ],
+      );
+      addTearDown(withGallery.dispose);
+      final vm = withGallery.read(createPostViewModelProvider.notifier)
+        ..usePhoto(_galleryPhoto);
+      vm.edit(
+        category: ReportCategory.animalInNeed,
+        latitude: '10.3',
+        longitude: '123.9',
+      );
+
+      // A gallery that was never opened is not loaded just for this.
+      expect(await vm.submit(), isTrue);
+      expect(gallery.pageRequests, isEmpty);
+
+      vm.reset();
+      vm
+        ..usePhoto(_galleryPhoto)
+        ..edit(
+          category: ReportCategory.animalInNeed,
+          latitude: '10.3',
+          longitude: '123.9',
+        );
+      withGallery.read(galleryViewModelProvider);
+      await pumpEventQueue();
+      expect(gallery.pageRequests, hasLength(1));
+
+      service.error = StateError('offline');
+      expect(await vm.submit(), isFalse);
+      expect(gallery.pageRequests, hasLength(1));
+
+      service.error = null;
+      gallery.posts = [testPost('new'), ...gallery.posts];
+      gallery.statuses['new'] = ReportStatus.pending;
+      expect(await vm.submit(), isTrue);
+      await pumpEventQueue();
+      expect(gallery.pageRequests, hasLength(2));
+      final items = withGallery.read(galleryViewModelProvider).items;
+      expect(items.map((item) => item.id), ['new', 'older']);
+      expect(items.first.isPending, isTrue);
     },
   );
 

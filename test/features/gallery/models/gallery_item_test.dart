@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/gallery/models/gallery_item.dart';
 
 void main() {
@@ -30,30 +31,63 @@ void main() {
   });
 
   group('GalleryState', () {
-    const item1 = GalleryItem(
-      id: '1',
-      title: 'Hawk',
-      category: 'Animal in need',
-    );
-    const item2 = GalleryItem(
+    const approved = GalleryItem(id: '1', title: 'Hawk');
+    const pending = GalleryItem(
       id: '2',
       title: 'Deer',
-      category: 'Other wildlife incident',
+      status: ReportStatus.pending,
     );
 
-    test('filteredItems filters by selectedCategory', () {
-      const stateAll = GalleryState(items: [item1, item2]);
-      expect(stateAll.filteredItems.length, 2);
+    test('only approved items can open in the post viewer', () {
+      const state = GalleryState(items: [pending, approved]);
+      expect(pending.isPending, isTrue);
+      expect(approved.isPending, isFalse);
+      expect(state.approvedItems, [approved]);
+      expect(pending.copyWith(title: 'Doe').status, ReportStatus.pending);
+    });
 
-      final stateInNeed = stateAll.copyWith(selectedCategory: 'Animal in need');
-      expect(stateInNeed.filteredItems.length, 1);
-      expect(stateInNeed.filteredItems.first.title, 'Hawk');
-
-      final stateOther = stateAll.copyWith(
-        selectedCategory: 'Other wildlife incident',
+    test('each filter has its own empty message', () {
+      String title(GalleryFilter filter) =>
+          GalleryState(filter: filter).emptyMessage.title;
+      expect(title(const GalleryFilter()), 'No posts yet.');
+      expect(
+        const GalleryState().emptyMessage.hint,
+        'Your approved and pending posts will appear here.',
       );
-      expect(stateOther.filteredItems.length, 1);
-      expect(stateOther.filteredItems.first.title, 'Deer');
+      expect(
+        title(const GalleryFilter(status: GalleryStatusFilter.pending)),
+        'Nothing waiting for review.',
+      );
+      expect(
+        title(const GalleryFilter(status: GalleryStatusFilter.approved)),
+        'No approved posts yet.',
+      );
+      expect(
+        title(
+          const GalleryFilter(
+            status: GalleryStatusFilter.pending,
+            category: ReportCategory.animalInNeed,
+          ),
+        ),
+        'No posts in this category.',
+      );
+    });
+
+    test('filters combine and the category can be cleared', () {
+      const filter = GalleryFilter(category: ReportCategory.animalInNeed);
+      final pendingInNeed = filter.copyWith(
+        status: GalleryStatusFilter.pending,
+      );
+      expect(pendingInNeed.status, GalleryStatusFilter.pending);
+      expect(pendingInNeed.category, ReportCategory.animalInNeed);
+      expect(
+        pendingInNeed.copyWith(clearCategory: true),
+        const GalleryFilter(status: GalleryStatusFilter.pending),
+      );
+      expect(GalleryStatusFilter.all.statuses, [
+        ReportStatus.approved,
+        ReportStatus.pending,
+      ]);
     });
   });
 }

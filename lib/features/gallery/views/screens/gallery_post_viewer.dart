@@ -4,7 +4,8 @@ import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_load_more.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_post_page.dart';
 
-/// A profile-owned route: swipe through own posts and pop back to the grid.
+/// A profile-owned route: swipe through own approved posts and pop back to the
+/// grid. Pending posts are skipped; they open the report detail instead.
 class GalleryPostViewer extends ConsumerStatefulWidget {
   const GalleryPostViewer({super.key, required this.initialPostId});
   final String initialPostId;
@@ -20,7 +21,7 @@ class _GalleryPostViewerState extends ConsumerState<GalleryPostViewer> {
   @override
   void initState() {
     super.initState();
-    final items = ref.read(galleryViewModelProvider).filteredItems;
+    final items = ref.read(galleryViewModelProvider).approvedItems;
     final initial = items.indexWhere((item) => item.id == widget.initialPostId);
     _index = initial < 0 ? 0 : initial;
     _controller = PageController(initialPage: _index);
@@ -30,7 +31,7 @@ class _GalleryPostViewerState extends ConsumerState<GalleryPostViewer> {
   }
 
   void _loadMoreIfNeeded() {
-    final items = ref.read(galleryViewModelProvider).filteredItems;
+    final items = ref.read(galleryViewModelProvider).approvedItems;
     if (_index >= items.length - 3) {
       ref.read(galleryViewModelProvider.notifier).loadMore();
     }
@@ -45,7 +46,7 @@ class _GalleryPostViewerState extends ConsumerState<GalleryPostViewer> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(galleryViewModelProvider);
-    final items = state.filteredItems;
+    final items = state.approvedItems;
     return Scaffold(
       appBar: AppBar(title: const Text('My posts')),
       body: items.isEmpty

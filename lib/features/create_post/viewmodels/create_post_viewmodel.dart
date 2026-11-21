@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
+import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart';
 import '../models/create_post_state.dart';
 import '../models/post_draft.dart';
 import '../models/post_location.dart';
@@ -177,6 +180,11 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
       final id = await ref.read(createPostServiceProvider).submit(draft);
       if (_disposed || request != _request) return false;
       state = state.copyWith(isBusy: false, submittedId: id);
+      // Show the new pending post in My Gallery. A gallery that was never
+      // opened loads it anyway when Profile is first shown.
+      if (ref.exists(galleryViewModelProvider)) {
+        unawaited(ref.read(galleryViewModelProvider.notifier).reload());
+      }
       return true;
     } catch (error) {
       if (!_disposed && request == _request) {

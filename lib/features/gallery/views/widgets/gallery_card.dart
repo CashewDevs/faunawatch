@@ -10,6 +10,8 @@ import 'package:faunawatch/features/gallery/models/gallery_item.dart';
 /// - Rounded rectangular card (BorderRadius.circular(18))
 /// - Signed network photo over a blue gradient fallback
 /// - Yellow [#FFF7D6] bottom section for the title and submission date
+/// - A "Pending review" badge on posts an admin has not reviewed yet, shown
+///   under every filter so pending posts never look published
 class GalleryCard extends StatelessWidget {
   const GalleryCard({super.key, required this.item, this.onTap});
 
@@ -20,7 +22,11 @@ class GalleryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '${item.title}, ${item.location}',
+      label: [
+        item.title,
+        item.location,
+        if (item.isPending) PendingReviewBadge.label,
+      ].join(', '),
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
@@ -49,16 +55,33 @@ class GalleryCard extends StatelessWidget {
             children: [
               // Top area: image or photo placeholder
               Expanded(
-                child: item.imageUrl != null
-                    ? Image.network(
-                        item.imageUrl!,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (_, child, progress) => progress == null
-                            ? child
-                            : const _PhotoPlaceholder(),
-                        errorBuilder: (_, _, _) => const _PhotoPlaceholder(),
-                      )
-                    : const _PhotoPlaceholder(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    item.imageUrl != null
+                        ? Image.network(
+                            item.imageUrl!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) =>
+                                progress == null
+                                ? child
+                                : const _PhotoPlaceholder(),
+                            errorBuilder: (_, _, _) =>
+                                const _PhotoPlaceholder(),
+                          )
+                        : const _PhotoPlaceholder(),
+                    if (item.isPending)
+                      const Positioned(
+                        top: 6,
+                        left: 6,
+                        right: 6,
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: PendingReviewBadge(),
+                        ),
+                      ),
+                  ],
+                ),
               ),
 
               // Bottom details container: #FFF7D6
@@ -97,6 +120,50 @@ class GalleryCard extends StatelessWidget {
                         ),
                       ),
                   ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Marks a tile whose post is still waiting for an admin's review.
+class PendingReviewBadge extends StatelessWidget {
+  const PendingReviewBadge({super.key});
+
+  static const label = 'Pending review';
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      // Scales down instead of overflowing on narrow tiles.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.schedule_rounded,
+                size: 11,
+                color: Color(0xFFFFC94D),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                label,
+                style: GoogleFonts.dmSans(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
               ),
             ],

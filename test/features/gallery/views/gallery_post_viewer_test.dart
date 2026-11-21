@@ -10,6 +10,7 @@ import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/screens/gallery_post_viewer.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
+import 'package:faunawatch/features/report_detail/models/own_report.dart';
 import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
@@ -69,6 +70,8 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(card);
+    await tester.pumpAndSettle();
     await tester.tap(card);
     await tester.pumpAndSettle();
   }
@@ -90,6 +93,8 @@ void main() {
         200,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.ensureVisible(card);
+      await tester.pumpAndSettle();
       final scroll = tester.state<ScrollableState>(
         find.byType(Scrollable).first,
       );
@@ -170,6 +175,32 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     expect(find.byType(GalleryCard), findsNWidgets(3));
+  });
+
+  testWidgets('swiping skips pending posts, which the feed cannot load', (
+    tester,
+  ) async {
+    gallery.statuses['p1'] = ReportStatus.pending;
+    await pumpGallery(tester);
+    expect(find.byType(GalleryCard), findsNWidgets(3));
+    await openPost(tester, 'p0');
+    expect(find.text('My post 0'), findsOneWidget);
+    await tester.fling(
+      find.byWidgetPredicate(
+        (w) => w is PageView && w.scrollDirection == Axis.vertical,
+      ),
+      const Offset(0, -650),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('My post 2'), findsOneWidget);
+    expect(service.postRequests, isNot(contains('p1')));
+    final pages = tester.widget<PageView>(
+      find.byWidgetPredicate(
+        (w) => w is PageView && w.scrollDirection == Axis.vertical,
+      ),
+    );
+    expect(pages.childrenDelegate.estimatedChildCount, 2);
   });
 
   testWidgets('viewer supports the app dark theme', (tester) async {
