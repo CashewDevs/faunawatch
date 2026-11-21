@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
-import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
@@ -125,7 +124,6 @@ class _ForYouFeedState extends ConsumerState<ForYouFeed> {
             },
             itemBuilder: (context, index) {
               final post = posts[index];
-              final focus = MapFocus.fromPost(post, isPublic: true);
               return FeedPostCard(
                 key: ValueKey(post.id),
                 post: post,
@@ -135,11 +133,11 @@ class _ForYouFeedState extends ConsumerState<ForYouFeed> {
                           .read(shellViewModelProvider.notifier)
                           .selectDestination(ShellDestination.profile)
                     : null,
-                onLocation: focus == null
-                    ? null
-                    : () => ref
+                onLocation: post.hasMapLocation
+                    ? () => ref
                           .read(communityMapViewModelProvider.notifier)
-                          .focusOn(focus),
+                          .focusOnPost(post, isPublic: true)
+                    : null,
               );
             },
           ),

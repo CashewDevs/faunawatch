@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/report_detail/models/own_report.dart';
+import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/fauna_guard/services/guard_location_service.dart';
 import 'package:faunawatch/features/fauna_guard/services/guard_notification_service.dart';
@@ -363,6 +367,96 @@ void main() {
       expect(mapboxMapService.focusCalls.last.focus, isNull);
     });
 
+    group('focusOnPost', () {
+      late _OwnLocations locations;
+      late ProviderContainer owner;
+      final user = StateProvider<String?>((ref) => 'me');
+
+      Future<CommunityMapViewModel> open() async {
+        locations = _OwnLocations();
+        owner = ProviderContainer(
+          overrides: [
+            mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+            communityReportsServiceProvider.overrideWithValue(reports),
+            currentUserIdProvider.overrideWith(
+              (ref) => Stream.value(ref.watch(user)),
+            ),
+            feedServiceProvider.overrideWithValue(feed),
+            reportDetailServiceProvider.overrideWithValue(locations),
+          ],
+        );
+        addTearDown(owner.dispose);
+        await owner.read(currentUserIdProvider.future);
+        final map = owner.read(communityMapViewModelProvider.notifier);
+        await map.onStyleLoaded();
+        return map;
+      }
+
+      final ownPost = testPost(
+        'mine',
+        authorId: 'me',
+        latitude: 16.46,
+        longitude: 120.99,
+      );
+
+      test(
+        'own posts open at their exact spot with the owner marker',
+        () async {
+          final map = await open();
+          locations.points['mine'] = (
+            latitude: 16.456789,
+            longitude: 120.987654,
+          );
+          await map.focusOnPost(ownPost, isPublic: true);
+          final focus = owner.read(communityMapViewModelProvider).privateFocus!;
+          expect(focus.isExact, isTrue);
+          expect(focus.isPublic, isTrue);
+          expect(focus.latitude, 16.456789);
+          expect(mapboxMapService.focusCalls.last.focus, focus);
+          expect(owner.read(feedTabViewModelProvider), FeedTab.map);
+          expect(locations.requests, ['mine']);
+        },
+      );
+
+      test("other people's posts use the rounded point, no lookup", () async {
+        final map = await open();
+        await map.focusOnPost(
+          testPost('theirs', latitude: 10.12, longitude: 123.12),
+          isPublic: true,
+        );
+        expect(locations.requests, isEmpty);
+        expect(owner.read(communityMapViewModelProvider).privateFocus, isNull);
+        final focus = mapboxMapService.focusCalls.last.focus!;
+        expect(focus.isExact, isFalse);
+        expect(focus.latitude, 10.12);
+      });
+
+      test('a failed lookup falls back to the rounded point', () async {
+        final map = await open();
+        locations.fail = true;
+        await map.focusOnPost(ownPost, isPublic: false);
+        final focus = owner.read(communityMapViewModelProvider).privateFocus!;
+        expect(focus.isExact, isFalse);
+        expect(focus.latitude, 16.46);
+      });
+
+      test('an account change during the lookup shows nothing', () async {
+        final map = await open();
+        locations.points['mine'] = (latitude: 16.456789, longitude: 120.987654);
+        locations.gate = Completer<void>();
+        final opening = map.focusOnPost(ownPost, isPublic: false);
+        owner.read(user.notifier).state = 'someone-else';
+        await pumpEventQueue();
+        locations.gate!.complete();
+        await opening;
+        expect(owner.read(communityMapViewModelProvider).privateFocus, isNull);
+        expect(
+          mapboxMapService.focusCalls.where((call) => call.focus != null),
+          isEmpty,
+        );
+      });
+    });
+
     test('MapFocus.fromPost needs a location', () {
       expect(
         MapFocus.fromPost(testPost('no-location'), isPublic: true),
@@ -439,3 +533,23 @@ const _report = CommunityReport(
   longitude: 123.12,
   description: 'Bird',
 );
+
+class _OwnLocations implements ReportDetailService {
+  final points = <String, ({double latitude, double longitude})>{};
+  final requests = <String>[];
+  bool fail = false;
+  Completer<void>? gate;
+
+  @override
+  Future<({double latitude, double longitude})?> fetchOwnLocation(
+    String reportId,
+  ) async {
+    requests.add(reportId);
+    await gate?.future;
+    if (fail) throw StateError('offline');
+    return points[reportId];
+  }
+
+  @override
+  Future<OwnReport?> fetchOwnReport(String reportId) async => null;
+}

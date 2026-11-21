@@ -34,7 +34,7 @@ abstract interface class MapboxMapService {
   Future<void> showGuardRadius(List<CommunityReport> reports);
 
   /// Moves the camera to [focus] (unless [moveCamera] is false) and draws the
-  /// owner-only marker when the post is not public. Null removes the marker.
+  /// owner-only marker when [MapFocus.showsOwnerMarker]. Null removes it.
   Future<void> showFocus(MapFocus? focus, {bool moveCamera = true});
 }
 
@@ -110,7 +110,7 @@ class MapboxCommunityMapService implements MapboxMapService {
     final map = _mapboxMap;
     if (map == null) return;
     const source = 'own-post-location';
-    final private = focus != null && !focus.isPublic;
+    final private = focus != null && focus.showsOwnerMarker;
     final exists = await map.styleSourceExists(source);
     if (private || exists) {
       final data = jsonEncode({

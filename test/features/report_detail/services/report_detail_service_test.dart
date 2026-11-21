@@ -162,6 +162,27 @@ void main() {
     expect(requests.where((r) => r.url.path.contains('/rpc/')), isEmpty);
   });
 
+  test('reads the exact own location only for the owner', () async {
+    await signIn();
+    report = {'latitude': 10.316789, 'longitude': 123.891234};
+    final point = await service.fetchOwnLocation('r1');
+    expect(point, (latitude: 10.316789, longitude: 123.891234));
+    final query = requests.single.url.queryParameters;
+    expect(query['select'], 'latitude,longitude');
+    expect(query['id'], 'eq.r1');
+    expect(query['user_id'], 'eq.user-a');
+  });
+
+  test('a missing location is null', () async {
+    await signIn();
+    report = {'latitude': null, 'longitude': null};
+    expect(await service.fetchOwnLocation('r1'), isNull);
+    expect(
+      await const SignedOutReportDetailService().fetchOwnLocation('r1'),
+      isNull,
+    );
+  });
+
   test('unknown reasons are ignored', () {
     expect(DeclineReason.fromDb('inaccurate_gps'), DeclineReason.inaccurateGps);
     expect(DeclineReason.fromDb('something_new'), isNull);

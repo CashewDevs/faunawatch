@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
@@ -63,14 +62,16 @@ class GalleryPostPage extends ConsumerWidget {
         ),
       );
     }
-    final focus = MapFocus.fromPost(post, isPublic: state.isPublic);
-    final onLocation = focus == null
-        ? null
-        : () {
-            // The map lives in the shell's Feed tab, under this viewer.
-            Navigator.of(context).popUntil((route) => route.isFirst);
-            ref.read(communityMapViewModelProvider.notifier).focusOn(focus);
-          };
+    // Every gallery post is the user's own, so its exact spot can be read
+    // even when the feed has no rounded point for it.
+    void onLocation() {
+      // The map lives in the shell's Feed tab, under this viewer.
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      ref
+          .read(communityMapViewModelProvider.notifier)
+          .focusOnPost(post, isPublic: state.isPublic);
+    }
+
     if (!state.isPublic) {
       final reason = state.declineReason;
       return Stack(
