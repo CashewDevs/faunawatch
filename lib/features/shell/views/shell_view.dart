@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:faunawatch/features/create_post/views/create_post_view.dart';
+import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
@@ -24,7 +24,6 @@ class ShellView extends ConsumerStatefulWidget {
 }
 
 class _ShellViewState extends ConsumerState<ShellView> {
-  bool _postOpened = false;
   // Cached because `ref` cannot be used inside dispose().
   late final AiKeySettingsViewModel _aiKeySettingsViewModel;
 
@@ -56,7 +55,6 @@ class _ShellViewState extends ConsumerState<ShellView> {
   @override
   Widget build(BuildContext context) {
     final currentDestination = ref.watch(shellViewModelProvider);
-    if (currentDestination == ShellDestination.addPost) _postOpened = true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Toggle FLAG_SECURE based on whether the Profile (key-settings) tab
@@ -91,7 +89,8 @@ class _ShellViewState extends ConsumerState<ShellView> {
         children: [
           const FeedView(),
           const MessagesView(),
-          if (_postOpened) const CreatePostView() else const SizedBox.shrink(),
+          // "+" opens FaunaLens on top instead of a tab.
+          const SizedBox.shrink(),
           const NotificationsView(),
           const ProfileView(),
           const _PlaceholderDestinationView(
@@ -106,9 +105,12 @@ class _ShellViewState extends ConsumerState<ShellView> {
         child: ShellNavBar(
           currentDestination: currentDestination,
           onSelectDestination: (destination) {
-            // "+" opens the FaunaLens camera; FaunaLens switches to the post
-            // form once there is a photo.
+            // "+" opens the FaunaLens camera; FaunaLens opens the post form
+            // on top of itself once there is a photo.
             if (destination == ShellDestination.addPost) {
+              // Every "+" starts a fresh post; a draft left behind earlier
+              // is dropped.
+              ref.read(createPostViewModelProvider.notifier).reset();
               Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const FaunaLensView()),
               );

@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
-import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
@@ -8,6 +7,7 @@ import '../models/create_post_state.dart';
 import '../models/post_draft.dart';
 import '../models/post_location.dart';
 import '../services/create_post_service.dart';
+import '../services/location_preview_service.dart';
 
 class CreatePostViewModel extends Notifier<CreatePostState> {
   var _request = 0;
@@ -54,9 +54,17 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
   /// Starts the draft from a FaunaLens [photo], with its [aiResult] when the
   /// user chose to use it. The result is saved with the post, and its category
   /// becomes the post's category.
+  ///
+  /// The photo's location replaces the draft's. A photo without one keeps a
+  /// location the user chose themselves, but not one taken from an earlier
+  /// photo, which may have been somewhere else.
   void usePhoto(FaunaLensPhoto photo, {AiIdentification? aiResult}) {
     if (state.isBusy) return;
     _request++;
+    final gps = photo.coordinates;
+    final keepLocation =
+        gps == null &&
+        state.locationLabel != CreatePostState.photoLocationLabel;
     state = CreatePostState(
       category: aiResult?.category ?? state.category,
       description: state.description,
@@ -64,11 +72,31 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
       notes: state.notes,
       photoPath: photo.path,
       aiResult: aiResult,
-      latitude: photo.coordinates?.latitude.toString() ?? '',
-      longitude: photo.coordinates?.longitude.toString() ?? '',
-      locationLabel: 'Photo location',
+      latitude:
+          gps?.latitude.toString() ?? (keepLocation ? state.latitude : ''),
+      longitude:
+          gps?.longitude.toString() ?? (keepLocation ? state.longitude : ''),
+      locationLabel: keepLocation
+          ? state.locationLabel
+          : CreatePostState.photoLocationLabel,
     );
   }
+
+  /// The link to a still map picture of the chosen location (or the region
+  /// before one is chosen), sized [width] x [height]. Null without a Mapbox
+  /// token.
+  Uri? locationPreviewUrl({
+    required int width,
+    required int height,
+    required bool isDarkMode,
+  }) => ref
+      .read(locationPreviewServiceProvider)
+      .previewUrl(
+        location: state.location,
+        width: width,
+        height: height,
+        isDarkMode: isDarkMode,
+      );
 
   void setLocation(PostLocation location) {
     if (state.isBusy || state.submittedId != null || !location.isValid) return;
@@ -99,43 +127,6 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
     if (!state.isBusy) {
       _request++;
       state = const CreatePostState();
-    }
-  }
-
-  Future<void> pickPhoto() async {
-    if (state.isBusy) return;
-    final request = ++_request;
-    state = state.copyWith(isBusy: true);
-    try {
-      final path = await ref.read(imagePickerServiceProvider).pickImage();
-      if (_disposed || request != _request) return;
-      if (path != null) {
-        GeoCoordinates? gps;
-        try {
-          gps = await ref
-              .read(photoLocationServiceProvider)
-              .locationInPhoto(path);
-        } catch (_) {
-          /* Manual location remains available. */
-        }
-        if (_disposed || request != _request) return;
-        state = state.copyWith(
-          photoPath: path,
-          // An analysis of the previous photo doesn't describe this one.
-          clearAiResult: true,
-          latitude: gps?.latitude.toString(),
-          longitude: gps?.longitude.toString(),
-          locationLabel: gps == null ? null : 'Photo location',
-        );
-      }
-      state = state.copyWith(isBusy: false);
-    } catch (_) {
-      if (!_disposed && request == _request) {
-        state = state.copyWith(
-          isBusy: false,
-          error: 'Could not open your photos. Please try again.',
-        );
-      }
     }
   }
 

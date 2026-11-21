@@ -551,6 +551,40 @@ category for the report; and every animal's guess is checked against
 joined with commas. The AI Result offers "Use these results", "Analyse again"
 (same photo and boxes) and "Retake photo". Boxes are never saved; there is no
 database or admin site change.
+"Use this photo?", "Choose animals" and "AI Result" follow the app's light/dark
+mode and palette through `FaunaLensTheme` (light mode with Apollo keeps the
+original FaunaLens colours; the live camera stays dark; animal box colours never
+change). Their outlined buttons pass theme colours to `PillButton`'s optional
+`secondaryFill`/`secondaryBorder`/`secondaryText`; other screens keep its white
+outline.
+Create Post is not a bottom-bar tab. FaunaLens ("Use these results" or "Skip AI")
+opens `CreatePostView` as a page on top of "Use this photo?", so Back returns to
+the photo (the bottom bar is hidden while posting). The page pops with a
+`CreatePostExit`: `changePhoto` (the "Change photo" button on the photo, or the
+"Add a photo" box after ✕ removed it) returns to the live camera, which also has
+the gallery; `done` (after submitting) clears the draft, switches the shell to Feed
+and closes FaunaLens; plain Back keeps the draft. Each "+" resets the draft, so a
+post abandoned earlier is dropped (the reset happens in event handlers, never in
+`dispose`, which Riverpod forbids). A new photo keeps what the user typed; its GPS
+replaces the location, and a photo without GPS keeps a location the user chose
+(map or current location) but not one from an earlier photo
+(`CreatePostState.photoLocationLabel`). The form: a left-aligned "Create post"
+title with an (i) button for posting tips and the safety reminder; the photo with
+✕ at its top-right and "Change photo"; the AI analysis card (tinted, outlined);
+Category, "What did you observe?", Species and notes as sign-up style fields
+(`LabeledTextField`/`LabeledDropdownField` in `lib/core/widgets/`, theme-aware;
+the sign-up `AuthTextField` is unchanged); and the observation location as a still
+map picture with the pin (`LocationPreviewCard`). After submitting, the title is
+"Post submitted for review", `AnimatedCheck` draws a check (finished at once when
+the device asks for less motion), and "Done" goes home.
+The map picture comes from the Mapbox Static Images API through
+`LocationPreviewService` (`streets-v12` or `dark-v11`, a `1a5dc9` pin at zoom 14,
+or the whole region without a pin before a location is chosen), using the same
+public `MAPBOX_PUBLIC_TOKEN`; without a token a placeholder is shown. It uses the
+Static Images allowance (50,000 free requests a month). Tapping the picture or its
+full-screen button opens the existing `LocationPickerScreen`; "Use current
+location" sits under it. The form no longer picks photos from the gallery itself
+(`CreatePostViewModel.pickPhoto` was removed); photos come only through FaunaLens.
 When the user chooses "use AI results" in FaunaLens, the analysis is carried into
 Create Post with its photo, shown in a card that states it will be saved, and can
 be detached there (`removeAiResult`; the form's species/category are kept). It is

@@ -1,5 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:faunawatch/features/fauna_lens/services/fauna_lens_camera_service.dart';
+import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
@@ -170,6 +171,21 @@ void main() {
       expect(find.byType(FaunaLensView), findsNothing);
       expect(find.byType(FeedView), findsOneWidget);
       expect(find.text('Create post'), findsNothing);
+    });
+
+    testWidgets('"+" starts a fresh post each time', (tester) async {
+      await tester.pumpWidget(buildTestShell());
+      await tester.pump();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ShellView)),
+      );
+      container
+          .read(createPostViewModelProvider.notifier)
+          .edit(description: 'Left over from an abandoned post');
+
+      await tester.tap(find.bySemanticsLabel('Add post'));
+      await tester.pumpAndSettle();
+      expect(container.read(createPostViewModelProvider).description, isEmpty);
     });
 
     testWidgets(

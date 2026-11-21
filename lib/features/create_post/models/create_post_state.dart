@@ -18,6 +18,9 @@ class CreatePostState {
     this.submittedId,
   });
 
+  /// The location label when the location came from the photo's GPS.
+  static const photoLocationLabel = 'Photo location';
+
   final ReportCategory? category;
   final String latitude, longitude, description, species, notes;
   final String? photoPath, error, submittedId;

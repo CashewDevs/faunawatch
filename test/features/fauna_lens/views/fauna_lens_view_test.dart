@@ -1,7 +1,10 @@
 import 'package:camera/camera.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
+import 'package:faunawatch/features/create_post/models/post_location.dart';
+import 'package:faunawatch/features/create_post/services/create_post_service.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
+import 'package:faunawatch/features/create_post/views/create_post_view.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
@@ -18,6 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../create_post/create_post_viewmodel_test.dart'
+    show FakeCreatePostService;
 import '../ai_fakes.dart';
 
 const _here = GeoCoordinates(latitude: 14.6, longitude: 121.0);
@@ -29,6 +34,7 @@ void main() {
   late _FakeLocations locations;
   late _FakePicker picker;
   late FakeIdentificationService identification;
+  late FakeCreatePostService posts;
   late ProviderContainer container;
 
   Future<void> openCamera(WidgetTester tester) async {
@@ -72,8 +78,10 @@ void main() {
     locations = _FakeLocations();
     picker = _FakePicker();
     identification = FakeIdentificationService();
+    posts = FakeCreatePostService();
     container = ProviderContainer(
       overrides: [
+        createPostServiceProvider.overrideWithValue(posts),
         currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
         speciesIdentificationServiceProvider.overrideWithValue(identification),
         faunaLensCameraServiceProvider.overrideWithValue(camera),
@@ -295,7 +303,7 @@ void main() {
 
     await tester.tap(find.text('Use these results'));
     await tester.pumpAndSettle();
-    expect(find.byType(FaunaLensView), findsNothing);
+    expect(find.byType(CreatePostView), findsOneWidget);
     final draft = container.read(createPostViewModelProvider);
     expect(draft.species, 'Red-eared Slider, Grey Heron');
     expect(draft.aiResult, same(identification.result));
@@ -325,8 +333,9 @@ void main() {
     await tester.tap(find.text('Use these results'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(FaunaLensView), findsNothing);
-    expect(container.read(shellViewModelProvider), ShellDestination.addPost);
+    // The form opens on top of FaunaLens; the bottom-bar tab is unchanged.
+    expect(find.byType(CreatePostView), findsOneWidget);
+    expect(container.read(shellViewModelProvider), ShellDestination.feed);
     final draft = container.read(createPostViewModelProvider);
     expect(draft.photoPath, 'camera.jpg');
     expect(draft.species, 'Red-eared Slider (Trachemys scripta elegans)');
@@ -375,15 +384,90 @@ void main() {
     expect(camera.isOpen, isTrue);
   });
 
-  testWidgets('Skip AI closes FaunaLens and goes to Add post', (tester) async {
+  testWidgets('Skip AI opens the form, and back returns to the photo', (
+    tester,
+  ) async {
     await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Skip AI'));
     await tester.pumpAndSettle();
+    expect(find.byType(CreatePostView), findsOneWidget);
+    final draft = container.read(createPostViewModelProvider);
+    expect(draft.photoPath, 'camera.jpg');
+    expect(draft.aiResult, isNull);
+
+    // Back (the app used to close here) returns to "Happy with this photo?".
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(CreatePostView), findsNothing);
+    expect(find.text('Happy with this photo?'), findsOneWidget);
+    expect(find.byType(FaunaLensView), findsOneWidget);
+  });
+
+  testWidgets('back from the form returns to a gallery photo too', (
+    tester,
+  ) async {
+    picker.paths = ['gallery.jpg'];
+    await openCamera(tester);
+    await tester.tap(find.bySemanticsLabel('Choose from gallery'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skip AI'));
+    await tester.pumpAndSettle();
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Use this photo?'), findsOneWidget);
+  });
+
+  testWidgets('Change photo on the form returns to the live camera', (
+    tester,
+  ) async {
+    await openCamera(tester);
+    await tester.tap(find.bySemanticsLabel('Take photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skip AI'));
+    await tester.pumpAndSettle();
+    container
+        .read(createPostViewModelProvider.notifier)
+        .edit(description: 'Turtle crossing');
+
+    await tester.tap(find.text('Change photo'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreatePostView), findsNothing);
+    expect(find.text('Fit the whole animal inside the frame.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Choose from gallery'), findsOneWidget);
+    expect(camera.isOpen, isTrue);
+    // What the user typed waits for the next photo.
+    expect(
+      container.read(createPostViewModelProvider).description,
+      'Turtle crossing',
+    );
+  });
+
+  testWidgets('Done after submitting goes home with a fresh form', (
+    tester,
+  ) async {
+    container.read(shellViewModelProvider.notifier).selectIndex(1);
+    await openCamera(tester);
+    await tester.tap(find.bySemanticsLabel('Take photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skip AI'));
+    await tester.pumpAndSettle();
+    final createPost = container.read(createPostViewModelProvider.notifier)
+      ..setLocation(const PostLocation(latitude: 10.3, longitude: 123.9))
+      ..edit(category: ReportCategory.animalInNeed);
+    expect(await createPost.submit(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Post submitted for review'), findsOneWidget);
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreatePostView), findsNothing);
     expect(find.byType(FaunaLensView), findsNothing);
-    expect(container.read(shellViewModelProvider), ShellDestination.addPost);
-    expect(container.read(createPostViewModelProvider).photoPath, 'camera.jpg');
+    expect(container.read(shellViewModelProvider), ShellDestination.feed);
+    expect(container.read(createPostViewModelProvider).photoPath, isNull);
+    expect(posts.drafts, hasLength(1));
   });
 
   testWidgets('review fits a short screen without overflowing', (tester) async {
