@@ -78,11 +78,12 @@ class ProfileHeaderCard extends StatelessWidget {
                 // White bottom container with username and bio
                 Container(
                   width: double.infinity,
-                  height: bottomHeight,
+                  constraints: const BoxConstraints(minHeight: bottomHeight),
                   color: Colors.white,
-                  padding: const EdgeInsets.only(left: 118, right: 20),
+                  padding: const EdgeInsets.fromLTRB(118, 12, 20, 12),
                   alignment: Alignment.centerLeft,
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

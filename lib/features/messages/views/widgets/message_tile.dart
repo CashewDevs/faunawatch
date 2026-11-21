@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/messages/models/message_thread.dart';
+import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
 
 /// Message row item.
 ///
@@ -17,11 +18,13 @@ class MessageTile extends StatelessWidget {
     required this.thread,
     required this.onTap,
     this.onLongPress,
+    this.onProfileTap,
   });
 
   final MessageThread thread;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +66,11 @@ class MessageTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Profile picture circle: gray #D9D9D9
-                        _buildProfilePicture(isDark),
+                        ProfileLink(
+                          name: thread.senderName,
+                          onTap: onProfileTap,
+                          child: _buildProfilePicture(isDark),
+                        ),
                         const SizedBox(width: 14),
 
                         // Message details: Sender name & message preview
@@ -75,23 +82,27 @@ class MessageTile extends StatelessWidget {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      thread.senderName,
-                                      style: GoogleFonts.dmSans(
-                                        fontSize: 15,
-                                        fontWeight: isUnread
-                                            ? FontWeight.w700
-                                            : FontWeight.w600,
-                                        color: isDark
-                                            ? (isUnread
-                                                  ? AppColors.darkTextPrimary
-                                                  : AppColors.darkTextBody)
-                                            : (isUnread
-                                                  ? Colors.black87
-                                                  : const Color(0xFF263238)),
+                                    child: ProfileLink(
+                                      name: thread.senderName,
+                                      onTap: onProfileTap,
+                                      child: Text(
+                                        thread.senderName,
+                                        style: GoogleFonts.dmSans(
+                                          fontSize: 15,
+                                          fontWeight: isUnread
+                                              ? FontWeight.w700
+                                              : FontWeight.w600,
+                                          color: isDark
+                                              ? (isUnread
+                                                    ? AppColors.darkTextPrimary
+                                                    : AppColors.darkTextBody)
+                                              : (isUnread
+                                                    ? Colors.black87
+                                                    : const Color(0xFF263238)),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   const SizedBox(width: 8),

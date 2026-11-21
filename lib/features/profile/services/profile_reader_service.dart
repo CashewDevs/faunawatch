@@ -15,7 +15,11 @@ class SupabaseProfileReaderService implements ProfileReaderService {
   final SupabaseClient _client;
 
   @override
-  Future<ProfileData> loadProfile(String userId) async {
+  Future<ProfileData> loadProfile(String userId) async =>
+      await findProfile(userId) ?? const ProfileData();
+
+  /// Public identity, or null when the account no longer exists.
+  Future<ProfileData?> findProfile(String userId) async {
     final row = await _client
         .from('profiles')
         .select(
@@ -23,7 +27,7 @@ class SupabaseProfileReaderService implements ProfileReaderService {
         )
         .eq('id', userId)
         .maybeSingle();
-    if (row == null) return const ProfileData();
+    if (row == null) return null;
 
     final name = ['username', 'full_name', 'display_name']
         .map((key) => (row[key] as String?)?.trim())

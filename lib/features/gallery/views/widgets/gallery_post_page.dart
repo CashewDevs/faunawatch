@@ -11,14 +11,22 @@ import 'package:faunawatch/features/gallery/views/widgets/pending_post_dialog.da
 /// pending post shows a "Pending review" badge, and its like and comment
 /// buttons explain that it is waiting for an admin.
 class GalleryPostPage extends ConsumerWidget {
-  const GalleryPostPage({super.key, required this.item});
+  const GalleryPostPage({
+    super.key,
+    required this.item,
+    this.authorId,
+    this.onAuthorTap,
+  });
   final GalleryItem item;
+  final String? authorId;
+  final VoidCallback? onAuthorTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = galleryPostViewModelProvider((
       id: item.id,
       isPending: item.isPending,
+      authorId: authorId,
     ));
     final state = ref.watch(provider);
     final viewModel = ref.read(provider.notifier);
@@ -58,6 +66,7 @@ class GalleryPostPage extends ConsumerWidget {
             child: FeedPostCard(
               post: post,
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              onAuthorTap: onAuthorTap,
               onLike: () => showPendingPostDialog(context),
               onComments: () => showPendingPostDialog(context),
             ),
@@ -73,6 +82,7 @@ class GalleryPostPage extends ConsumerWidget {
     return FeedPostCard(
       post: post,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      onAuthorTap: onAuthorTap,
       onLike: viewModel.toggleLike,
       onComments: () => PostCommentsSheet.show(
         context,

@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
 
 /// Author, title, and description of a post. The full description stays hidden
 /// until expanded so the caption does not cover the photos.
 class PostCaption extends StatefulWidget {
-  const PostCaption({super.key, required this.post, this.now});
+  const PostCaption({
+    super.key,
+    required this.post,
+    this.now,
+    this.onAuthorTap,
+  });
   final FeedPost post;
+  final VoidCallback? onAuthorTap;
 
   /// The time ages are measured from; defaults to now.
   final DateTime? now;
@@ -36,13 +43,17 @@ class _PostCaptionState extends State<PostCaption> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text.rich(
-              TextSpan(
-                text: post.authorName,
-                style: textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+            ProfileLink(
+              name: post.authorName,
+              onTap: widget.onAuthorTap,
+              child: Text.rich(
+                TextSpan(
+                  text: post.authorName,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  children: [TextSpan(text: ' · $age', style: detailStyle)],
                 ),
-                children: [TextSpan(text: ' · $age', style: detailStyle)],
               ),
             ),
             const SizedBox(height: 6),

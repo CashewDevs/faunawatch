@@ -466,9 +466,10 @@ profile-local full-screen `GalleryPostViewer` (TikTok-style vertical swiping und
 a "My posts" bar), starting at the tapped post; it swipes through the gallery's
 own approved and pending posts, respecting its filters, and Back returns to the
 existing profile/grid scroll position. Neither the shell destination nor the For
-You tab/page changes. `GalleryPostViewModel` (keyed by `GalleryPostRef`: id and
-whether it is pending) loads approved posts with photos and engagement through
-`FeedService.fetchPost`, checks the current owner, and manages local likes and
+You tab/page changes. `GalleryPostViewModel` (keyed by `GalleryPostRef`: id,
+whether it is pending, and an optional public-gallery author ID) loads approved
+posts with photos and engagement through `FeedService.fetchPost`, checks the
+current owner or the specified public author, and manages local likes and
 comment counts. Pending posts are not in that approved-only feed, so they load
 through `ReportDetailService.fetchOwnReport` (owner RLS) with the owner's profile
 name and avatar, show a large "Pending review" badge, and their like and comment
@@ -482,6 +483,39 @@ Scrolling or "Load older posts" loads more. While a filter's first page loads
 `GallerySkeleton` shows pulsing placeholder tiles in the same three-column layout
 (`galleryGridDelegate`) instead of a spinner; they stay still when the device asks
 for less motion. No dependency or migration is added.
+
+Public account profiles live in `lib/features/public_profile/`
+(Model → Service → ViewModel → View). A post author's name/avatar, a chat
+list name/avatar, and the conversation header name/avatar open a separate
+`PublicProfileScreen`. The chat preview still opens the conversation. Opening
+from the list does not mark it read; opening from the conversation pauses its
+active/read state until Back, preserving the draft. Profile navigation preserves
+the shell destination, feed page and the owner's gallery. Missing chat user IDs
+disable only the profile action.
+
+Public profiles reuse `ProfileHeaderCard`, `GalleryHeader`, the three-column
+gallery cards, and DM Sans/theme styles, with no preferences or pending-status
+controls. `SupabasePublicProfileService` reads public identity through
+`SupabaseProfileReaderService.findProfile` (null for a missing account) and
+`public_profile_gallery()`. The ViewModel owns independent category filtering,
+12-post pagination, refresh/retry, and rejects stale account/filter requests.
+Both it and the auto-disposed full-post state clear on account changes. The
+public gallery viewer swipes only that account's approved posts and returns to
+the existing grid position. It reuses `GalleryPostViewModel` for full photos,
+likes and comments; public references can never load pending owner reports.
+
+Apply `20261121233000_create_public_profile_gallery.sql` manually after
+`20261112100000_create_community_feed.sql` and its prerequisites. Agents must
+not apply hosted changes. This adds one gallery RPC and an index, no table or
+notification changes. It filters by author, approved status and optional
+category before keyset pagination by submission time/id, then reuses the
+existing `community_feed()` projection, excluding exact coordinates, private
+notes and admin fields. It is executable only by authenticated users and also
+checks `auth.uid()`; existing table RLS is unchanged. Photo/avatar URLs reuse
+the feed's one-hour signing and are not persisted. No new app dependency is
+required. A local-only PostgreSQL permission/pagination check is in
+`test/features/public_profile/public_gallery_security_test.cjs`; its PGlite
+runtime is installed only under ignored `.dart_tool/public-profile-sql/`.
 
 Apply `20261112100000_create_community_feed.sql` before using the feed. The user
 applies it manually in the Supabase SQL editor; agents must not apply hosted

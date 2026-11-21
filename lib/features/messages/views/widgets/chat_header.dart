@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
 
 /// Top header for the chat conversation view.
 ///
@@ -18,12 +19,14 @@ class ChatHeader extends StatelessWidget {
     this.avatarAsset,
     this.avatarUrl,
     required this.onBack,
+    this.onProfileTap,
   });
 
   final String username;
   final String? avatarAsset;
   final String? avatarUrl;
   final VoidCallback onBack;
+  final VoidCallback? onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -77,47 +80,57 @@ class ChatHeader extends StatelessWidget {
               ),
 
               // Gray circular profile picture placeholder
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.darkBorder
-                      : AppColors.messagesPfpPlaceholder,
-                  shape: BoxShape.circle,
+              ProfileLink(
+                name: username,
+                onTap: onProfileTap,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.messagesPfpPlaceholder,
+                    shape: BoxShape.circle,
+                  ),
+                  child: avatarAsset != null
+                      ? ClipOval(
+                          child: Image.asset(
+                            avatarAsset!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                        )
+                      : avatarUrl != null
+                      ? ClipOval(
+                          child: Image.network(
+                            avatarUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          ),
+                        )
+                      : null,
                 ),
-                child: avatarAsset != null
-                    ? ClipOval(
-                        child: Image.asset(
-                          avatarAsset!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                        ),
-                      )
-                    : avatarUrl != null
-                    ? ClipOval(
-                        child: Image.network(
-                          avatarUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                        ),
-                      )
-                    : null,
               ),
               const SizedBox(width: 14),
 
               // Username in DM Sans extrabold
               Expanded(
-                child: Text(
-                  username,
-                  style: GoogleFonts.dmSans(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? AppColors.darkTextPrimary : Colors.black87,
-                    letterSpacing: -0.3,
+                child: ProfileLink(
+                  name: username,
+                  onTap: onProfileTap,
+                  child: Text(
+                    username,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : Colors.black87,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

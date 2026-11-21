@@ -5,6 +5,7 @@ import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/animated_heart.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
+import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
 
 /// Author picture and engagement actions floating over a post's photos.
 ///
@@ -16,9 +17,10 @@ class PostActionRail extends ConsumerWidget {
     required this.post,
     this.onLike,
     this.onComments,
+    this.onAuthorTap,
   });
   final FeedPost post;
-  final VoidCallback? onLike, onComments;
+  final VoidCallback? onLike, onComments, onAuthorTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,13 +37,17 @@ class PostActionRail extends ConsumerWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Semantics(
-          image: true,
-          label: "${post.authorName}'s profile picture",
-          child: PostAvatar(
-            size: 48,
-            asset: post.authorAvatarAsset,
-            url: post.authorAvatarUrl,
+        ProfileLink(
+          name: post.authorName,
+          onTap: onAuthorTap,
+          child: Semantics(
+            image: true,
+            label: "${post.authorName}'s profile picture",
+            child: PostAvatar(
+              size: 48,
+              asset: post.authorAvatarAsset,
+              url: post.authorAvatarUrl,
+            ),
           ),
         ),
         const SizedBox(height: 6),

@@ -18,7 +18,11 @@ import '../../feed/fake_feed_service.dart';
 void main() {
   late ProviderContainer container;
   late FakeFeedService service;
-  final provider = galleryPostViewModelProvider((id: 'own', isPending: false));
+  final provider = galleryPostViewModelProvider((
+    id: 'own',
+    isPending: false,
+    authorId: null,
+  ));
 
   Future<void> open({String? user = 'me'}) async {
     container = ProviderContainer(
@@ -83,6 +87,47 @@ void main() {
     expect(container.read(provider).post, isNull);
     expect(container.read(provider).isLoading, isFalse);
   });
+
+  test(
+    'public gallery loads only its selected author and keeps likes local',
+    () async {
+      service.posts = [testPost('own', authorId: 'other', likeCount: 4)];
+      await open();
+      final public = galleryPostViewModelProvider((
+        id: 'own',
+        isPending: false,
+        authorId: 'other',
+      ));
+      container.listen(public, (_, _) {});
+      await pumpEventQueue();
+      expect(container.read(public).post!.authorId, 'other');
+      await container.read(public.notifier).toggleLike();
+      expect(service.likes, ['own']);
+      expect(container.read(public).post!.likeCount, 5);
+      expect(service.pageRequests, isEmpty);
+      service.posts = [testPost('own', authorId: 'wrong')];
+      await container.read(public.notifier).retry();
+      expect(container.read(public).post, isNull);
+    },
+  );
+
+  test(
+    'a public gallery reference cannot load a private pending report',
+    () async {
+      await open();
+      service.postRequests.clear();
+      final public = galleryPostViewModelProvider((
+        id: 'private',
+        isPending: true,
+        authorId: 'other',
+      ));
+      container.listen(public, (_, _) {});
+      await pumpEventQueue();
+      expect(container.read(public).post, isNull);
+      expect(container.read(public).hasError, isFalse);
+      expect(service.postRequests, isEmpty);
+    },
+  );
 
   test('failed load can retry without leaving Profile', () async {
     service.postError = Exception('offline');
@@ -193,7 +238,11 @@ void main() {
 
   group('pending posts', () {
     late _FakeReports reports;
-    final pending = galleryPostViewModelProvider((id: 'own', isPending: true));
+    final pending = galleryPostViewModelProvider((
+      id: 'own',
+      isPending: true,
+      authorId: null,
+    ));
 
     Future<GalleryPostState> openPending(ReportStatus status) async {
       reports = _FakeReports()

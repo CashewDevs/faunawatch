@@ -12,7 +12,7 @@ import 'package:faunawatch/features/report_detail/services/report_detail_service
 
 export 'package:faunawatch/features/gallery/models/gallery_post_state.dart';
 
-/// Loads a full own post and manages its actions without changing feed state
+/// Loads a full gallery post and manages its actions without changing feed state
 /// or the shell destination. All account changes discard the previous result.
 ///
 /// Approved posts load from the public feed (with likes and comments). Pending
@@ -50,6 +50,11 @@ class GalleryPostViewModel
     }
     try {
       if (arg.isPending) {
+        // Public galleries never read pending/private owner reports.
+        if (arg.authorId != null) {
+          state = const GalleryPostState();
+          return;
+        }
         // Account changes rebuild this ViewModel, so reading is enough.
         final report = await ref
             .read(reportDetailServiceProvider)
@@ -69,7 +74,9 @@ class GalleryPostViewModel
       }
       final post = await _service.fetchPost(arg.id);
       if (generation != _generation) return;
-      state = GalleryPostState(post: post?.authorId == ownerId ? post : null);
+      state = GalleryPostState(
+        post: post?.authorId == (arg.authorId ?? ownerId) ? post : null,
+      );
     } catch (_) {
       if (generation == _generation) {
         state = const GalleryPostState(hasError: true);

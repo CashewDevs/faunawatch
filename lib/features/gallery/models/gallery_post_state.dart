@@ -2,7 +2,7 @@ import 'package:faunawatch/features/feed/models/feed_post.dart';
 
 /// Which gallery post a viewer page shows, and whether it is still pending
 /// (pending posts are not in the public feed, so they load differently).
-typedef GalleryPostRef = ({String id, bool isPending});
+typedef GalleryPostRef = ({String id, bool isPending, String? authorId});
 
 /// Full post data and action feedback for one profile-gallery page.
 class GalleryPostState {
