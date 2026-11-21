@@ -17,8 +17,21 @@ GuardLocation guardFix(double meters, {DateTime? timestamp}) => GuardLocation(
   latitude: meters / 111194.9266,
   longitude: 0,
   accuracy: 5,
-  timestamp: timestamp ?? DateTime.now(),
+  timestamp: timestamp ?? _nextFixTime(),
 );
+
+DateTime _lastFixTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+/// Now, but always later than the previous fake fix. FaunaGuard ignores fixes
+/// that are not newer than the last one, and two quick `DateTime.now()` calls
+/// can return the same time (common on Windows), which made tests flaky.
+DateTime _nextFixTime() {
+  var now = DateTime.now();
+  if (!now.isAfter(_lastFixTime)) {
+    now = _lastFixTime.add(const Duration(milliseconds: 1));
+  }
+  return _lastFixTime = now;
+}
 
 class FakeGuardLocation implements GuardLocationService {
   final fixes = StreamController<GuardLocation>.broadcast();
