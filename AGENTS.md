@@ -436,6 +436,14 @@ avatar, username and bio, in one scrollable page. Edit Profile, Change Theme and
 Settings live in `ProfilePreferencesDrawer`, opened by the hamburger icon at
 the top-right of the banner. Selecting an action closes the drawer before
 opening the existing editor, theme picker or settings screen.
+The system Back button on the shell (`ShellView`'s `PopScope`,
+`ShellViewModel.back`) never closes the app at once: every bottom-tab and Feed
+Map/For You change is remembered (up to 20 places), Back returns to the previous
+one, then home (Feed › For You), and at home the first Back shows "Press back
+again to exit" and only a second Back within 2 seconds closes the app.
+`ShellViewModel.goTo(destination, feedTab:)` makes a combined jump one step;
+sign-out calls `resetToHome()`, which also forgets the history. Screens pushed on
+top of the shell keep their normal Back.
 Gallery is absent from the feed tabs,
 which contain Map and For You only. Gallery shows the signed-in user's approved,
 pending AND declined reports, mixed in one three-column grid with yellow
@@ -564,18 +572,23 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   The app currently saves no summary or community warning, so those sections
   appear only if a later change fills them. `responder_briefing` and
   `user_notes` are never shown on posts.
-- **Post location on the map:** tapping a post's location (For You or the
-  gallery viewer) calls `CommunityMapViewModel.focusOn(MapFocus)`, which switches
-  the shell to Feed and the feed tab to Map and moves the camera to the rounded
-  point (zoom 14), waiting for the map's style if it has not loaded yet. An
-  approved post's pin sits in the middle (the pins are refreshed if it is not
-  loaded yet); the pin dialog is not opened automatically. The owner's pending or
-  declined post gets an orange marker (`MapboxMapService.showFocus`) and a banner
-  "Only you can see this", removed by its close button, by opening an approved
-  post's location, or on account changes. `FeedPost` rounds any coordinates it is
-  given, so the owner's exact point is never kept. Posts without coordinates keep
-  their location as plain text. With FaunaGuard on, the next GPS fix recentres the
-  map on the user.
+- **Post location on the map:** tapping a post's location (For You, for posts
+  with a rounded point, or any post in the gallery viewer) calls
+  `CommunityMapViewModel.focusOnPost`, which switches the shell to Feed › Map at
+  once as one Back step (`ShellViewModel.goTo`). The signed-in user's OWN post
+  (any status) opens at its exact point, read on demand through owner RLS by
+  `ReportDetailService.fetchOwnLocation` (`MapFocus.isExact`); it is held only in
+  map state, drawn on the owner's device, and cleared on account changes.
+  Everyone else's post opens at its rounded point (about 1 km), where its public
+  pin is; public pins stay rounded for everyone. A failed exact lookup falls back
+  to the rounded point. The camera moves there (zoom 14), waiting for the map's
+  style if needed; an approved post's pin is refreshed in if missing, and the pin
+  dialog is not opened automatically. The owner's exact point and their pending
+  or declined posts get an orange marker (`MapboxMapService.showFocus`) and a
+  banner "Only you can see this" explaining whether the spot is exact and whether
+  others see a pin, removed by its close button, by opening someone else's post
+  location, or on account changes. `FeedPost` itself always rounds coordinates.
+  With FaunaGuard on, the next GPS fix recentres the map on the user.
 - **Likes** are real: `report_likes` (report, user) rows that a user can add or
   remove only for themselves, only on approved reports and not while suspended.
   Counts and `liked_by_me` come from the RPC; the app likes optimistically and

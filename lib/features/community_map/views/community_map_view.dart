@@ -247,6 +247,7 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   // Above the shell's floating nav bar.
                   bottom: MediaQuery.paddingOf(context).bottom + 12,
                   child: _PrivateFocusBanner(
+                    focus: state.privateFocus!,
                     onClose: ref
                         .read(communityMapViewModelProvider.notifier)
                         .dismissPrivateFocus,
@@ -282,10 +283,18 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   }
 }
 
-/// Explains the orange marker of the owner's pending or declined post.
+/// Explains the orange marker on the owner's own post.
 class _PrivateFocusBanner extends StatelessWidget {
-  const _PrivateFocusBanner({required this.onClose});
+  const _PrivateFocusBanner({required this.focus, required this.onClose});
+  final MapFocus focus;
   final VoidCallback onClose;
+
+  String get _detail {
+    final spot = focus.isExact ? 'exact' : 'approximate';
+    return focus.isPublic
+        ? "Your post's $spot spot. Others see its pin within about 1 km."
+        : "Your post's $spot spot. It isn't on the public map.";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -316,11 +325,7 @@ class _PrivateFocusBanner extends StatelessWidget {
                       text: '${MapFocus.privateLabel}. ',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const TextSpan(
-                      text:
-                          "Your post's approximate spot. It isn't on the "
-                          'public map.',
-                    ),
+                    TextSpan(text: _detail),
                   ],
                 ),
                 style: theme.textTheme.bodySmall,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/community_reports_service.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/fauna_guard/viewmodels/fauna_guard_viewmodel.dart';
 import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
@@ -76,18 +78,57 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
         .selectDestination(ShellDestination.feed);
   }
 
-  /// Opens the Map tab at a post's approximate spot, e.g. after its location
-  /// was tapped. An approved post's pin sits in the middle; a post that is not
-  /// public gets a temporary marker only its owner sees. If the map has not
-  /// loaded yet, the spot is shown as soon as it has.
-  Future<void> focusOn(MapFocus focus) async {
+  /// Opens the Map tab at [post]'s spot after its location was tapped.
+  ///
+  /// The signed-in user's own post (any status) is shown at its exact point,
+  /// read through owner access, with the owner-only marker. Anyone else's post
+  /// is shown at its rounded point, where its public pin is. If the exact
+  /// point cannot be read, the rounded one is used.
+  Future<void> focusOnPost(FeedPost post, {required bool isPublic}) async {
+    // Switch at once; the exact point arrives a moment later.
     ref
         .read(shellViewModelProvider.notifier)
-        .selectDestination(ShellDestination.feed);
-    ref.read(feedTabViewModelProvider.notifier).select(FeedTab.map);
-    state = focus.isPublic
-        ? state.copyWith(clearSelectedPost: true, clearPrivateFocus: true)
-        : state.copyWith(clearSelectedPost: true, privateFocus: focus);
+        .goTo(ShellDestination.feed, feedTab: FeedTab.map);
+    MapFocus? focus;
+    final userId = ref.read(currentUserIdProvider).valueOrNull;
+    if (userId != null && post.authorId == userId) {
+      try {
+        final point = await ref
+            .read(reportDetailServiceProvider)
+            .fetchOwnLocation(post.id);
+        if (point != null) {
+          focus = MapFocus(
+            postId: post.id,
+            latitude: point.latitude,
+            longitude: point.longitude,
+            isPublic: isPublic,
+            isExact: true,
+          );
+        }
+      } catch (_) {
+        // Fall back to the rounded point below.
+      }
+      // Another account signed in while the point was loading.
+      if (_disposed || ref.read(currentUserIdProvider).valueOrNull != userId) {
+        return;
+      }
+    }
+    focus ??= MapFocus.fromPost(post, isPublic: isPublic);
+    if (focus != null) await focusOn(focus);
+  }
+
+  /// Opens the Map tab at [focus]. An approved post's pin sits in the middle;
+  /// the owner's exact point and posts that are not public get a temporary
+  /// marker only the owner sees. If the map has not loaded yet, the spot is
+  /// shown as soon as it has.
+  Future<void> focusOn(MapFocus focus) async {
+    // One step, so Back returns to where the location was tapped.
+    ref
+        .read(shellViewModelProvider.notifier)
+        .goTo(ShellDestination.feed, feedTab: FeedTab.map);
+    state = focus.showsOwnerMarker
+        ? state.copyWith(clearSelectedPost: true, privateFocus: focus)
+        : state.copyWith(clearSelectedPost: true, clearPrivateFocus: true);
     _pendingFocus = focus;
     if (_isStyleLoaded) await _applyFocus();
   }
@@ -95,7 +136,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   /// Removes the owner-only marker.
   Future<void> dismissPrivateFocus() async {
     if (_disposed) return;
-    if (_pendingFocus?.isPublic == false) _pendingFocus = null;
+    if (_pendingFocus?.showsOwnerMarker ?? false) _pendingFocus = null;
     if (state.privateFocus == null) return;
     state = state.copyWith(clearPrivateFocus: true);
     if (!_isStyleLoaded) return;

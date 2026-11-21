@@ -353,6 +353,12 @@ void main() {
 }
 
 class _FakeReports implements ReportDetailService {
+  final locations = <String, ({double latitude, double longitude})>{};
+  @override
+  Future<({double latitude, double longitude})?> fetchOwnLocation(
+    String reportId,
+  ) async => locations[reportId];
+
   OwnReport? report;
   final requests = <String>[];
 

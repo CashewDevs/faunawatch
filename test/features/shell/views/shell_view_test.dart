@@ -3,6 +3,7 @@ import 'package:faunawatch/features/fauna_lens/services/fauna_lens_camera_servic
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
@@ -93,6 +94,36 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(ShellHeader), findsOneWidget);
     });
+
+    testWidgets(
+      'system Back returns to the previous tab and asks before exiting',
+      (tester) async {
+        Future<void> pressBack() async {
+          await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+            'flutter/navigation',
+            const JSONMethodCodec().encodeMethodCall(
+              const MethodCall('popRoute'),
+            ),
+            (_) {},
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await tester.pumpWidget(buildTestShell());
+        await tester.tap(find.text('Chats'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ShellHeader), findsNothing);
+
+        await pressBack();
+        expect(find.byType(ShellView), findsOneWidget);
+        expect(find.byType(ShellHeader), findsOneWidget);
+        expect(find.text('Press back again to exit'), findsNothing);
+
+        await pressBack();
+        expect(find.byType(ShellView), findsOneWidget);
+        expect(find.text('Press back again to exit'), findsOneWidget);
+      },
+    );
 
     testWidgets('keeps Map in the feed and Gallery in Profile', (tester) async {
       await tester.pumpWidget(buildTestShell());

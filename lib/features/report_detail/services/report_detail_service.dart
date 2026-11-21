@@ -53,6 +53,13 @@ FeedPost ownReportPost(Map<String, dynamic> row, String userId) {
 abstract interface class ReportDetailService {
   /// The report, or null when it does not exist or is not the user's.
   Future<OwnReport?> fetchOwnReport(String reportId);
+
+  /// The exact point of one of the user's own reports (any status), or null
+  /// when it is not theirs. Only for showing the owner their own spot on the
+  /// map; never stored or shown to anyone else.
+  Future<({double latitude, double longitude})?> fetchOwnLocation(
+    String reportId,
+  );
 }
 
 /// Reads `reports` with its photos and AI analysis, signs the photos for an
@@ -96,6 +103,25 @@ class SupabaseReportDetailService implements ReportDetailService {
     );
   }
 
+  @override
+  Future<({double latitude, double longitude})?> fetchOwnLocation(
+    String reportId,
+  ) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const AuthException('Sign in to view your report.');
+    }
+    final row = await _client
+        .from('reports')
+        .select('latitude, longitude')
+        .eq('id', reportId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    final latitude = row?['latitude'], longitude = row?['longitude'];
+    if (latitude is! num || longitude is! num) return null;
+    return (latitude: latitude.toDouble(), longitude: longitude.toDouble());
+  }
+
   /// The latest decline from `my_report_reviews()`, which returns the
   /// caller's own decisions without the admin, oldest first. A failure only
   /// hides the reason.
@@ -133,6 +159,10 @@ class SignedOutReportDetailService implements ReportDetailService {
   const SignedOutReportDetailService();
   @override
   Future<OwnReport?> fetchOwnReport(String reportId) async => null;
+  @override
+  Future<({double latitude, double longitude})?> fetchOwnLocation(
+    String reportId,
+  ) async => null;
 }
 
 /// Replaced on account changes so a pending request cannot show another

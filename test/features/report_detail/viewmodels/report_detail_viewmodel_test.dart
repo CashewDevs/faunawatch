@@ -8,6 +8,12 @@ import 'package:faunawatch/features/report_detail/viewmodels/report_detail_viewm
 import '../../feed/fake_feed_service.dart';
 
 class FakeReportDetailService implements ReportDetailService {
+  final locations = <String, ({double latitude, double longitude})>{};
+  @override
+  Future<({double latitude, double longitude})?> fetchOwnLocation(
+    String reportId,
+  ) async => locations[reportId];
+
   OwnReport? report;
   Object? error;
   final requests = <String>[];

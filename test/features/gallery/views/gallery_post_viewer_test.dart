@@ -274,8 +274,8 @@ void main() {
   );
 
   testWidgets(
-    'tapping the location of a pending post closes the viewer and shows the '
-    'owner-only marker on the map',
+    'tapping the location of a pending post closes the viewer and shows its '
+    'exact spot with the owner-only marker',
     (tester) async {
       gallery.statuses['p1'] = ReportStatus.pending;
       reports.reports['p1'] = OwnReport(
@@ -288,6 +288,7 @@ void main() {
         ),
         status: ReportStatus.pending,
       );
+      reports.locations['p1'] = (latitude: 16.456789, longitude: 120.987654);
       await pumpGallery(tester);
       await openPost(tester, 'p1');
       await tester.tap(find.text('Lusod, Kabayan, Benguet'));
@@ -298,18 +299,28 @@ void main() {
       final focus = container.read(communityMapViewModelProvider).privateFocus;
       expect(focus!.postId, 'p1');
       expect(focus.isPublic, isFalse);
-      expect(focus.latitude, 16.46);
+      expect(focus.isExact, isTrue);
+      expect(focus.latitude, 16.456789);
+      expect(focus.longitude, 120.987654);
     },
   );
 
-  testWidgets('posts without a location keep it as plain text', (tester) async {
-    await pumpGallery(tester);
-    await openPost(tester, 'p0');
-    await tester.tap(find.text('Lusod, Kabayan, Benguet'));
-    await tester.pumpAndSettle();
-    expect(find.byType(GalleryPostViewer), findsOneWidget);
-    staysInProfile();
-  });
+  testWidgets(
+    'an approved own post opens at its exact spot, even without a rounded '
+    'point from the feed',
+    (tester) async {
+      reports.locations['p0'] = (latitude: 10.316789, longitude: 123.891234);
+      await pumpGallery(tester);
+      await openPost(tester, 'p0');
+      await tester.tap(find.text('Lusod, Kabayan, Benguet'));
+      await tester.pumpAndSettle();
+      expect(find.byType(GalleryPostViewer), findsNothing);
+      final focus = container.read(communityMapViewModelProvider).privateFocus;
+      expect(focus!.isPublic, isTrue);
+      expect(focus.isExact, isTrue);
+      expect(focus.latitude, 10.316789);
+    },
+  );
 
   testWidgets('viewer supports the app dark theme', (tester) async {
     await pumpGallery(tester, dark: true);
@@ -327,6 +338,12 @@ void main() {
 }
 
 class _FakeReportDetailService implements ReportDetailService {
+  final locations = <String, ({double latitude, double longitude})>{};
+  @override
+  Future<({double latitude, double longitude})?> fetchOwnLocation(
+    String reportId,
+  ) async => locations[reportId];
+
   final reports = <String, OwnReport>{};
   final requests = <String>[];
 

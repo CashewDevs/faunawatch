@@ -53,9 +53,8 @@ class SettingsViewModel extends Notifier<SettingsState> {
     final success = await _storageService.signOut();
     if (!success) await push.onSignOutFailed();
     if (success) {
-      ref
-          .read(shellViewModelProvider.notifier)
-          .selectDestination(ShellDestination.feed);
+      // The next account starts at home with no Back history.
+      ref.read(shellViewModelProvider.notifier).resetToHome();
     }
     return success;
   }
