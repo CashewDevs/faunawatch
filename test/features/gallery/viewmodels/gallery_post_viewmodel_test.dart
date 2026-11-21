@@ -7,6 +7,10 @@ import 'package:faunawatch/features/feed/models/post_comment.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/gallery/viewmodels/gallery_post_viewmodel.dart';
+import 'package:faunawatch/features/profile/models/profile_data.dart';
+import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
+import 'package:faunawatch/features/report_detail/models/own_report.dart';
+import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 import '../../feed/fake_feed_service.dart';
@@ -14,7 +18,7 @@ import '../../feed/fake_feed_service.dart';
 void main() {
   late ProviderContainer container;
   late FakeFeedService service;
-  final provider = galleryPostViewModelProvider('own');
+  final provider = galleryPostViewModelProvider((id: 'own', isPending: false));
 
   Future<void> open({String? user = 'me'}) async {
     container = ProviderContainer(
@@ -186,4 +190,78 @@ void main() {
       );
     },
   );
+
+  group('pending posts', () {
+    late _FakeReports reports;
+    final pending = galleryPostViewModelProvider((id: 'own', isPending: true));
+
+    Future<GalleryPostState> openPending(ReportStatus status) async {
+      reports = _FakeReports()
+        ..report = OwnReport(
+          post: testPost('own', authorId: 'me', authorName: 'FaunaWatch user'),
+          status: status,
+        );
+      container = ProviderContainer(
+        overrides: [
+          feedServiceProvider.overrideWithValue(service),
+          currentUserIdProvider.overrideWith((ref) => Stream.value('me')),
+          reportDetailServiceProvider.overrideWithValue(reports),
+          profileViewModelProvider.overrideWith(_Profile.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(currentUserIdProvider.future);
+      container.listen(pending, (_, _) {});
+      await pumpEventQueue();
+      return container.read(pending);
+    }
+
+    test('load through the owner report with the own profile name', () async {
+      final state = await openPending(ReportStatus.pending);
+      expect(state.isPending, isTrue);
+      expect(state.post!.id, 'own');
+      expect(state.post!.authorName, 'Owner');
+      expect(state.post!.authorAvatarAsset, 'fox');
+      expect(reports.requests, ['own']);
+      expect(service.postRequests, isEmpty);
+    });
+
+    test('cannot be liked', () async {
+      await openPending(ReportStatus.pending);
+      await container.read(pending.notifier).toggleLike();
+      expect(service.likes, isEmpty);
+      expect(container.read(pending).post!.likedByMe, isFalse);
+    });
+
+    test('approved meanwhile load from the feed with likes', () async {
+      final state = await openPending(ReportStatus.approved);
+      expect(state.isPending, isFalse);
+      expect(state.post!.likeCount, 4);
+      expect(service.postRequests, ['own']);
+    });
+
+    test('declined meanwhile are no longer available', () async {
+      final state = await openPending(ReportStatus.declined);
+      expect(state.post, isNull);
+      expect(state.hasError, isFalse);
+      expect(service.postRequests, isEmpty);
+    });
+  });
+}
+
+class _FakeReports implements ReportDetailService {
+  OwnReport? report;
+  final requests = <String>[];
+
+  @override
+  Future<OwnReport?> fetchOwnReport(String reportId) async {
+    requests.add(reportId);
+    return report;
+  }
+}
+
+class _Profile extends ProfileViewModel {
+  @override
+  Future<ProfileData> build() async =>
+      const ProfileData(username: 'Owner', presetAvatar: 'fox');
 }

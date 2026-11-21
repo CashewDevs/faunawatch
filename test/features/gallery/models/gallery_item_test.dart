@@ -38,11 +38,9 @@ void main() {
       status: ReportStatus.pending,
     );
 
-    test('only approved items can open in the post viewer', () {
-      const state = GalleryState(items: [pending, approved]);
+    test('items know whether they are still pending', () {
       expect(pending.isPending, isTrue);
       expect(approved.isPending, isFalse);
-      expect(state.approvedItems, [approved]);
       expect(pending.copyWith(title: 'Doe').status, ReportStatus.pending);
     });
 

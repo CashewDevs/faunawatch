@@ -138,11 +138,13 @@ class GalleryCard extends StatelessWidget {
   }
 }
 
-/// Marks a tile whose post is still waiting for an admin's review.
+/// Marks a post that is still waiting for an admin's review: small on grid
+/// tiles, [large] on the full-screen post.
 class PendingReviewBadge extends StatelessWidget {
-  const PendingReviewBadge({super.key});
+  const PendingReviewBadge({super.key, this.large = false});
 
   static const label = 'Pending review';
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
@@ -152,24 +154,26 @@ class PendingReviewBadge extends StatelessWidget {
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          padding: large
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 5)
+              : const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(large ? 14 : 10),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.schedule_rounded,
-                size: 11,
-                color: Color(0xFFFFC94D),
+                size: large ? 16 : 11,
+                color: const Color(0xFFFFC94D),
               ),
-              const SizedBox(width: 3),
+              SizedBox(width: large ? 5 : 3),
               Text(
                 label,
                 style: GoogleFonts.dmSans(
-                  fontSize: 9,
+                  fontSize: large ? 13 : 9,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),

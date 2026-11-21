@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
@@ -11,6 +12,7 @@ import 'package:faunawatch/features/gallery/views/screens/gallery_post_viewer.da
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
+import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
 import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
@@ -21,8 +23,10 @@ void main() {
   late FakeGalleryService gallery;
   late FakeFeedService service;
   late ProviderContainer container;
+  late _FakeReportDetailService reports;
 
   setUp(() {
+    reports = _FakeReportDetailService();
     gallery = FakeGalleryService(
       posts: [
         for (var i = 0; i < 3; i++)
@@ -42,6 +46,7 @@ void main() {
         galleryServiceProvider.overrideWithValue(gallery),
         feedServiceProvider.overrideWithValue(service),
         profileViewModelProvider.overrideWith(_TestProfile.new),
+        reportDetailServiceProvider.overrideWithValue(reports),
       ],
     );
     addTearDown(container.dispose);
@@ -177,31 +182,65 @@ void main() {
     expect(find.byType(GalleryCard), findsNWidgets(3));
   });
 
-  testWidgets('swiping skips pending posts, which the feed cannot load', (
-    tester,
-  ) async {
-    gallery.statuses['p1'] = ReportStatus.pending;
-    await pumpGallery(tester);
-    expect(find.byType(GalleryCard), findsNWidgets(3));
-    await openPost(tester, 'p0');
-    expect(find.text('My post 0'), findsOneWidget);
-    await tester.fling(
-      find.byWidgetPredicate(
-        (w) => w is PageView && w.scrollDirection == Axis.vertical,
-      ),
-      const Offset(0, -650),
-      1000,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('My post 2'), findsOneWidget);
-    expect(service.postRequests, isNot(contains('p1')));
-    final pages = tester.widget<PageView>(
-      find.byWidgetPredicate(
-        (w) => w is PageView && w.scrollDirection == Axis.vertical,
-      ),
-    );
-    expect(pages.childrenDelegate.estimatedChildCount, 2);
-  });
+  testWidgets(
+    'pending posts open in the swiping viewer; likes and comments explain '
+    'they wait for approval',
+    (tester) async {
+      gallery.statuses['p1'] = ReportStatus.pending;
+      reports.reports['p1'] = OwnReport(
+        post: testPost(
+          'p1',
+          authorId: 'me',
+          authorName: FeedPost.fallbackAuthorName,
+          title: 'My pending post',
+          photoUrls: ['https://photos.invalid/pending.webp'],
+        ),
+        status: ReportStatus.pending,
+      );
+      await pumpGallery(tester);
+      await openPost(tester, 'p1');
+      expect(find.byType(GalleryPostViewer), findsOneWidget);
+      expect(find.text('My posts'), findsOneWidget);
+      expect(find.byType(FeedPostCard), findsOneWidget);
+      expect(find.text('My pending post'), findsOneWidget);
+      // The owner's own name, not the report's placeholder author.
+      expect(find.textContaining('Me · ', findRichText: true), findsOneWidget);
+      expect(find.byType(PendingReviewBadge), findsOneWidget);
+      expect(reports.requests, ['p1']);
+      expect(service.postRequests, isNot(contains('p1')));
+
+      await tester.tap(find.bySemanticsLabel('Like, 0'));
+      await tester.pumpAndSettle();
+      expect(find.text('This post is still pending'), findsOneWidget);
+      expect(
+        find.textContaining("It's waiting for an admin's approval."),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(service.likes, isEmpty);
+
+      await tester.tap(find.bySemanticsLabel('Comments, 0'));
+      await tester.pumpAndSettle();
+      expect(find.text('This post is still pending'), findsOneWidget);
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(find.text('Great sighting!'), findsNothing);
+
+      // Swiping continues through the approved posts around it.
+      await tester.fling(
+        find.byWidgetPredicate(
+          (w) => w is PageView && w.scrollDirection == Axis.vertical,
+        ),
+        const Offset(0, -650),
+        1000,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('My post 2'), findsOneWidget);
+      expect(find.byType(PendingReviewBadge), findsNothing);
+      staysInProfile();
+    },
+  );
 
   testWidgets('viewer supports the app dark theme', (tester) async {
     await pumpGallery(tester, dark: true);
@@ -216,6 +255,17 @@ void main() {
     expect(scaffold.backgroundColor, isNull);
     expect(tester.takeException(), isNull);
   });
+}
+
+class _FakeReportDetailService implements ReportDetailService {
+  final reports = <String, OwnReport>{};
+  final requests = <String>[];
+
+  @override
+  Future<OwnReport?> fetchOwnReport(String reportId) async {
+    requests.add(reportId);
+    return reports[reportId];
+  }
 }
 
 class _TestProfile extends ProfileViewModel {

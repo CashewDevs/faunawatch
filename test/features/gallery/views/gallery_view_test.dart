@@ -8,8 +8,6 @@ import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_skeleton.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
-import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
-import 'package:faunawatch/features/report_detail/views/screens/report_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,22 +15,10 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../feed/fake_feed_service.dart';
 import '../fake_gallery_service.dart';
 
-class _FakeReportDetailService implements ReportDetailService {
-  final requests = <String>[];
-
-  @override
-  Future<OwnReport?> fetchOwnReport(String reportId) async {
-    requests.add(reportId);
-    return null;
-  }
-}
-
 void main() {
   late FakeGalleryService service;
-  late _FakeReportDetailService details;
 
   setUp(() {
-    details = _FakeReportDetailService();
     service = FakeGalleryService(
       posts: [
         testPost(
@@ -61,10 +47,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          galleryServiceProvider.overrideWithValue(service),
-          reportDetailServiceProvider.overrideWithValue(details),
-        ],
+        overrides: [galleryServiceProvider.overrideWithValue(service)],
         child: const MaterialApp(home: GalleryView()),
       ),
     );
@@ -128,8 +111,9 @@ void main() {
     expect(find.byType(GalleryCard), findsNWidgets(3));
   });
 
-  testWidgets('pending posts carry a badge under All and open the report '
-      'detail', (tester) async {
+  testWidgets('pending posts carry a badge under All and every filter', (
+    tester,
+  ) async {
     service.statuses['other'] = ReportStatus.pending;
     await pumpGallery(tester);
     expect(find.byType(GalleryCard), findsNWidgets(3));
@@ -158,10 +142,7 @@ void main() {
 
     await tester.tap(find.text('All'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Red Fox'));
-    await tester.pumpAndSettle();
-    expect(find.byType(ReportDetailScreen), findsOneWidget);
-    expect(details.requests, ['other']);
+    expect(find.byType(PendingReviewBadge), findsOneWidget);
   });
 
   testWidgets('uses network photos and handles missing or failed photos', (
@@ -261,6 +242,28 @@ void main() {
     expect(find.byType(GallerySkeleton), findsNothing);
     expect(find.byType(GalleryCard), findsOneWidget);
     expect(find.text('Red Fox'), findsOneWidget);
+  });
+
+  testWidgets('going back to a chip already opened shows its posts at once', (
+    tester,
+  ) async {
+    service.statuses['other'] = ReportStatus.pending;
+    await pumpGallery(tester);
+    await tester.tap(find.text('Pending'));
+    await tester.pumpAndSettle();
+    final gate = Completer<void>();
+    service.pageGate = gate;
+    await tester.tap(find.text('All'));
+    await tester.pump();
+    expect(find.byType(GallerySkeleton), findsNothing);
+    expect(find.byType(GalleryCard), findsNWidgets(3));
+    await tester.tap(find.text('Pending'));
+    await tester.pump();
+    expect(find.byType(GallerySkeleton), findsNothing);
+    expect(find.text('Red Fox'), findsOneWidget);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsOneWidget);
   });
 
   testWidgets('the skeleton holds still when the device asks for less motion', (

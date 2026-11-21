@@ -4,8 +4,8 @@ import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_load_more.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_post_page.dart';
 
-/// A profile-owned route: swipe through own approved posts and pop back to the
-/// grid. Pending posts are skipped; they open the report detail instead.
+/// A profile-owned route: swipe through the gallery's posts (approved and
+/// pending, as filtered) and pop back to the grid.
 class GalleryPostViewer extends ConsumerStatefulWidget {
   const GalleryPostViewer({super.key, required this.initialPostId});
   final String initialPostId;
@@ -21,7 +21,7 @@ class _GalleryPostViewerState extends ConsumerState<GalleryPostViewer> {
   @override
   void initState() {
     super.initState();
-    final items = ref.read(galleryViewModelProvider).approvedItems;
+    final items = ref.read(galleryViewModelProvider).items;
     final initial = items.indexWhere((item) => item.id == widget.initialPostId);
     _index = initial < 0 ? 0 : initial;
     _controller = PageController(initialPage: _index);
@@ -31,7 +31,7 @@ class _GalleryPostViewerState extends ConsumerState<GalleryPostViewer> {
   }
 
   void _loadMoreIfNeeded() {
-    final items = ref.read(galleryViewModelProvider).approvedItems;
+    final items = ref.read(galleryViewModelProvider).items;
     if (_index >= items.length - 3) {
       ref.read(galleryViewModelProvider.notifier).loadMore();
     }
@@ -46,7 +46,7 @@ class _GalleryPostViewerState extends ConsumerState<GalleryPostViewer> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(galleryViewModelProvider);
-    final items = state.approvedItems;
+    final items = state.items;
     return Scaffold(
       appBar: AppBar(title: const Text('My posts')),
       body: items.isEmpty
@@ -64,7 +64,7 @@ class _GalleryPostViewerState extends ConsumerState<GalleryPostViewer> {
                     },
                     itemBuilder: (_, index) => GalleryPostPage(
                       key: ValueKey(items[index].id),
-                      postId: items[index].id,
+                      item: items[index],
                     ),
                   ),
                 ),

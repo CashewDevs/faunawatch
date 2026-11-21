@@ -7,7 +7,6 @@ import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_load_more.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_notice.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_skeleton.dart';
-import 'package:faunawatch/features/report_detail/views/screens/report_detail_screen.dart';
 
 /// The profile's own-post gallery, sharing one scroll view with its header.
 class GalleryView extends ConsumerWidget {
@@ -110,14 +109,11 @@ class GalleryView extends ConsumerWidget {
     );
   }
 
-  /// Pending posts are not in the public feed the post viewer loads from, so
-  /// they open the report detail, which shows their status.
+  /// Approved and pending posts both open the swiping post viewer.
   void _open(BuildContext context, GalleryItem item) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => item.isPending
-            ? ReportDetailScreen(reportId: item.id)
-            : GalleryPostViewer(initialPostId: item.id),
+        builder: (_) => GalleryPostViewer(initialPostId: item.id),
       ),
     );
   }

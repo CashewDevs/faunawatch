@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
+import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/gallery/models/gallery_item.dart';
 import 'package:faunawatch/features/gallery/models/gallery_post.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
@@ -7,16 +8,23 @@ import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 export 'package:faunawatch/features/gallery/models/gallery_item.dart';
 
 /// Loads the current user's approved and pending posts independently of the
-/// feed. Filters are applied by the server, so changing one reloads the grid.
+/// feed. Filters are applied by the server.
+///
+/// Each filter remembers its loaded posts for the session: the first visit
+/// shows the skeleton, and returning to a filter shows its posts at once while
+/// its newest page is checked again in the background and merged in.
 class GalleryViewModel extends Notifier<GalleryState> {
   late GalleryService _service;
   List<GalleryPost> _posts = [];
   int _generation = 0;
+  final _cache = <GalleryFilter, ({List<GalleryPost> posts, bool hasMore})>{};
 
   @override
   GalleryState build() {
     _service = ref.watch(galleryServiceProvider);
     _posts = [];
+    // Never show one account's posts to another.
+    _cache.clear();
     final generation = ++_generation;
     ref.onDispose(() => _generation++);
     Future.microtask(() => _loadFirstPage(generation));
@@ -128,9 +136,56 @@ class GalleryViewModel extends Notifier<GalleryState> {
 
   void _applyFilter(GalleryFilter filter) {
     if (filter == state.filter) return;
-    _posts = [];
-    state = GalleryState(filter: filter, isLoading: true);
-    _loadFirstPage(++_generation);
+    if (!state.isLoading && !state.hasError) {
+      _cache[state.filter] = (posts: _posts, hasMore: state.hasMore);
+    }
+    final generation = ++_generation;
+    final cached = _cache[filter];
+    if (cached == null) {
+      _posts = [];
+      state = GalleryState(filter: filter, isLoading: true);
+      _loadFirstPage(generation);
+      return;
+    }
+    _posts = cached.posts;
+    state = GalleryState(
+      filter: filter,
+      items: _items(_posts),
+      hasMore: cached.hasMore,
+    );
+    _checkForChanges(generation);
+  }
+
+  /// Fetches the newest page again and merges it into the remembered posts:
+  /// new posts appear, and posts approved, declined or deleted meanwhile leave
+  /// it. Older pages already loaded are kept. A failure keeps what is shown.
+  Future<void> _checkForChanges(int generation) async {
+    try {
+      final fresh = await _service.fetchPage(filter: state.filter);
+      if (generation != _generation) return;
+      final isFullPage = fresh.length >= GalleryService.pageSize;
+      final freshIds = {for (final entry in fresh) entry.post.id};
+      final older = [
+        if (isFullPage)
+          for (final entry in _posts)
+            if (!freshIds.contains(entry.post.id) &&
+                _isOlder(entry.post, fresh.last.post))
+              entry,
+      ];
+      _posts = [...fresh, ...older];
+      state = state.copyWith(
+        items: _items(_posts),
+        hasMore: !isFullPage ? false : (older.isEmpty || state.hasMore),
+      );
+    } catch (_) {
+      // The remembered posts stay; pull to refresh can try again.
+    }
+  }
+
+  /// Newest-first order of the gallery query: submission time, then id.
+  static bool _isOlder(FeedPost post, FeedPost than) {
+    final byTime = post.createdAt.compareTo(than.createdAt);
+    return byTime < 0 || (byTime == 0 && post.id.compareTo(than.id) < 0);
   }
 }
 
