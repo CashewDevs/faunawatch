@@ -1,6 +1,7 @@
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
+import 'package:faunawatch/features/create_post/views/create_post_view.dart';
 import 'package:faunawatch/features/fauna_lens/viewmodels/fauna_lens_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_boxes_screen.dart';
@@ -105,19 +106,34 @@ class _FaunaLensViewState extends ConsumerState<FaunaLensView>
     _startPost(photo);
   }
 
-  /// Hands [photo] (and any AI suggestion) to Create Post and closes FaunaLens.
-  void _startPost(
+  /// Hands [photo] (and any AI suggestion) to Create Post, opened on top of
+  /// "Use this photo?" so back returns here.
+  Future<void> _startPost(
     FaunaLensPhoto photo, {
     AiIdentification? aiResult,
     String? species,
-  }) {
+  }) async {
     final createPost = ref.read(createPostViewModelProvider.notifier)
       ..usePhoto(photo, aiResult: aiResult);
     if (species != null) createPost.edit(species: species);
-    ref
-        .read(shellViewModelProvider.notifier)
-        .selectDestination(ShellDestination.addPost);
-    Navigator.of(context).pop();
+    final exit = await Navigator.of(context).push<CreatePostExit>(
+      MaterialPageRoute(builder: (_) => const CreatePostView()),
+    );
+    if (!mounted) return;
+    switch (exit) {
+      case CreatePostExit.changePhoto:
+        // The live camera, where the gallery is too. What the user typed
+        // stays for the next photo.
+        await _viewModel.discardPhoto();
+      case CreatePostExit.done:
+        createPost.reset();
+        ref
+            .read(shellViewModelProvider.notifier)
+            .selectDestination(ShellDestination.feed);
+        Navigator.of(context).pop();
+      case null:
+        break;
+    }
   }
 
   @override

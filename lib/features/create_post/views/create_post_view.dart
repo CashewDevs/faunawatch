@@ -1,14 +1,29 @@
+import 'package:faunawatch/core/widgets/labeled_input_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:faunawatch/core/widgets/local_image.dart';
-import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/create_post_state.dart';
 import '../models/post_draft.dart';
 import '../models/post_location.dart';
 import '../viewmodels/create_post_viewmodel.dart';
 import 'screens/location_picker_screen.dart';
+import 'widgets/animated_check.dart';
 import 'widgets/attached_ai_analysis_card.dart';
+import 'widgets/location_preview_card.dart';
+import 'widgets/post_photo_section.dart';
 
+/// How the user left Create Post, for FaunaLens to act on. Plain back
+/// returns null and goes back to "Use this photo?".
+enum CreatePostExit {
+  /// Back to the live camera for another photo.
+  changePhoto,
+
+  /// The post was submitted and the user tapped Done: go home.
+  done,
+}
+
+/// Create Post, opened by FaunaLens on top of "Use this photo?" once there is
+/// a photo. Pops with a [CreatePostExit].
 class CreatePostView extends ConsumerStatefulWidget {
   const CreatePostView({super.key});
   @override
@@ -55,250 +70,336 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
     }
   }
 
+  void _exit(CreatePostExit exit) => Navigator.of(context).pop(exit);
+
+  void _showTips() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => const _PostingTips(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(createPostViewModelProvider);
     final vm = ref.read(createPostViewModelProvider.notifier);
     ref.listen(createPostViewModelProvider, (_, next) => _sync(next));
     _sync(state);
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create post')),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            MediaQuery.paddingOf(context).bottom + 28,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: state.submittedId != null
-                  ? Column(
-                      children: [
-                        const Icon(Icons.check_circle_outline, size: 64),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Post submitted',
-                          style: theme.textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Your report is pending review. Once approved, it can appear on the community map with an approximate location.',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        FilledButton(
-                          onPressed: vm.reset,
-                          child: const Text('Create another post'),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Share a wildlife observation',
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Add what you saw and where it happened. Stay at a safe distance from wildlife.',
-                        ),
-                        const SizedBox(height: 20),
-                        if (state.photoPath != null) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: SizedBox(
-                              height: 220,
-                              child: LocalImage(
-                                state.photoPath!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const Center(
-                                  child: Text('Photo preview unavailable'),
-                                ),
-                              ),
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: state.isBusy ? null : vm.removePhoto,
-                            icon: const Icon(Icons.close),
-                            label: const Text('Remove photo'),
-                          ),
-                        ],
-                        if (state.aiResult != null)
-                          AttachedAiAnalysisCard(
-                            result: state.aiResult!,
-                            onDetach: state.isBusy ? null : vm.removeAiResult,
-                          ),
-                        Wrap(
-                          spacing: 12,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: state.isBusy ? null : vm.pickPhoto,
-                              icon: const Icon(Icons.photo_library_outlined),
-                              label: Text(
-                                state.photoPath == null
-                                    ? 'Add photo'
-                                    : 'Change photo',
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: state.isBusy
-                                  ? null
-                                  : () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) => const FaunaLensView(),
-                                        ),
-                                      );
-                                    },
-                              icon: const Icon(Icons.camera_alt_outlined),
-                              label: const Text('Take photo'),
-                            ),
-                          ],
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8),
-                          child: Text('A photo is required. 5 MB maximum.'),
-                        ),
-                        const SizedBox(height: 20),
-                        DropdownButtonFormField<ReportCategory>(
-                          key: ValueKey(state.category),
-                          initialValue: state.category,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: 'Category *',
-                            helperText: state.aiResult == null
-                                ? null
-                                : 'Set by FaunaLens AI. Tap "Don\'t attach analysis" to choose it yourself.',
-                            helperMaxLines: 3,
-                            border: const OutlineInputBorder(),
-                          ),
-                          items: [
-                            for (final category in ReportCategory.values)
-                              DropdownMenuItem(
-                                value: category,
-                                child: Text(
-                                  category.label,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                          onChanged: state.isBusy || state.aiResult != null
-                              ? null
-                              : (value) => vm.edit(category: value),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _description,
-                          enabled: !state.isBusy,
-                          minLines: 3,
-                          maxLines: 6,
-                          decoration: const InputDecoration(
-                            labelText: 'What did you observe?',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) => vm.edit(description: value),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _species,
-                          enabled: !state.isBusy,
-                          decoration: const InputDecoration(
-                            labelText: 'Species (optional)',
-                            helperText: 'Your identification, if known',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) => vm.edit(species: value),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Observation location *',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Search for a place or drop a pin where you saw the animal.',
-                        ),
-                        const SizedBox(height: 12),
-                        Card(
-                          margin: EdgeInsets.zero,
-                          child: ListTile(
-                            leading: Icon(
-                              state.hasLocation
-                                  ? Icons.location_on
-                                  : Icons.add_location_alt_outlined,
-                            ),
-                            title: Text(
-                              state.hasLocation
-                                  ? state.locationLabel
-                                  : 'Choose observation location',
-                            ),
-                            subtitle: Text(
-                              state.hasLocation
-                                  ? 'Location set · Tap to adjust the pin'
-                                  : 'Required to show your report on the map',
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            enabled: !state.isBusy,
-                            onTap: state.isBusy ? null : _pickLocation,
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: state.isBusy ? null : vm.locate,
-                            icon: const Icon(Icons.my_location),
-                            label: const Text('Use current location'),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        TextField(
-                          controller: _notes,
-                          enabled: !state.isBusy,
-                          minLines: 2,
-                          maxLines: 4,
-                          decoration: const InputDecoration(
-                            labelText: 'Additional notes (optional)',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) => vm.edit(notes: value),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          state.aiResult == null
-                              ? 'Posts are reviewed before appearing on the community map. Shared coordinates are approximate. No AI analysis attached.'
-                              : 'Posts are reviewed before appearing on the community map. Shared coordinates are approximate.',
-                        ),
-                        if (state.error != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Semantics(
-                              liveRegion: true,
-                              child: Text(
-                                state.error!,
-                                style: TextStyle(
-                                  color: theme.colorScheme.error,
-                                ),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 20),
-                        if (state.isBusy) const LinearProgressIndicator(),
-                        FilledButton.icon(
-                          onPressed: state.canSubmit ? vm.submit : null,
-                          icon: const Icon(Icons.send_outlined),
-                          label: Text(
-                            state.isBusy ? 'Please wait…' : 'Submit post',
-                          ),
-                        ),
-                      ],
-                    ),
+    final submitted = state.submittedId != null;
+
+    return PopScope(
+      // A submission in progress can't be left; after submitting, back does
+      // the same as Done.
+      canPop: !state.isBusy && !submitted,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && submitted) _exit(CreatePostExit.done);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: false,
+          automaticallyImplyLeading: !submitted,
+          titleSpacing: submitted ? null : 0,
+          title: Text(
+            submitted ? 'Post submitted for review' : 'Create post',
+            style: GoogleFonts.dmSans(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
             ),
+          ),
+          actions: [
+            if (!submitted)
+              IconButton(
+                tooltip: 'Posting tips',
+                onPressed: _showTips,
+                icon: const Icon(Icons.info_outline_rounded),
+              ),
+          ],
+        ),
+        body: SafeArea(
+          top: false,
+          child: submitted
+              ? _Submitted(onDone: () => _exit(CreatePostExit.done))
+              : _form(context, state, vm),
+        ),
+      ),
+    );
+  }
+
+  Widget _form(
+    BuildContext context,
+    CreatePostState state,
+    CreatePostViewModel vm,
+  ) {
+    final theme = Theme.of(context);
+    final busy = state.isBusy;
+    final isDark = theme.brightness == Brightness.dark;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        MediaQuery.paddingOf(context).bottom + 28,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PostPhotoSection(
+                photoPath: state.photoPath,
+                onRemove: busy ? null : vm.removePhoto,
+                onChangePhoto: busy
+                    ? null
+                    : () => _exit(CreatePostExit.changePhoto),
+              ),
+              if (state.aiResult != null) ...[
+                const SizedBox(height: 16),
+                AttachedAiAnalysisCard(
+                  result: state.aiResult!,
+                  onDetach: busy ? null : vm.removeAiResult,
+                ),
+              ],
+              const SizedBox(height: 24),
+              LabeledDropdownField<ReportCategory>(
+                label: 'Category *',
+                icon: Icons.category_outlined,
+                value: state.category,
+                hintText: 'Choose a category',
+                helperText: state.aiResult == null
+                    ? null
+                    : 'Set by FaunaLens AI. Tap "Don\'t attach analysis" to choose it yourself.',
+                items: [
+                  for (final category in ReportCategory.values)
+                    (category, category.label),
+                ],
+                onChanged: busy || state.aiResult != null
+                    ? null
+                    : (value) => vm.edit(category: value),
+              ),
+              const SizedBox(height: 18),
+              LabeledTextField(
+                label: 'What did you observe?',
+                icon: Icons.notes_rounded,
+                controller: _description,
+                enabled: !busy,
+                minLines: 3,
+                maxLines: 6,
+                hintText: 'What was the animal doing? Did it look hurt?',
+                onChanged: (value) => vm.edit(description: value),
+              ),
+              const SizedBox(height: 18),
+              LabeledTextField(
+                label: 'Species (optional)',
+                icon: Icons.pets_outlined,
+                controller: _species,
+                enabled: !busy,
+                hintText: 'Your identification, if known',
+                onChanged: (value) => vm.edit(species: value),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Observation location *',
+                style: GoogleFonts.dmSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              LocationPreviewCard(
+                hasLocation: state.hasLocation,
+                label: state.locationLabel,
+                previewUrl: (width, height) => vm.locationPreviewUrl(
+                  width: width,
+                  height: height,
+                  isDarkMode: isDark,
+                ),
+                onOpenMap: busy ? null : _pickLocation,
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: busy ? null : vm.locate,
+                  icon: const Icon(Icons.my_location),
+                  label: const Text('Use current location'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              LabeledTextField(
+                label: 'Additional notes (optional)',
+                icon: Icons.edit_note_rounded,
+                controller: _notes,
+                enabled: !busy,
+                minLines: 2,
+                maxLines: 4,
+                onChanged: (value) => vm.edit(notes: value),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                state.aiResult == null
+                    ? 'Posts are reviewed before appearing on the community map. Shared coordinates are approximate. No AI analysis attached.'
+                    : 'Posts are reviewed before appearing on the community map. Shared coordinates are approximate.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (state.error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      state.error!,
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 20),
+              if (busy) ...[
+                const LinearProgressIndicator(),
+                const SizedBox(height: 8),
+              ],
+              SizedBox(
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: state.canSubmit ? vm.submit : null,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    textStyle: GoogleFonts.dmSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  icon: const Icon(Icons.send_outlined),
+                  label: Text(busy ? 'Please wait…' : 'Submit post'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What to add, and the safety reminder, behind the (i) button.
+class _PostingTips extends StatelessWidget {
+  const _PostingTips();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Widget tip(IconData icon, String text) => Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 22, color: theme.colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: theme.textTheme.bodyMedium)),
+        ],
+      ),
+    );
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Share a wildlife observation',
+              style: GoogleFonts.dmSans(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 16),
+            tip(
+              Icons.photo_camera_outlined,
+              'Add a clear photo of the animal.',
+            ),
+            tip(
+              Icons.notes_rounded,
+              'Add what you saw: the category, what happened and, if you '
+              'know it, the species.',
+            ),
+            tip(
+              Icons.location_on_outlined,
+              'Mark where it happened on the map. Shared locations are '
+              'approximate.',
+            ),
+            tip(
+              Icons.health_and_safety_outlined,
+              'Stay at a safe distance from wildlife. Never approach, touch '
+              'or feed the animal.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The animated check and Done, after submitting.
+class _Submitted extends StatelessWidget {
+  const _Submitted({required this.onDone});
+
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedCheck(color: theme.colorScheme.primary),
+              const SizedBox(height: 24),
+              Text(
+                'Thanks for your report!',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.dmSans(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Your report is pending review. Once approved, it can appear on the community map with an approximate location.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: onDone,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    textStyle: GoogleFonts.dmSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('Done'),
+                ),
+              ),
+            ],
           ),
         ),
       ),

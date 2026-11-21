@@ -1,3 +1,4 @@
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/ai_result_cards.dart';
@@ -84,22 +85,25 @@ class AiFailureCard extends StatelessWidget {
                     : failure == IdentificationFailure.notAnimal
                     ? Icons.pets_rounded
                     : Icons.error_outline_rounded,
-                color: AppColors.faunaLensBlue,
+                color: FaunaLensTheme.of(context).accent,
                 size: 20,
               ),
               const SizedBox(width: 8),
-              Expanded(child: Text(title, style: aiResultTitleStyle())),
+              Expanded(child: Text(title, style: aiResultTitleStyle(context))),
             ],
           ),
           const SizedBox(height: 6),
-          Text(message, style: aiResultBodyStyle()),
+          Text(message, style: aiResultBodyStyle(context)),
           if (opensKeys || canRetry) ...[
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerLeft,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.faunaLensBlue,
+                  backgroundColor: FaunaLensTheme.of(context).accent,
+                  foregroundColor: FaunaLensTheme.of(context).isDark
+                      ? AppColors.darkSurface
+                      : Colors.white,
                 ),
                 onPressed: opensKeys ? onOpenKeySettings : onRetry,
                 child: Text(

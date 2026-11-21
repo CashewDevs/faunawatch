@@ -1,4 +1,4 @@
-import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/core/widgets/local_image.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:flutter/material.dart';
@@ -153,7 +153,7 @@ class _BoxedPhotoState extends State<BoxedPhoto> {
                   fit: BoxFit.fill,
                   semanticLabel: widget.semanticLabel,
                   errorBuilder: (context, error, stackTrace) =>
-                      const ColoredBox(color: AppColors.aiResultSkeleton),
+                      ColoredBox(color: FaunaLensTheme.of(context).skeleton),
                 ),
                 CustomPaint(
                   painter: _BoxPainter(

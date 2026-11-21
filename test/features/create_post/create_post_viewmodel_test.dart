@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
+import 'package:faunawatch/features/create_post/models/post_location.dart';
 import 'package:faunawatch/features/create_post/services/create_post_service.dart';
+import 'package:faunawatch/features/create_post/services/location_preview_service.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
@@ -90,8 +92,7 @@ void main() {
         contains('Add a photo'),
       );
       expect(service.drafts, isEmpty);
-      picker.path = 'bird.jpg';
-      await vm.pickPhoto();
+      vm.usePhoto(_galleryPhoto);
       expect(await vm.submit(), isTrue);
       expect(service.drafts.single.latitude, 0);
     },
@@ -168,15 +169,29 @@ void main() {
       locations.location = const GeoCoordinates(latitude: 11, longitude: 125);
       await vm.locate();
       expect(container.read(createPostViewModelProvider).latitude, '11.0');
+      // A location the user chose stays for a photo without one.
       vm.usePhoto(
         const FaunaLensPhoto(
           path: 'other.jpg',
           source: FaunaLensPhotoSource.gallery,
         ),
       );
-      expect(container.read(createPostViewModelProvider).hasLocation, isFalse);
+      expect(container.read(createPostViewModelProvider).latitude, '11.0');
     },
   );
+
+  test('a location from an earlier photo is not given to a new one', () {
+    final vm = container.read(createPostViewModelProvider.notifier);
+    vm.usePhoto(
+      const FaunaLensPhoto(
+        path: 'bird.jpg',
+        source: FaunaLensPhotoSource.camera,
+        coordinates: GeoCoordinates(latitude: 10.3, longitude: 123.9),
+      ),
+    );
+    vm.usePhoto(_galleryPhoto);
+    expect(container.read(createPostViewModelProvider).hasLocation, isFalse);
+  });
 
   group('FaunaLens analysis', () {
     const photo = FaunaLensPhoto(
@@ -203,24 +218,6 @@ void main() {
       expect(container.read(createPostViewModelProvider).aiResult, isNull);
     });
 
-    test('is dropped when another photo is picked', () async {
-      final vm = container.read(createPostViewModelProvider.notifier);
-      vm.usePhoto(photo, aiResult: sampleIdentification());
-      picker.path = 'other.jpg';
-      await vm.pickPhoto();
-      final state = container.read(createPostViewModelProvider);
-      expect(state.photoPath, 'other.jpg');
-      expect(state.aiResult, isNull);
-    });
-
-    test('is kept when a picker is cancelled', () async {
-      final vm = container.read(createPostViewModelProvider.notifier);
-      final result = sampleIdentification();
-      vm.usePhoto(photo, aiResult: result);
-      await vm.pickPhoto();
-      expect(container.read(createPostViewModelProvider).aiResult, result);
-    });
-
     test('is dropped when FaunaLens hands over a photo without one', () {
       final vm = container.read(createPostViewModelProvider.notifier);
       vm.usePhoto(photo, aiResult: sampleIdentification());
@@ -240,15 +237,6 @@ void main() {
       final state = container.read(createPostViewModelProvider);
       expect(state.photoPath, 'other.jpg');
       expect(state.aiResult, isNull);
-    });
-
-    test('is dropped when a picked photo has GPS too', () async {
-      final vm = container.read(createPostViewModelProvider.notifier);
-      vm.usePhoto(photo, aiResult: sampleIdentification());
-      picker.path = 'other.jpg';
-      locations.location = const GeoCoordinates(latitude: 1, longitude: 2);
-      await vm.pickPhoto();
-      expect(container.read(createPostViewModelProvider).aiResult, isNull);
     });
 
     test('is dropped by reset', () {
@@ -365,8 +353,7 @@ void main() {
       () async {
         final vm = container.read(createPostViewModelProvider.notifier);
         vm.usePhoto(photo, aiResult: sampleIdentification());
-        picker.path = 'other.jpg';
-        await vm.pickPhoto();
+        vm.usePhoto(_galleryPhoto);
         vm.edit(category: ReportCategory.animalInNeed);
         expect(
           container.read(createPostViewModelProvider).category,
@@ -388,23 +375,91 @@ void main() {
     });
   });
 
-  test(
-    'picker cancellation preserves draft and gallery GPS prefills coordinates',
-    () async {
+  group('a new photo from FaunaLens', () {
+    test('keeps what the user typed', () {
       final vm = container.read(createPostViewModelProvider.notifier);
-      vm.edit(description: 'Bird');
-      await vm.pickPhoto();
-      expect(container.read(createPostViewModelProvider).description, 'Bird');
-      picker.path = 'selected.jpg';
-      locations.location = const GeoCoordinates(latitude: 1, longitude: 2);
-      await vm.pickPhoto();
-      expect(
-        container.read(createPostViewModelProvider).photoPath,
-        'selected.jpg',
+      vm.edit(description: 'Bird', species: 'Heron', notes: 'Near the pond');
+      vm.usePhoto(_galleryPhoto);
+      final state = container.read(createPostViewModelProvider);
+      expect(state.photoPath, 'bird.jpg');
+      expect(state.description, 'Bird');
+      expect(state.species, 'Heron');
+      expect(state.notes, 'Near the pond');
+    });
+
+    test('with GPS replaces the location', () {
+      final vm = container.read(createPostViewModelProvider.notifier)
+        ..setLocation(
+          const PostLocation(latitude: 1, longitude: 2, label: 'Cebu City'),
+        );
+      vm.usePhoto(
+        const FaunaLensPhoto(
+          path: 'gps.jpg',
+          source: FaunaLensPhotoSource.camera,
+          coordinates: GeoCoordinates(latitude: 10.3, longitude: 123.9),
+        ),
       );
-      expect(container.read(createPostViewModelProvider).hasLocation, isTrue);
-    },
-  );
+      final state = container.read(createPostViewModelProvider);
+      expect(state.location!.latitude, 10.3);
+      expect(state.locationLabel, 'Photo location');
+    });
+
+    test('without GPS keeps the location the user chose', () {
+      final vm = container.read(createPostViewModelProvider.notifier)
+        ..setLocation(
+          const PostLocation(latitude: 1, longitude: 2, label: 'Cebu City'),
+        );
+      vm.usePhoto(_galleryPhoto);
+      final state = container.read(createPostViewModelProvider);
+      expect(state.location!.latitude, 1);
+      expect(state.locationLabel, 'Cebu City');
+    });
+  });
+
+  group('location preview', () {
+    late ProviderContainer previews;
+
+    setUp(() {
+      previews = ProviderContainer(
+        overrides: [
+          currentUserIdProvider.overrideWith((ref) => const Stream.empty()),
+          createPostServiceProvider.overrideWithValue(service),
+          photoLocationServiceProvider.overrideWithValue(locations),
+          locationPreviewServiceProvider.overrideWithValue(
+            const LocationPreviewService(token: 'pk.test'),
+          ),
+        ],
+      );
+      addTearDown(previews.dispose);
+    });
+
+    test('shows the region until a location is chosen, then its pin', () {
+      final vm = previews.read(createPostViewModelProvider.notifier);
+      final region = vm.locationPreviewUrl(
+        width: 300,
+        height: 180,
+        isDarkMode: false,
+      )!;
+      expect(region.path, isNot(contains('pin-')));
+
+      vm.setLocation(const PostLocation(latitude: 10.3, longitude: 123.9));
+      final pinned = vm.locationPreviewUrl(
+        width: 300,
+        height: 180,
+        isDarkMode: true,
+      )!;
+      expect(pinned.path, contains('/dark-v11/'));
+      expect(pinned.path, contains('pin-l+1a5dc9(123.90000,10.30000)'));
+    });
+
+    test('is not available without a Mapbox token', () {
+      final vm = container.read(createPostViewModelProvider.notifier);
+      expect(
+        vm.locationPreviewUrl(width: 300, height: 180, isDarkMode: false),
+        isNull,
+      );
+    });
+  });
 
   test(
     'schema mapping trims optional fields and uses pending moderation without AI',
