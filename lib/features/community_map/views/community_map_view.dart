@@ -3,6 +3,7 @@ import 'package:faunawatch/features/fauna_guard/viewmodels/fauna_guard_viewmodel
 import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_intro_dialog.dart';
 import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_status.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
+import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -239,6 +240,18 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   ),
                 ),
               ),
+              if (state.privateFocus != null)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  // Above the shell's floating nav bar.
+                  bottom: MediaQuery.paddingOf(context).bottom + 12,
+                  child: _PrivateFocusBanner(
+                    onClose: ref
+                        .read(communityMapViewModelProvider.notifier)
+                        .dismissPrivateFocus,
+                  ),
+                ),
               if (guard.isEnabled || guard.message != null)
                 Positioned(
                   top: 72,
@@ -264,6 +277,62 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Explains the orange marker of the owner's pending or declined post.
+class _PrivateFocusBanner extends StatelessWidget {
+  const _PrivateFocusBanner({required this.onClose});
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface.withValues(alpha: 0.96),
+      elevation: 4,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
+        child: Row(
+          children: [
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF57C00),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${MapFocus.privateLabel}. ',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(
+                      text:
+                          "Your post's approximate spot. It isn't on the "
+                          'public map.',
+                    ),
+                  ],
+                ),
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Hide marker',
+              onPressed: onClose,
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
       ),
     );
   }

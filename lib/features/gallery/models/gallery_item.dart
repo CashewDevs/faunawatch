@@ -5,8 +5,8 @@ export 'package:faunawatch/features/gallery/models/gallery_filter.dart';
 export 'package:faunawatch/features/report_detail/models/own_report.dart'
     show ReportStatus;
 
-/// Presentation data for one of the signed-in user's approved or pending
-/// reports.
+/// Presentation data for one of the signed-in user's approved, pending or
+/// declined reports.
 class GalleryItem {
   const GalleryItem({
     required this.id,
@@ -27,10 +27,11 @@ class GalleryItem {
   /// First available signed report photo, refreshed with the gallery page.
   final String? imageUrl;
 
-  /// Approved or pending; pending tiles carry a "Pending review" badge.
+  /// Approved, pending or declined; pending and declined tiles carry a badge.
   final ReportStatus status;
 
   bool get isPending => status == ReportStatus.pending;
+  bool get isDeclined => status == ReportStatus.declined;
 
   GalleryItem copyWith({
     String? id,
@@ -99,7 +100,7 @@ class GalleryState {
     return switch (filter.status) {
       GalleryStatusFilter.all => (
         title: 'No posts yet.',
-        hint: 'Your approved and pending posts will appear here.',
+        hint: 'Your posts will appear here.',
       ),
       GalleryStatusFilter.pending => (
         title: 'Nothing waiting for review.',
@@ -108,6 +109,10 @@ class GalleryState {
       GalleryStatusFilter.approved => (
         title: 'No approved posts yet.',
         hint: 'Posts appear here once an admin approves them.',
+      ),
+      GalleryStatusFilter.declined => (
+        title: 'No declined posts.',
+        hint: 'Posts an admin declines or takes down appear here.',
       ),
     };
   }

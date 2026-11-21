@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/community_reports_service.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/fauna_guard/viewmodels/fauna_guard_viewmodel.dart';
 import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
@@ -19,6 +21,9 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   bool _updatingGuard = false;
   int _guardRevision = 0;
 
+  /// A focus requested before the map finished loading.
+  MapFocus? _pendingFocus;
+
   @override
   CommunityMapState build() {
     _mapboxMapService = ref.watch(mapboxMapServiceProvider);
@@ -31,6 +36,13 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       faunaGuardViewModelProvider.select((guard) => guard.isEnabled),
       (_, next) => _updateGuardRadius(),
     );
+    // Another account must never see the previous owner's marker.
+    ref.listen(currentUserIdProvider.select((user) => user.valueOrNull), (
+      previous,
+      next,
+    ) {
+      if (previous != next) dismissPrivateFocus();
+    });
     ref.onDispose(() {
       _disposed = true;
       _mapboxMapService.detach();
@@ -64,13 +76,76 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
         .selectDestination(ShellDestination.feed);
   }
 
+  /// Opens the Map tab at a post's approximate spot, e.g. after its location
+  /// was tapped. An approved post's pin sits in the middle; a post that is not
+  /// public gets a temporary marker only its owner sees. If the map has not
+  /// loaded yet, the spot is shown as soon as it has.
+  Future<void> focusOn(MapFocus focus) async {
+    ref
+        .read(shellViewModelProvider.notifier)
+        .selectDestination(ShellDestination.feed);
+    ref.read(feedTabViewModelProvider.notifier).select(FeedTab.map);
+    state = focus.isPublic
+        ? state.copyWith(clearSelectedPost: true, clearPrivateFocus: true)
+        : state.copyWith(clearSelectedPost: true, privateFocus: focus);
+    _pendingFocus = focus;
+    if (_isStyleLoaded) await _applyFocus();
+  }
+
+  /// Removes the owner-only marker.
+  Future<void> dismissPrivateFocus() async {
+    if (_disposed) return;
+    if (_pendingFocus?.isPublic == false) _pendingFocus = null;
+    if (state.privateFocus == null) return;
+    state = state.copyWith(clearPrivateFocus: true);
+    if (!_isStyleLoaded) return;
+    try {
+      await _mapboxMapService.showFocus(null);
+    } catch (_) {
+      // The marker goes with the next style load.
+    }
+  }
+
+  Future<void> _applyFocus() async {
+    final focus = _pendingFocus;
+    if (focus == null || _disposed) return;
+    _pendingFocus = null;
+    // The first report load must not move the camera away again.
+    _hasCenteredReports = true;
+    // A post approved since the last refresh has no pin yet.
+    if (focus.isPublic && !state.reports.any((r) => r.id == focus.postId)) {
+      await refreshReports();
+    }
+    if (_disposed) return;
+    try {
+      await _mapboxMapService.showFocus(focus);
+    } catch (_) {
+      // The map stays usable; tapping the location again retries.
+    }
+  }
+
   /// Applies the current appearance only after Mapbox has finished loading the
   /// Standard style and its `basemap` import.
   Future<void> onStyleLoaded() async {
     _isStyleLoaded = true;
     await _applyAppearance();
+    // A requested spot wins over fitting every report into view.
+    if (_pendingFocus != null) _hasCenteredReports = true;
     await refreshReports();
     await _updateGuardLocation();
+    if (_pendingFocus != null) {
+      await _applyFocus();
+    } else if (state.privateFocus != null) {
+      // A reloaded style lost the marker; redraw it without moving.
+      try {
+        await _mapboxMapService.showFocus(
+          state.privateFocus,
+          moveCamera: false,
+        );
+      } catch (_) {
+        // Shown again the next time the location is tapped.
+      }
+    }
   }
 
   /// Shows FaunaGuard's 1 km / 500 m rings around the map's reports only

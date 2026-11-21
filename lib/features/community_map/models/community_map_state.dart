@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'community_report.dart';
+import 'map_focus.dart';
 
 /// Presentation state for the community sightings map.
 ///
@@ -12,6 +13,7 @@ class CommunityMapState {
     this.reports = const [],
     this.reportsHaveError = false,
     this.isLoadingReports = false,
+    this.privateFocus,
   });
 
   final bool is3dEnabled;
@@ -19,6 +21,9 @@ class CommunityMapState {
   final String? selectedPostId;
   final List<CommunityReport> reports;
   final bool reportsHaveError, isLoadingReports;
+
+  /// The owner's pending or declined post shown with a temporary marker.
+  final MapFocus? privateFocus;
 
   CommunityMapState copyWith({
     bool? is3dEnabled,
@@ -28,6 +33,8 @@ class CommunityMapState {
     List<CommunityReport>? reports,
     bool? reportsHaveError,
     bool? isLoadingReports,
+    MapFocus? privateFocus,
+    bool clearPrivateFocus = false,
   }) {
     return CommunityMapState(
       is3dEnabled: is3dEnabled ?? this.is3dEnabled,
@@ -38,6 +45,9 @@ class CommunityMapState {
       selectedPostId: clearSelectedPost
           ? null
           : selectedPostId ?? this.selectedPostId,
+      privateFocus: clearPrivateFocus
+          ? null
+          : privateFocus ?? this.privateFocus,
     );
   }
 }

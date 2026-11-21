@@ -1,11 +1,15 @@
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/feed/models/post_ai_analysis.dart';
+
+export 'package:faunawatch/features/feed/models/post_ai_analysis.dart';
 
 /// An approved report as shown in the For You feed, built from one row of the
 /// `community_feed()` RPC.
 ///
 /// The row never has exact coordinates, `user_notes` or admin fields, so none
-/// exist here. Photos and the author's picture live in private Storage buckets;
+/// exist here: [approxLatitude] and [approxLongitude] are always rounded to
+/// about 1 km, the same as the community map. Photos and the author's picture live in private Storage buckets;
 /// the service fills in their signed URLs.
 class FeedPost {
   const FeedPost({
@@ -22,6 +26,9 @@ class FeedPost {
     this.aiSpeciesGuess,
     this.possibleInvasive = false,
     this.placeName,
+    this.approxLatitude,
+    this.approxLongitude,
+    this.aiAnalysis,
     this.authorAvatarPath,
     this.authorAvatarAsset,
     this.authorAvatarUrl,
@@ -65,6 +72,13 @@ class FeedPost {
   /// `reports.place_name` exactly as stored, e.g. "Lusod, Kabayan, Benguet".
   final String? placeName;
 
+  /// The report's point rounded to 2 decimals (about 1 km), or null when the
+  /// row has no location.
+  final double? approxLatitude, approxLongitude;
+
+  /// Everything the AI suggested that may be shown on the post.
+  final PostAiAnalysis? aiAnalysis;
+
   /// `profiles.avatar_path`: `preset:<name>` or a path in the avatars bucket.
   final String? authorAvatarPath;
   final String? authorAvatarAsset, authorAvatarUrl;
@@ -85,7 +99,13 @@ class FeedPost {
 
   /// Whether any AI result is shown, so the preliminary note must be too.
   bool get hasAiContent =>
-      severity != null || aiSpeciesGuess != null || possibleInvasive;
+      severity != null ||
+      aiSpeciesGuess != null ||
+      possibleInvasive ||
+      aiAnalysis != null;
+
+  /// Whether the post can be shown on the map.
+  bool get hasMapLocation => approxLatitude != null && approxLongitude != null;
 
   factory FeedPost.fromJson(Map<String, dynamic> row) {
     final category = _category(row['category']);
@@ -110,6 +130,9 @@ class FeedPost {
       aiSpeciesGuess: aiGuess,
       possibleInvasive: row['possible_invasive'] == true,
       placeName: _clean(row['place_name']),
+      approxLatitude: _approximate(row['latitude']),
+      approxLongitude: _approximate(row['longitude']),
+      aiAnalysis: PostAiAnalysis.fromRow(row),
       authorAvatarPath: _clean(row['author_avatar_path']),
       photoPaths: [
         for (final path in (row['photo_paths'] as List?) ?? const [])
@@ -144,6 +167,9 @@ class FeedPost {
       aiSpeciesGuess: aiSpeciesGuess,
       possibleInvasive: possibleInvasive,
       placeName: placeName,
+      approxLatitude: approxLatitude,
+      approxLongitude: approxLongitude,
+      aiAnalysis: aiAnalysis,
       authorAvatarPath: authorAvatarPath,
       authorAvatarAsset: authorAvatarAsset ?? this.authorAvatarAsset,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
@@ -158,6 +184,13 @@ class FeedPost {
   static String? _clean(Object? value) {
     final text = value?.toString().trim();
     return text == null || text.isEmpty ? null : text;
+  }
+
+  /// Rounds a coordinate to 2 decimals (about 1 km), so an exact point given
+  /// by the owner's own report is never kept.
+  static double? _approximate(Object? value) {
+    if (value is! num || !value.isFinite) return null;
+    return (value * 100).round() / 100;
   }
 
   static ReportCategory? _category(Object? value) {

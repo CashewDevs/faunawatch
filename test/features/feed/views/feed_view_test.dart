@@ -7,6 +7,7 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
+import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
@@ -26,6 +27,7 @@ import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart'
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
+import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -122,6 +124,55 @@ void main() {
       expect(find.text('Severity: High'), findsOneWidget);
       expect(find.text('Possible invasive species'), findsOneWidget);
       expect(find.text(FeedPost.aiNote), findsOneWidget);
+    });
+
+    testWidgets('AI analysis opens a sheet with everything public', (
+      tester,
+    ) async {
+      service.posts = [
+        testPost(
+          'p0',
+          severity: SeverityLevel.moderate,
+          aiAnalysis: const PostAiAnalysis(
+            species: [
+              PostAiSpecies(
+                commonName: 'Cane toad',
+                scientificName: 'Rhinella marina',
+                confidence: SpeciesConfidence.high,
+              ),
+            ],
+            severity: SeverityLevel.moderate,
+            possibleInvasive: true,
+            invasiveMatchName: 'Cane toad',
+            visualCondition: 'Alert.',
+            safetyRecommendations: 'Keep your distance.',
+          ),
+        ),
+      ];
+      await pumpFeed(tester);
+      expect(find.text(FeedPost.aiNote), findsOneWidget);
+      await tester.tap(find.text('AI analysis'));
+      await tester.pumpAndSettle();
+      final sheet = find.byType(PostAiAnalysisSheet);
+      expect(sheet, findsOneWidget);
+      Finder inSheet(String text) =>
+          find.descendant(of: sheet, matching: find.textContaining(text));
+      expect(inSheet('Cane toad'), findsWidgets);
+      expect(inSheet('High confidence'), findsOneWidget);
+      expect(inSheet('Moderate'), findsOneWidget);
+      expect(inSheet('Alert.'), findsOneWidget);
+      expect(inSheet('Keep your distance.'), findsOneWidget);
+      expect(inSheet('invasive species: Cane toad'), findsOneWidget);
+      // Empty sections are left out.
+      expect(inSheet('Summary'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a post without AI results has no AI analysis button', (
+      tester,
+    ) async {
+      await pumpFeed(tester);
+      expect(find.text('AI analysis'), findsNothing);
     });
 
     testWidgets('a long description is collapsed until expanded', (
@@ -693,6 +744,41 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('tapping a post location opens the map at that spot', (
+      tester,
+    ) async {
+      service.posts = [testPost('p0', latitude: 16.46, longitude: 120.99)];
+      final container = await pumpFeed(
+        tester,
+        more: [
+          mapboxMapCanvasBuilderProvider.overrideWithValue(
+            _FakeMapCanvasBuilder(),
+          ),
+          mapboxMapServiceProvider.overrideWithValue(_FakeMapService()),
+          communityReportsServiceProvider.overrideWithValue(_FakeReports([])),
+        ],
+      );
+      await tester.tap(find.text('Lusod, Kabayan, Benguet'));
+      await tester.pumpAndSettle();
+      expect(container.read(feedTabViewModelProvider), FeedTab.map);
+      expect(find.byType(CommunityMapView), findsOneWidget);
+      // An approved post is public: no owner-only marker.
+      expect(
+        container.read(communityMapViewModelProvider).privateFocus,
+        isNull,
+      );
+      expect(find.textContaining(MapFocus.privateLabel), findsNothing);
+    });
+
+    testWidgets('a post without coordinates keeps its location as text', (
+      tester,
+    ) async {
+      final container = await pumpFeed(tester);
+      await tester.tap(find.text('Lusod, Kabayan, Benguet'));
+      await tester.pumpAndSettle();
+      expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
+    });
+
     testWidgets('header shows the tabs in the feed, not the header', (
       tester,
     ) async {
@@ -757,6 +843,9 @@ class _FakeMapCanvasBuilder implements MapboxMapCanvasBuilder {
 }
 
 class _FakeMapService implements MapboxMapService {
+  @override
+  Future<void> showFocus(MapFocus? focus, {bool moveCamera = true}) async {}
+
   @override
   Future<void> showGuardLocation(GuardLocation? location) async {}
   @override

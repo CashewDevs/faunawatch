@@ -103,7 +103,8 @@ void main() {
     expect(requests, isEmpty);
   });
 
-  test('restricts queries to own approved and pending posts with stable keyset '
+  test('restricts queries to own approved, pending and declined posts with '
+      'stable keyset '
       'paging', () async {
     await signIn();
     rows = [
@@ -113,7 +114,7 @@ void main() {
     final posts = await service.fetchPage();
     final query = requests.single.url.queryParameters;
     expect(query['user_id'], 'eq.user-a');
-    expect(query['status'], 'in.("approved","pending")');
+    expect(query['status'], 'in.("approved","pending","declined")');
     expect(query.containsKey('category'), isFalse);
     expect(query['select'], startsWith('id,user_id,status,'));
     expect(query['order'], 'created_at.desc.nullslast,id.desc.nullslast');

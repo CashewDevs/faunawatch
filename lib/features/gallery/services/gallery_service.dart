@@ -4,11 +4,12 @@ import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/gallery/models/gallery_filter.dart';
 import 'package:faunawatch/features/gallery/models/gallery_post.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
+import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Loads the signed-in user's approved and pending posts, newest submission
-/// first. The [GalleryFilter] is applied by the database, so older matches are
+/// Loads the signed-in user's approved, pending and declined posts, newest
+/// submission first. The [GalleryFilter] is applied by the database, so older matches are
 /// found too.
 abstract interface class GalleryService {
   static const pageSize = 12;
@@ -25,6 +26,7 @@ class SupabaseGalleryService implements GalleryService {
   static const _statusValues = {
     ReportStatus.pending: 'pending',
     ReportStatus.approved: 'approved',
+    ReportStatus.declined: 'declined',
   };
 
   @override
@@ -38,6 +40,7 @@ class SupabaseGalleryService implements GalleryService {
     }
     var query = _client
         .from('reports')
+        // Tiles need no location or full AI text; the viewer loads those.
         .select(
           'id, user_id, status, category, user_species, created_at, '
           'place_name, '
@@ -66,22 +69,7 @@ class SupabaseGalleryService implements GalleryService {
         .limit(GalleryService.pageSize);
     return Future.wait(
       rows.map((row) async {
-        final analyses = (row['ai_analyses'] as List?) ?? const [];
-        final analysis = analyses
-            .cast<Map<String, dynamic>>()
-            .where((item) => item['status'] == 'completed')
-            .firstOrNull;
-        final photos = (row['report_images'] as List?) ?? const [];
-        final post = FeedPost.fromJson({
-          ...row,
-          'author_id': userId,
-          'author_name': FeedPost.fallbackAuthorName,
-          'possible_species': analysis?['possible_species'],
-          'photo_paths': [
-            for (final photo in photos)
-              if (photo['storage_path'] is String) photo['storage_path'],
-          ],
-        });
+        final post = ownReportPost(row, userId);
         final status = ReportStatus.fromDb(row['status'] as String?);
         // Only a thumbnail is needed. If signing fails, try the next photo.
         for (final path in post.photoPaths) {
