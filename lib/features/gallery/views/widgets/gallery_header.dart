@@ -9,12 +9,14 @@ class GalleryHeader extends StatelessWidget {
   const GalleryHeader({
     super.key,
     required this.filter,
-    required this.onStatusSelected,
+    this.onStatusSelected,
     required this.onCategorySelected,
+    this.title = 'My Gallery',
   });
 
   final GalleryFilter filter;
-  final ValueChanged<GalleryStatusFilter> onStatusSelected;
+  final ValueChanged<GalleryStatusFilter>? onStatusSelected;
+  final String title;
 
   /// Called with `null` for "All".
   final ValueChanged<ReportCategory?> onCategorySelected;
@@ -30,12 +32,16 @@ class GalleryHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                'My Gallery',
-                style: GoogleFonts.dmSans(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Theme.of(context).colorScheme.onSurface,
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -80,19 +86,21 @@ class GalleryHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final status in GalleryStatusFilter.values)
-                _StatusChip(
-                  label: status.label,
-                  selected: filter.status == status,
-                  onTap: () => onStatusSelected(status),
-                ),
-            ],
-          ),
+          if (onStatusSelected != null) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final status in GalleryStatusFilter.values)
+                  _StatusChip(
+                    label: status.label,
+                    selected: filter.status == status,
+                    onTap: () => onStatusSelected!(status),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );

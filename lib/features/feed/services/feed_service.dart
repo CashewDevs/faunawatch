@@ -57,7 +57,7 @@ class SupabaseFeedService implements FeedService {
         'p_limit': FeedService.pageSize,
       },
     );
-    return _posts(rows as List);
+    return resolvePosts(rows as List);
   }
 
   @override
@@ -67,11 +67,13 @@ class SupabaseFeedService implements FeedService {
       'community_feed',
       params: {'p_report_id': postId, 'p_limit': 1},
     );
-    final posts = await _posts(rows as List);
+    final posts = await resolvePosts(rows as List);
     return posts.firstOrNull;
   }
 
-  Future<List<FeedPost>> _posts(List rows) {
+  /// Resolves the shared public post projection for the feed and public gallery.
+  /// Private media URLs expire after an hour and are never persisted here.
+  Future<List<FeedPost>> resolvePosts(List rows) {
     final avatars = <String, Future<String?>>{};
     return Future.wait(
       rows.map((raw) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
 
 /// Author, title, and description of a post. The full description stays hidden
@@ -11,9 +12,11 @@ class PostCaption extends StatefulWidget {
     super.key,
     required this.post,
     this.now,
+    this.onAuthorTap,
     this.onLocationTap,
   });
   final FeedPost post;
+  final VoidCallback? onAuthorTap;
 
   /// Shows the post on the map; null leaves the location as plain text.
   final VoidCallback? onLocationTap;
@@ -47,13 +50,17 @@ class _PostCaptionState extends State<PostCaption> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text.rich(
-              TextSpan(
-                text: post.authorName,
-                style: textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+            ProfileLink(
+              name: post.authorName,
+              onTap: widget.onAuthorTap,
+              child: Text.rich(
+                TextSpan(
+                  text: post.authorName,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  children: [TextSpan(text: ' · $age', style: detailStyle)],
                 ),
-                children: [TextSpan(text: ' · $age', style: detailStyle)],
               ),
             ),
             const SizedBox(height: 6),

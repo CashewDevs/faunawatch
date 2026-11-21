@@ -21,6 +21,7 @@ void main() {
   final provider = galleryPostViewModelProvider((
     id: 'own',
     status: ReportStatus.approved,
+    authorId: null,
   ));
 
   Future<void> open({String? user = 'me'}) async {
@@ -86,6 +87,49 @@ void main() {
     expect(container.read(provider).post, isNull);
     expect(container.read(provider).isLoading, isFalse);
   });
+
+  test(
+    'public gallery loads only its selected author and keeps likes local',
+    () async {
+      service.posts = [testPost('own', authorId: 'other', likeCount: 4)];
+      await open();
+      final public = galleryPostViewModelProvider((
+        id: 'own',
+        status: ReportStatus.approved,
+        authorId: 'other',
+      ));
+      container.listen(public, (_, _) {});
+      await pumpEventQueue();
+      expect(container.read(public).post!.authorId, 'other');
+      await container.read(public.notifier).toggleLike();
+      expect(service.likes, ['own']);
+      expect(container.read(public).post!.likeCount, 5);
+      expect(service.pageRequests, isEmpty);
+      service.posts = [testPost('own', authorId: 'wrong')];
+      await container.read(public.notifier).retry();
+      expect(container.read(public).post, isNull);
+    },
+  );
+
+  for (final status in [ReportStatus.pending, ReportStatus.declined]) {
+    test(
+      'a public gallery reference cannot load a private ${status.name} report',
+      () async {
+        await open();
+        service.postRequests.clear();
+        final public = galleryPostViewModelProvider((
+          id: 'private',
+          status: status,
+          authorId: 'other',
+        ));
+        container.listen(public, (_, _) {});
+        await pumpEventQueue();
+        expect(container.read(public).post, isNull);
+        expect(container.read(public).hasError, isFalse);
+        expect(service.postRequests, isEmpty);
+      },
+    );
+  }
 
   test('failed load can retry without leaving Profile', () async {
     service.postError = Exception('offline');
@@ -199,6 +243,7 @@ void main() {
     final pending = galleryPostViewModelProvider((
       id: 'own',
       status: ReportStatus.pending,
+      authorId: null,
     ));
 
     Future<GalleryPostState> openPending(
@@ -271,7 +316,7 @@ void main() {
   });
 
   group('declined posts', () {
-    const declined = (id: 'own', status: ReportStatus.declined);
+    const declined = (id: 'own', status: ReportStatus.declined, authorId: null);
     late _FakeReports reports;
 
     Future<void> openDeclined() async {

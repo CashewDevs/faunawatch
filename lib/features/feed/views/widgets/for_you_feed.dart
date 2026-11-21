@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 /// The For You tab: approved reports, one full-screen post at a time. Swipe up
 /// for older posts (more load as the last ones come near) and pull down to
@@ -81,6 +83,7 @@ class _ForYouFeedState extends ConsumerState<ForYouFeed> {
     );
     final state = ref.watch(feedViewModelProvider);
     final viewModel = ref.read(feedViewModelProvider.notifier);
+    final currentUserId = ref.watch(currentUserIdProvider).valueOrNull;
     final posts = state.visiblePosts;
 
     if (posts.isEmpty) {
@@ -127,6 +130,11 @@ class _ForYouFeedState extends ConsumerState<ForYouFeed> {
                 key: ValueKey(post.id),
                 post: post,
                 backgroundColor: widget.backgroundColor,
+                onAuthorTap: post.authorId == currentUserId
+                    ? () => ref
+                          .read(shellViewModelProvider.notifier)
+                          .selectDestination(ShellDestination.profile)
+                    : null,
                 onLocation: focus == null
                     ? null
                     : () => ref

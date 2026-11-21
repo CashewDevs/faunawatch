@@ -6,6 +6,7 @@ import 'package:faunawatch/features/messages/viewmodels/chat_conversation_viewmo
 import 'package:faunawatch/features/messages/views/widgets/chat_bubble.dart';
 import 'package:faunawatch/features/messages/views/widgets/chat_header.dart';
 import 'package:faunawatch/features/messages/views/widgets/chat_input_bar.dart';
+import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
 
 class ChatConversationView extends ConsumerStatefulWidget {
   const ChatConversationView({super.key, required this.thread});
@@ -18,6 +19,18 @@ class ChatConversationView extends ConsumerStatefulWidget {
 class _ChatConversationViewState extends ConsumerState<ChatConversationView> {
   late final AppLifecycleListener _lifecycle;
   bool _resumed = true;
+
+  Future<void> _openProfile() async {
+    final userId = widget.thread.otherUserId;
+    if (userId == null || userId.isEmpty) return;
+    final vm = ref.read(
+      chatConversationViewModelProvider(widget.thread.id).notifier,
+    );
+    vm.setActive(false);
+    await openPublicProfile(context, userId);
+    if (mounted) vm.setActive(_resumed);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +66,9 @@ class _ChatConversationViewState extends ConsumerState<ChatConversationView> {
             avatarAsset: thread.avatarAsset,
             avatarUrl: thread.avatarUrl,
             onBack: () => Navigator.of(context).pop(),
+            onProfileTap: thread.otherUserId?.isNotEmpty == true
+                ? _openProfile
+                : null,
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,

@@ -139,6 +139,35 @@ No hosted configuration is changed by this repository update.
 Reference: [Supabase OAuth for Flutter](https://supabase.com/docs/reference/dart/auth-signinwithoauth)
 and [mobile deep linking](https://supabase.com/docs/guides/auth/native-mobile-deep-linking).
 
+## Community profiles and public galleries
+
+Tap an author's name or avatar in For You, a name/avatar in the chat list, or
+the conversation header to open that account's public profile. Tapping your own
+name or avatar in For You switches to your existing Profile tab. Public profiles
+use the existing banner, avatar, DM Sans typography and themed three-column gallery.
+Only approved posts appear; the owner's pending posts and preferences stay
+in their own Profile tab. Category filters, pull to refresh and older-page
+loading work independently of My Gallery. Tap a tile to browse that account's
+posts with likes/comments; Back restores the grid, feed or chat, including an
+unsent chat draft. Tapping the message preview still opens the chat.
+
+Before using the public gallery, you or the backend owner must run
+[`20261121233000_create_public_profile_gallery.sql`](supabase/migrations/20261121233000_create_public_profile_gallery.sql)
+in the Supabase SQL editor, after `20261112100000_create_community_feed.sql`
+and its prerequisites. This adds an approved-only author-filtered query and
+index, without changing notification SQL or table access policies. It selects
+the gallery's public fields explicitly so later feed columns do not break its
+return type. If you applied an earlier copy using `select f.*`, rerun the corrected
+script when updating the feed. The app does not apply this script automatically.
+
+The migration has an isolated PostgreSQL regression test, with no hosted
+connection or app dependency:
+
+```powershell
+npm install --prefix .dart_tool/public-profile-sql --no-save --no-package-lock --ignore-scripts @electric-sql/pglite
+node test/features/public_profile/public_gallery_security_test.cjs
+```
+
 ## Community map and FaunaGuard
 
 The map shows approved reports at the approximate coordinates returned by

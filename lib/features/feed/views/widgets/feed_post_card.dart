@@ -3,6 +3,7 @@ import 'package:faunawatch/features/feed/views/widgets/post_action_rail.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_caption.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_image_carousel.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
 
 /// A full-bleed post: edge-to-edge photos, a caption below them, and an action
 /// rail floating over the right edge.
@@ -13,11 +14,12 @@ class FeedPostCard extends StatelessWidget {
     required this.backgroundColor,
     this.onLike,
     this.onComments,
+    this.onAuthorTap,
     this.onLocation,
   });
   final FeedPost post;
   final Color backgroundColor;
-  final VoidCallback? onLike, onComments;
+  final VoidCallback? onLike, onComments, onAuthorTap;
 
   /// Shows the post on the map; null leaves its location as plain text.
   final VoidCallback? onLocation;
@@ -27,6 +29,9 @@ class FeedPostCard extends StatelessWidget {
     // The shell extends its body behind the floating nav bar and reports the
     // bar's height through this padding.
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final openAuthor = post.authorId.isEmpty
+        ? null
+        : onAuthorTap ?? () => openPublicProfile(context, post.authorId);
     return Stack(
       children: [
         Column(
@@ -43,7 +48,11 @@ class FeedPostCard extends StatelessWidget {
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(16, 4, 80, bottomInset + 12),
-              child: PostCaption(post: post, onLocationTap: onLocation),
+              child: PostCaption(
+                post: post,
+                onAuthorTap: openAuthor,
+                onLocationTap: onLocation,
+              ),
             ),
           ],
         ),
@@ -59,6 +68,7 @@ class FeedPostCard extends StatelessWidget {
                 post: post,
                 onLike: onLike,
                 onComments: onComments,
+                onAuthorTap: openAuthor,
               ),
             ),
           ),

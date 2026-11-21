@@ -15,14 +15,22 @@ import 'package:faunawatch/features/gallery/views/widgets/not_public_post_dialog
 /// reason), and its like and comment buttons explain why they are closed.
 /// Tapping the location closes the viewer and shows the post on the map.
 class GalleryPostPage extends ConsumerWidget {
-  const GalleryPostPage({super.key, required this.item});
+  const GalleryPostPage({
+    super.key,
+    required this.item,
+    this.authorId,
+    this.onAuthorTap,
+  });
   final GalleryItem item;
+  final String? authorId;
+  final VoidCallback? onAuthorTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = galleryPostViewModelProvider((
       id: item.id,
       status: item.status,
+      authorId: authorId,
     ));
     final state = ref.watch(provider);
     final viewModel = ref.read(provider.notifier);
@@ -71,6 +79,7 @@ class GalleryPostPage extends ConsumerWidget {
             child: FeedPostCard(
               post: post,
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              onAuthorTap: onAuthorTap,
               onLike: () => showNotPublicPostDialog(context, state.status),
               onComments: () => showNotPublicPostDialog(context, state.status),
               onLocation: onLocation,
@@ -97,6 +106,7 @@ class GalleryPostPage extends ConsumerWidget {
     return FeedPostCard(
       post: post,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      onAuthorTap: onAuthorTap,
       onLike: viewModel.toggleLike,
       onComments: () => PostCommentsSheet.show(
         context,
