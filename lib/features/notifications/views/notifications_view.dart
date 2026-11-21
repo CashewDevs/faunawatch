@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/notifications/models/notification_item.dart';
+import 'package:faunawatch/features/notifications/views/notification_navigation.dart';
 import 'package:faunawatch/features/notifications/viewmodels/notifications_viewmodel.dart';
 import 'package:faunawatch/features/notifications/views/widgets/notification_action_sheet.dart';
 import 'package:faunawatch/features/notifications/views/widgets/notification_tile.dart';
@@ -40,7 +41,11 @@ class NotificationsView extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header with horizontal gradient and DM Sans extrabold title
-          const NotificationsHeader(),
+          NotificationsHeader(
+            onClearAll: state.items.isEmpty || state.isLoading
+                ? null
+                : () => _confirmClearAll(context, viewModel),
+          ),
 
           // Filter pills (All, Unread)
           Padding(
@@ -97,17 +102,7 @@ class NotificationsView extends ConsumerWidget {
                         final item = filteredItems[index];
                         return NotificationTile(
                           item: item,
-                          onTap: () {
-                            // TODO(open question): open the related report or
-                            // chat from item.reportId / item.threadId. Reports
-                            // have no route by id yet, and
-                            // ChatConversationView needs a MessageThread (name
-                            // and avatar) that a notification does not carry,
-                            // so no navigation is built here.
-                            if (item.isUnread) {
-                              viewModel.markAsRead(item.id);
-                            }
-                          },
+                          onTap: () => _open(context, ref, item),
                           onLongPress: () {
                             NotificationActionSheet.show(
                               context: context,
@@ -126,6 +121,48 @@ class NotificationsView extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+extension on NotificationsView {
+  /// Marks the notification read, then follows the ViewModel's target.
+  Future<void> _open(
+    BuildContext context,
+    WidgetRef ref,
+    NotificationItem item,
+  ) async {
+    final navigator = Navigator.of(context);
+    final target = await ref
+        .read(notificationsViewModelProvider.notifier)
+        .open(item);
+    await openNotificationTarget(navigator, ref, target);
+  }
+
+  Future<void> _confirmClearAll(
+    BuildContext context,
+    NotificationsViewModel viewModel,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Clear all notifications?'),
+        content: const Text(
+          'This permanently deletes all of your notifications, including '
+          'older ones that are not loaded yet.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Clear all'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await viewModel.clearAll();
   }
 }
 

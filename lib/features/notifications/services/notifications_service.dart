@@ -20,6 +20,10 @@ abstract interface class NotificationsService {
   Future<void> deleteNotification(String id);
   Future<void> markAllAsRead();
 
+  /// Deletes every notification of the signed-in user, including ones not
+  /// loaded yet.
+  Future<void> deleteAllNotifications();
+
   /// Emits whenever the signed-in user's notifications may have changed, and
   /// once the live connection is up. Errors mean the connection dropped.
   Stream<void> watchNotifications();
@@ -104,6 +108,12 @@ class SupabaseNotificationsService implements NotificationsService {
   }
 
   @override
+  Future<void> deleteAllNotifications() async {
+    final userId = _userId;
+    await _client.from('notifications').delete().eq('user_id', userId);
+  }
+
+  @override
   Stream<void> watchNotifications() {
     final userId = _userId;
     late final StreamController<void> controller;
@@ -171,6 +181,8 @@ class SignedOutNotificationsService implements NotificationsService {
   Future<void> deleteNotification(String id) async => _signIn();
   @override
   Future<void> markAllAsRead() async => _signIn();
+  @override
+  Future<void> deleteAllNotifications() async => _signIn();
   @override
   Stream<void> watchNotifications() => const Stream.empty();
 }

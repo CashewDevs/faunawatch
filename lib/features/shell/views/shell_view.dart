@@ -3,7 +3,9 @@ import 'package:faunawatch/features/create_post/views/create_post_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
+import 'package:faunawatch/features/notifications/views/notification_navigation.dart';
 import 'package:faunawatch/features/notifications/views/notifications_view.dart';
+import 'package:faunawatch/features/push/viewmodels/push_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/ai_key_settings_view.dart';
@@ -29,6 +31,18 @@ class _ShellViewState extends ConsumerState<ShellView> {
   void initState() {
     super.initState();
     _aiKeySettingsViewModel = ref.read(aiKeySettingsViewModelProvider.notifier);
+    // A push that launched the app waits here until the shell is shown.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPushTarget());
+  }
+
+  void _openPushTarget() {
+    if (!mounted) return;
+    final target = ref
+        .read(pushViewModelProvider.notifier)
+        .consumePendingTarget();
+    if (target != null) {
+      openNotificationTarget(Navigator.of(context), ref, target);
+    }
   }
 
   @override
@@ -55,6 +69,14 @@ class _ShellViewState extends ConsumerState<ShellView> {
       } else if (previous == ShellDestination.profile) {
         viewModel.disableWindowSecurity();
       }
+    });
+
+    // A push tapped while the app is open in the background.
+    ref.listen(pushViewModelProvider.select((push) => push.pendingTarget), (
+      _,
+      target,
+    ) {
+      if (target != null) _openPushTarget();
     });
 
     return Scaffold(

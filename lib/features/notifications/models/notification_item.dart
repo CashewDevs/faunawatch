@@ -1,6 +1,6 @@
 /// Categories for notifications in FaunaWatch.
 ///
-/// [reportStatus], [comment], [chat] and [alert] come from the database
+/// [reportStatus], [comment], [reportLike], [chat] and [alert] come from the database
 /// (`notification_type`); [sighting], [community] and [system] are older UI
 /// categories. [system] is also the fallback for a type this app version does
 /// not know yet.
@@ -11,6 +11,7 @@ enum NotificationType {
   system,
   reportStatus,
   comment,
+  reportLike,
   chat,
 }
 
@@ -63,7 +64,7 @@ class NotificationItem {
   /// When the notification was created (UTC from the database).
   final DateTime? createdAt;
 
-  /// The report this is about, for `reportStatus` and `comment`.
+  /// The report this is about, for `reportStatus`, `comment` and `reportLike`.
   final String? reportId;
 
   /// The chat conversation this is about, for `chat`.
@@ -133,12 +134,71 @@ NotificationType notificationTypeFromDb(String? value) {
       return NotificationType.reportStatus;
     case 'report_comment':
       return NotificationType.comment;
+    case 'report_like':
+      return NotificationType.reportLike;
     case 'chat_message':
       return NotificationType.chat;
     case 'nearby_alert':
       return NotificationType.alert;
     default:
       return NotificationType.system;
+  }
+}
+
+/// Where tapping a notification leads. Decided by the ViewModel; the View
+/// navigates.
+sealed class NotificationTarget {
+  const NotificationTarget();
+}
+
+/// Open one of the user's reports by id. [showComments] is set for comment
+/// notifications, so the comments are shown straight away.
+class ReportTarget extends NotificationTarget {
+  const ReportTarget(this.reportId, {this.showComments = false});
+  final String reportId;
+  final bool showComments;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ReportTarget &&
+      other.reportId == reportId &&
+      other.showComments == showComments;
+
+  @override
+  int get hashCode => Object.hash(reportId, showComments);
+}
+
+/// Switch to the Messages tab (the inbox, not a specific conversation).
+class MessagesTarget extends NotificationTarget {
+  const MessagesTarget();
+
+  @override
+  bool operator ==(Object other) => other is MessagesTarget;
+
+  @override
+  int get hashCode => (MessagesTarget).hashCode;
+}
+
+/// The target for [item], or null when tapping only marks it read (nearby
+/// alerts, unknown types, or a report notification without a report id).
+NotificationTarget? notificationTargetFor(NotificationItem item) {
+  switch (item.type) {
+    case NotificationType.reportStatus:
+    case NotificationType.reportLike:
+    case NotificationType.comment:
+      final reportId = item.reportId;
+      if (reportId == null) return null;
+      return ReportTarget(
+        reportId,
+        showComments: item.type == NotificationType.comment,
+      );
+    case NotificationType.chat:
+      return const MessagesTarget();
+    case NotificationType.sighting:
+    case NotificationType.alert:
+    case NotificationType.community:
+    case NotificationType.system:
+      return null;
   }
 }
 
