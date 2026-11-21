@@ -464,7 +464,11 @@ photos and engagement through `FeedService.fetchPost`, checks the current owner,
 and manages local likes and comment counts. The shared post widgets accept
 action callbacks; the comments sheet can notify this local ViewModel of changes.
 Full post data is discarded when its page is disposed and on account changes.
-Scrolling or "Load older posts" loads more. No dependency or migration is added.
+Scrolling or "Load older posts" loads more. While the first page loads (opening
+the gallery, switching a status chip or category, or refreshing an empty grid)
+`GallerySkeleton` shows pulsing placeholder tiles in the same three-column layout
+(`galleryGridDelegate`) instead of a spinner; they stay still when the device asks
+for less motion. No dependency or migration is added.
 
 Apply `20261112100000_create_community_feed.sql` before using the feed. The user
 applies it manually in the Supabase SQL editor; agents must not apply hosted

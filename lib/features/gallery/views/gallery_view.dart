@@ -6,6 +6,7 @@ import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_load_more.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_notice.dart';
+import 'package:faunawatch/features/gallery/views/widgets/gallery_skeleton.dart';
 import 'package:faunawatch/features/report_detail/views/screens/report_detail_screen.dart';
 
 /// The profile's own-post gallery, sharing one scroll view with its header.
@@ -65,10 +66,7 @@ class GalleryView extends ConsumerWidget {
                 ),
               ),
               if (state.isLoading)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
-                )
+                const GallerySkeleton()
               else if (items.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
@@ -84,13 +82,7 @@ class GalleryView extends ConsumerWidget {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   sliver: SliverGrid.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 14,
-                          childAspectRatio: 0.68,
-                        ),
+                    gridDelegate: galleryGridDelegate,
                     itemCount: items.length,
                     itemBuilder: (context, index) => GalleryCard(
                       key: ValueKey(items[index].id),

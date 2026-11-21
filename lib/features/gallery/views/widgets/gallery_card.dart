@@ -4,6 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/gallery/models/gallery_item.dart';
 
+/// The gallery's three-column layout, shared with its loading skeleton.
+const galleryGridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+  crossAxisCount: 3,
+  crossAxisSpacing: 12,
+  mainAxisSpacing: 14,
+  childAspectRatio: 0.68,
+);
+
 /// Single photo card in the gallery grid.
 ///
 /// Features:
