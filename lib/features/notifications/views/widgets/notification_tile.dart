@@ -173,6 +173,10 @@ class NotificationTile extends StatelessWidget {
         iconData = Icons.chat_bubble_outline_rounded;
         iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF1A5DC9);
         break;
+      case NotificationType.reportLike:
+        iconData = Icons.favorite_border_rounded;
+        iconColor = AppColors.feedLikeRed;
+        break;
       case NotificationType.chat:
         iconData = Icons.mail_outline_rounded;
         iconColor = isDark ? AppColors.darkAccentBlue : const Color(0xFF005A97);

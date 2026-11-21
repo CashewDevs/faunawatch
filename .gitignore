@@ -127,3 +127,9 @@ supabase/.temp/
 
 # Supabase CLI binary (downloaded locally, not committed)
 tools/supabase/
+
+# Firebase configs and secrets (never committed; keys/ holds only the service account and webhook secret)
+/keys/*
+!/keys/README.md
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist

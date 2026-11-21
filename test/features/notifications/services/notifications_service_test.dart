@@ -117,6 +117,10 @@ void main() {
       throwsA(isA<AuthException>()),
     );
     await expectLater(service.markAllAsRead(), throwsA(isA<AuthException>()));
+    await expectLater(
+      service.deleteAllNotifications(),
+      throwsA(isA<AuthException>()),
+    );
     expect(() => service.watchNotifications(), throwsA(isA<AuthException>()));
     expect(requests, isEmpty);
   });
@@ -214,6 +218,20 @@ void main() {
     expect(request.url.queryParameters['id'], 'eq.n-1');
     expect(request.url.queryParameters['user_id'], 'eq.user-a');
   });
+
+  test(
+    'deletes all of this user notifications, not just loaded ones',
+    () async {
+      await signIn();
+
+      await service.deleteAllNotifications();
+
+      final request = requests.single;
+      expect(request.method, 'DELETE');
+      expect(request.url.queryParameters['user_id'], 'eq.user-a');
+      expect(request.url.queryParameters.keys, ['user_id']);
+    },
+  );
 
   test('marks all read by updating only this user\'s unread rows', () async {
     await signIn();

@@ -145,16 +145,16 @@ class NotificationsViewModel extends Notifier<NotificationsState> {
   /// left as it was and an error is shown.
   Future<void> _change(
     Future<void> Function() action,
-    NotificationsState Function(NotificationsState) apply,
-  ) async {
+    NotificationsState Function(NotificationsState) apply, {
+    String errorMessage =
+        'Could not update this notification. Please try again.',
+  }) async {
     final generation = _generation;
     try {
       await action();
     } catch (_) {
       if (generation == _generation) {
-        state = state.copyWith(
-          error: 'Could not update this notification. Please try again.',
-        );
+        state = state.copyWith(error: errorMessage);
       }
       return;
     }
@@ -212,6 +212,23 @@ class NotificationsViewModel extends Notifier<NotificationsState> {
       unreadTotal: 0,
     ),
   );
+
+  /// Deletes all of the user's notifications, including unloaded older pages,
+  /// then empties the list and the unread count. On failure the list is kept.
+  Future<void> clearAll() => _change(
+    _service.deleteAllNotifications,
+    (s) => s.copyWith(items: const [], unreadTotal: 0, hasMore: false),
+    errorMessage: 'Could not clear notifications. Please try again.',
+  );
+
+  /// Handles a tap: marks an unread [item] read (a failure only shows the
+  /// usual error and does not stop navigation) and returns where to go, or
+  /// null when there is nowhere to go.
+  Future<NotificationTarget?> open(NotificationItem item) async {
+    final target = notificationTargetFor(item);
+    if (item.isUnread) await markAsRead(item.id);
+    return target;
+  }
 }
 
 /// Provider managing the notifications presentation state.
