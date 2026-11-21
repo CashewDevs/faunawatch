@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
 
 enum AiResultStatus { analyzing, done, failed }
@@ -28,7 +29,7 @@ class AiResultState {
   bool get canUseResults => result?.hasSpecies ?? false;
 }
 
-/// Runs the AI identification for one photo.
+/// Runs the AI analysis of the chosen animals on one photo.
 class AiResultViewModel extends AutoDisposeNotifier<AiResultState> {
   // Identifies the latest request, so an older reply can't replace a newer one.
   int _request = 0;
@@ -43,7 +44,9 @@ class AiResultViewModel extends AutoDisposeNotifier<AiResultState> {
     return const AiResultState();
   }
 
-  Future<void> analyze(String photoPath) async {
+  /// Analyses the animals in [boxes] on the photo at [photoPath]. Calling it
+  /// again with the same arguments is "Analyse again".
+  Future<void> analyze(String photoPath, List<AnimalBox> boxes) async {
     final request = ++_request;
     state = const AiResultState();
 
@@ -55,7 +58,7 @@ class AiResultViewModel extends AutoDisposeNotifier<AiResultState> {
       }
       final result = await ref
           .read(speciesIdentificationServiceProvider)
-          .identify(userId: userId, photoPath: photoPath);
+          .identify(userId: userId, photoPath: photoPath, boxes: boxes);
       next = AiResultState(status: AiResultStatus.done, result: result);
     } on IdentificationException catch (error) {
       next = AiResultState(

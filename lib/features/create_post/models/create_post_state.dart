@@ -41,8 +41,13 @@ class CreatePostState {
     return lat != null && lng != null && PostDraft.validCoordinates(lat, lng);
   }
 
+  /// Every post needs a photo, a category and a location.
   bool get canSubmit =>
-      category != null && hasLocation && !isBusy && submittedId == null;
+      photoPath != null &&
+      category != null &&
+      hasLocation &&
+      !isBusy &&
+      submittedId == null;
 
   CreatePostState copyWith({
     ReportCategory? category,

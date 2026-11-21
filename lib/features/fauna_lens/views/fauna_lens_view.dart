@@ -3,6 +3,7 @@ import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/viewmodels/fauna_lens_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_boxes_screen.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_camera_screen.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_review_screen.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
@@ -79,18 +80,16 @@ class _FaunaLensViewState extends ConsumerState<FaunaLensView>
   Future<void> _askAi() async {
     final photo = ref.read(faunaLensViewModelProvider).photo;
     if (photo == null) return;
+    // The user chooses the animals first; that screen opens the AI Result
+    // and passes its choice back.
     final choice = await Navigator.of(context).push<AiResultChoice>(
-      MaterialPageRoute(builder: (_) => FaunaLensAiResultScreen(photo: photo)),
+      MaterialPageRoute(builder: (_) => FaunaLensBoxesScreen(photo: photo)),
     );
     if (!mounted) return;
     switch (choice) {
       case UseAiResults(:final result):
         // The analysis is saved to ai_analyses when the post is submitted.
-        _startPost(
-          photo,
-          aiResult: result,
-          species: result.topGuess?.displayName,
-        );
+        _startPost(photo, aiResult: result, species: result.speciesSummary);
       case RetakeFromAiResult():
         await (photo.source == FaunaLensPhotoSource.gallery
             ? _viewModel.pickFromGallery()

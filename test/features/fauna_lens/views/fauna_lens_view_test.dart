@@ -3,14 +3,17 @@ import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
+import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/fauna_lens_camera_service.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
 import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_boxes_screen.dart';
+import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
-import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,17 +31,39 @@ void main() {
   late FakeIdentificationService identification;
   late ProviderContainer container;
 
-  Future<void> openFromHeader(WidgetTester tester) async {
+  Future<void> openCamera(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: Scaffold(appBar: ShellHeader())),
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const FaunaLensView(),
+                  ),
+                ),
+                child: const Text('Open camera'),
+              ),
+            ),
+          ),
+        ),
       ),
     );
-    await tester.tap(find.bySemanticsLabel('Open camera'));
+    await tester.tap(find.text('Open camera'));
+    await tester.pumpAndSettle();
+  }
+
+  /// Takes a photo and opens "Choose animals" from its review.
+  Future<void> askAi(WidgetTester tester) async {
+    await openCamera(tester);
+    await tester.tap(find.bySemanticsLabel('Take photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ask AI'));
     await tester.pumpAndSettle();
   }
 
@@ -59,18 +84,8 @@ void main() {
     addTearDown(container.dispose);
   });
 
-  testWidgets('header button shows a camera instead of the placeholder', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(appBar: ShellHeader())),
-    );
-    expect(find.byIcon(Icons.camera_alt_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.tune_rounded), findsNothing);
-  });
-
   testWidgets('camera screen shows its guidance and closes', (tester) async {
-    await openFromHeader(tester);
+    await openCamera(tester);
     expect(find.byType(FaunaLensView), findsOneWidget);
     expect(
       find.text(
@@ -90,7 +105,7 @@ void main() {
   testWidgets('flash button toggles and reports a missing flash', (
     tester,
   ) async {
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Turn flash on'));
     await tester.pump();
     expect(camera.flashOn, isTrue);
@@ -107,7 +122,7 @@ void main() {
   });
 
   testWidgets('switch button changes camera', (tester) async {
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Switch camera'));
     await tester.pumpAndSettle();
     expect(camera.switchCalls, 1);
@@ -117,7 +132,7 @@ void main() {
     tester,
   ) async {
     camera.startError = CameraException('CameraAccessDenied', null);
-    await openFromHeader(tester);
+    await openCamera(tester);
     expect(find.textContaining("Can't open the camera."), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -132,7 +147,7 @@ void main() {
     tester,
   ) async {
     locations.current = _here;
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
 
@@ -158,7 +173,7 @@ void main() {
   testWidgets('never claims a location was captured when it was not', (
     tester,
   ) async {
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
 
@@ -171,7 +186,7 @@ void main() {
     tester,
   ) async {
     picker.paths = ['first.jpg', 'second.jpg'];
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Choose from gallery'));
     await tester.pumpAndSettle();
 
@@ -189,7 +204,7 @@ void main() {
   testWidgets('gallery photo with a location hides the notice', (tester) async {
     picker.paths = ['first.jpg'];
     locations.inPhoto = _here;
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Choose from gallery'));
     await tester.pumpAndSettle();
 
@@ -198,7 +213,7 @@ void main() {
   });
 
   testWidgets('back button returns to the camera', (tester) async {
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('Back to camera'));
@@ -209,7 +224,7 @@ void main() {
   testWidgets('system back from the review returns to the camera', (
     tester,
   ) async {
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
@@ -218,31 +233,94 @@ void main() {
     expect(find.text('Fit the whole animal inside the frame.'), findsOneWidget);
   });
 
-  testWidgets('Ask AI opens the AI result for the photo', (tester) async {
-    await openFromHeader(tester);
-    await tester.tap(find.bySemanticsLabel('Take photo'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Ask AI'));
-    await tester.pumpAndSettle();
+  testWidgets('Ask AI finds the animals, then analyses the chosen one', (
+    tester,
+  ) async {
+    await askAi(tester);
 
+    expect(find.byType(FaunaLensBoxesScreen), findsOneWidget);
+    expect(identification.searchedPaths, ['camera.jpg']);
+    expect(identification.photoPaths, isEmpty);
+
+    // The single animal found is already chosen.
+    await tester.tap(find.text('Analyse animal'));
+    await tester.pumpAndSettle();
     expect(find.byType(FaunaLensAiResultScreen), findsOneWidget);
     expect(identification.photoPaths, ['camera.jpg']);
+    expect(identification.boxesAnalysed.single, identification.found);
     expect(find.text('Red-eared Slider'), findsOneWidget);
 
-    // Back keeps the photo under review.
+    // Back returns to the boxes, then to the photo under review.
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FaunaLensBoxesScreen), findsOneWidget);
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     expect(find.text('Happy with this photo?'), findsOneWidget);
+  });
+
+  testWidgets('several chosen animals start one post with each guess', (
+    tester,
+  ) async {
+    identification
+      ..found = [
+        sampleBox(),
+        sampleBox(
+          color: AnimalBoxColor.blue,
+          name: 'heron',
+          left: 0.6,
+          right: 0.9,
+        ),
+      ]
+      ..result = AiIdentification.fromModelReply(
+        '{"possible_species": ['
+        '{"box": "red", "common_name": "Red-eared Slider"}, '
+        '{"box": "blue", "common_name": "Grey Heron"}]}',
+        provider: AiProvider.gemini,
+        model: 'm',
+        promptVersion: 'v',
+        boxes: [
+          sampleBox(),
+          sampleBox(color: AnimalBoxColor.blue),
+        ],
+      );
+    await askAi(tester);
+
+    await tester.tap(find.text('turtle'));
+    await tester.tap(find.text('heron'));
+    await tester.pump();
+    await tester.tap(find.text('Analyse 2 animals'));
+    await tester.pumpAndSettle();
+    expect(identification.boxesAnalysed.single, hasLength(2));
+
+    await tester.tap(find.text('Use these results'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FaunaLensView), findsNothing);
+    final draft = container.read(createPostViewModelProvider);
+    expect(draft.species, 'Red-eared Slider, Grey Heron');
+    expect(draft.aiResult, same(identification.result));
+  });
+
+  testWidgets('Retake photo from the boxes reopens the camera', (tester) async {
+    await askAi(tester);
+    await tester.tap(find.text('Retake photo'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FaunaLensBoxesScreen), findsNothing);
+    expect(find.text('Fit the whole animal inside the frame.'), findsOneWidget);
+    expect(camera.isOpen, isTrue);
   });
 
   testWidgets('Use these results starts a post with the top guess', (
     tester,
   ) async {
     identification.result = sampleIdentification(invasive: true);
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ask AI'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Analyse animal'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Use these results'));
     await tester.pumpAndSettle();
@@ -263,10 +341,12 @@ void main() {
     identification.result = sampleIdentification(
       category: ReportCategory.animalInNeed,
     );
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ask AI'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Analyse animal'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Use these results'));
     await tester.pumpAndSettle();
@@ -279,21 +359,24 @@ void main() {
   testWidgets('Retake photo from the AI result reopens the camera', (
     tester,
   ) async {
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ask AI'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Analyse animal'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Retake photo'));
     await tester.pumpAndSettle();
 
     expect(find.byType(FaunaLensAiResultScreen), findsNothing);
+    expect(find.byType(FaunaLensBoxesScreen), findsNothing);
     expect(find.text('Fit the whole animal inside the frame.'), findsOneWidget);
     expect(camera.isOpen, isTrue);
   });
 
   testWidgets('Skip AI closes FaunaLens and goes to Add post', (tester) async {
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Take photo'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Skip AI'));
@@ -305,7 +388,7 @@ void main() {
 
   testWidgets('review fits a short screen without overflowing', (tester) async {
     picker.paths = ['first.jpg'];
-    await openFromHeader(tester);
+    await openCamera(tester);
     await tester.tap(find.bySemanticsLabel('Choose from gallery'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(1800, 1080);

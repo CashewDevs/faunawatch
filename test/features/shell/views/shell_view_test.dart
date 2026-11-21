@@ -1,3 +1,6 @@
+import 'package:camera/camera.dart';
+import 'package:faunawatch/features/fauna_lens/services/fauna_lens_camera_service.dart';
+import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
@@ -25,9 +28,11 @@ import 'package:faunawatch/features/shell/views/widgets/shell_nav_bar.dart';
 
 void main() {
   late _FakeWindowSecurityService windowSecurity;
+  late _FakeCamera camera;
 
   setUp(() {
     windowSecurity = _FakeWindowSecurityService();
+    camera = _FakeCamera();
   });
 
   Widget buildTestShell() {
@@ -35,6 +40,7 @@ void main() {
       overrides: [
         currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
         windowSecurityServiceProvider.overrideWithValue(windowSecurity),
+        faunaLensCameraServiceProvider.overrideWithValue(camera),
         aiApiKeyStorageServiceProvider.overrideWithValue(
           _FakeAiApiKeyStorageService(),
         ),
@@ -123,10 +129,6 @@ void main() {
       expect(find.byType(MessagesView), findsOneWidget);
       expect(find.text('Messages'), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel('Add post'));
-      await tester.pumpAndSettle();
-      expect(find.text('Create post'), findsOneWidget);
-
       await tester.tap(find.text('Notifs'));
       await tester.pumpAndSettle();
       expect(find.byType(NotificationsView), findsOneWidget);
@@ -144,6 +146,30 @@ void main() {
       expect(find.byType(FeedView), findsOneWidget);
       expect(find.byTooltip('About this map'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the header has no camera button', (tester) async {
+      await tester.pumpWidget(buildTestShell());
+      expect(find.bySemanticsLabel('Open camera'), findsNothing);
+      expect(find.byIcon(Icons.camera_alt_rounded), findsNothing);
+    });
+
+    testWidgets('"+" opens the FaunaLens camera and closing it returns', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestShell());
+      await tester.pump();
+
+      await tester.tap(find.bySemanticsLabel('Add post'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FaunaLensView), findsOneWidget);
+      expect(camera.starts, 1);
+
+      await tester.tap(find.bySemanticsLabel('Close camera'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FaunaLensView), findsNothing);
+      expect(find.byType(FeedView), findsOneWidget);
+      expect(find.text('Create post'), findsNothing);
     });
 
     testWidgets(
@@ -208,6 +234,28 @@ void main() {
       expect(windowSecurity.isSecure, isFalse);
     });
   });
+}
+
+class _FakeCamera implements FaunaLensCameraService {
+  int starts = 0;
+
+  @override
+  CameraController? get controller => null;
+
+  @override
+  Future<void> start() async => starts++;
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<bool> switchLens() async => true;
+
+  @override
+  Future<void> setFlash({required bool isOn}) async {}
+
+  @override
+  Future<String> takePicture() async => 'camera.jpg';
 }
 
 class _FakeWindowSecurityService implements WindowSecurityService {

@@ -48,9 +48,15 @@ void main() {
         find.widgetWithText(FilledButton, 'Submit post'),
       );
       expect(submitButton().onPressed, isNull);
-      container
-          .read(createPostViewModelProvider.notifier)
-          .edit(category: ReportCategory.animalInNeed);
+      expect(find.text('A photo is required. 5 MB maximum.'), findsOneWidget);
+      container.read(createPostViewModelProvider.notifier)
+        ..usePhoto(
+          const FaunaLensPhoto(
+            path: 'bird.jpg',
+            source: FaunaLensPhotoSource.gallery,
+          ),
+        )
+        ..edit(category: ReportCategory.animalInNeed);
       await tester.pump();
       expect(submitButton().onPressed, isNull);
       expect(find.text('Latitude *'), findsNothing);

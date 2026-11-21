@@ -1,6 +1,6 @@
-import 'dart:convert';
-
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
+import 'package:faunawatch/features/fauna_lens/models/model_reply.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 
 /// How sure the AI is about one possible species. Qualitative only: the app
@@ -50,17 +50,22 @@ enum SeverityLevel {
   }
 }
 
-/// One guess at what the animal in the photo is.
+/// One guess at what an animal in the photo is.
 class PossibleSpecies {
   const PossibleSpecies({
     required this.commonName,
     this.scientificName = '',
     this.confidence = SpeciesConfidence.uncertain,
+    this.boxColor,
   });
 
   final String commonName;
   final String scientificName;
   final SpeciesConfidence confidence;
+
+  /// When several animals were chosen: the colour of the box this guess is
+  /// about, if the AI said. Only shown on screen, never saved.
+  final AnimalBoxColor? boxColor;
 
   /// "Common name (Scientific name)", or just the common name.
   String get displayName =>
@@ -94,6 +99,7 @@ class AiIdentification {
     this.photoSubject = '',
     this.invasiveMatch,
     this.aiCategory = ReportCategory.otherWildlifeIncident,
+    this.animalCount = 1,
   });
 
   /// The most guesses the app shows (and the database accepts).
@@ -129,6 +135,25 @@ class AiIdentification {
   /// The category the AI chose. Never [ReportCategory.possibleInvasiveSpecies]:
   /// the AI is not offered it.
   final ReportCategory aiCategory;
+
+  /// How many boxed animals the analysis covers. With one, [possibleSpecies]
+  /// holds up to three guesses for it; with more, one best guess per animal.
+  final int animalCount;
+
+  bool get coversSeveralAnimals => animalCount > 1;
+
+  /// The guesses checked against the curated invasive list: the top guess for
+  /// one animal, or every animal's guess when there are several.
+  List<PossibleSpecies> get guessesToCheck =>
+      coversSeveralAnimals ? possibleSpecies : [?topGuess];
+
+  /// What goes in the post's species field: the top guess, or each animal's
+  /// guess joined with commas. Null when the AI named no species.
+  String? get speciesSummary {
+    if (!hasSpecies) return null;
+    if (!coversSeveralAnimals) return topGuess!.displayName;
+    return possibleSpecies.map((species) => species.displayName).join(', ');
+  }
 
   /// The report category for this result: "possible invasive species" when
   /// the top guess matched the curated reference list, otherwise the AI's
@@ -208,9 +233,11 @@ class AiIdentification {
         photoSubject: photoSubject,
         invasiveMatch: match,
         aiCategory: aiCategory,
+        animalCount: animalCount,
       );
 
-  /// Parses the JSON object the AI was asked to reply with.
+  /// Parses the JSON object the AI was asked to reply with, about the
+  /// animals in [boxes].
   ///
   /// Tolerates Markdown code fences and text around the object, missing
   /// fields and unknown labels. Throws [FormatException] when the reply holds
@@ -220,27 +247,13 @@ class AiIdentification {
     required AiProvider provider,
     required String model,
     required String promptVersion,
+    List<AnimalBox> boxes = const [],
   }) {
-    // Reasoning models may think aloud in <think> tags before answering.
-    final answer = reply.replaceAll(
-      RegExp(r'<think>.*?</think>', dotAll: true),
-      '',
-    );
-    final start = answer.indexOf('{');
-    final end = answer.lastIndexOf('}');
-    if (start < 0 || end <= start) {
-      throw const FormatException('The AI reply has no JSON object.');
-    }
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(answer.substring(start, end + 1));
-    } on FormatException {
-      throw const FormatException('The AI reply is not valid JSON.');
-    }
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('The AI reply is not a JSON object.');
-    }
-    final Map<String, dynamic> json = decoded;
+    final json = decodeModelReplyObject(reply);
+    final animalCount = boxes.isEmpty ? 1 : boxes.length;
+    // One animal gets up to three guesses; several get one guess each.
+    final maxGuesses = animalCount == 1 ? maxSpecies : animalCount;
+    final chosenColors = {for (final box in boxes) box.color};
 
     String text(String key, String fallback) {
       final value = json[key];
@@ -258,14 +271,18 @@ class AiIdentification {
         final common = entry['common_name'];
         if (common is! String || common.trim().isEmpty) continue;
         final scientific = entry['scientific_name'];
+        final boxColor = AnimalBoxColor.parse(entry['box']);
         species.add(
           PossibleSpecies(
             commonName: common.trim(),
             scientificName: scientific is String ? scientific.trim() : '',
             confidence: SpeciesConfidence.parse(entry['confidence']),
+            boxColor: animalCount > 1 && chosenColors.contains(boxColor)
+                ? boxColor
+                : null,
           ),
         );
-        if (species.length == maxSpecies) break;
+        if (species.length == maxGuesses) break;
       }
     }
 
@@ -281,6 +298,7 @@ class AiIdentification {
       promptVersion: promptVersion,
       photoSubject: _subject(json['photo_subject']),
       aiCategory: parseCategory(json['category']),
+      animalCount: animalCount,
     );
   }
 

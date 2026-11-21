@@ -163,7 +163,7 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
                         ),
                         const Padding(
                           padding: EdgeInsets.only(top: 8),
-                          child: Text('Photo size: 5 MB maximum.'),
+                          child: Text('A photo is required. 5 MB maximum.'),
                         ),
                         const SizedBox(height: 20),
                         DropdownButtonFormField<ReportCategory>(

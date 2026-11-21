@@ -3,6 +3,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+/// The image at a path returned by the image picker or camera; see
+/// [LocalImage].
+ImageProvider localImageProvider(String path) =>
+    kIsWeb ? NetworkImage(path) : FileImage(File(path));
+
 /// Shows a photo from a path returned by the image picker or camera.
 ///
 /// On the web those paths are blob URLs rather than files, and [Image.file]

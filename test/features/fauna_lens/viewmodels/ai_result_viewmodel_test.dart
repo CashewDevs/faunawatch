@@ -1,3 +1,4 @@
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
@@ -30,20 +31,23 @@ void main() {
     final viewModel = container.read(aiResultViewModelProvider.notifier);
     expect(container.read(aiResultViewModelProvider).isAnalyzing, isTrue);
 
-    await viewModel.analyze('photo.jpg');
+    await viewModel.analyze('photo.jpg', [sampleBox()]);
 
     final state = container.read(aiResultViewModelProvider);
     expect(state.status, AiResultStatus.done);
     expect(state.result!.topGuess!.commonName, 'Red-eared Slider');
     expect(state.canUseResults, isTrue);
     expect(service.photoPaths, ['photo.jpg']);
+    expect(service.boxesAnalysed.single.single.color, AnimalBoxColor.red);
   });
 
   test('a result without an animal cannot be used for a post', () async {
     service.result = sampleIdentification(noAnimal: true);
     final container = makeContainer();
 
-    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg');
+    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg', [
+      sampleBox(),
+    ]);
 
     final state = container.read(aiResultViewModelProvider);
     expect(state.status, AiResultStatus.done);
@@ -56,7 +60,9 @@ void main() {
       ..photoSubject = 'a coffee mug';
     final container = makeContainer();
 
-    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg');
+    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg', [
+      sampleBox(),
+    ]);
 
     final state = container.read(aiResultViewModelProvider);
     expect(state.status, AiResultStatus.failed);
@@ -69,7 +75,9 @@ void main() {
     service.failure = IdentificationFailure.noKey;
     final container = makeContainer();
 
-    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg');
+    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg', [
+      sampleBox(),
+    ]);
 
     final state = container.read(aiResultViewModelProvider);
     expect(state.status, AiResultStatus.failed);
@@ -80,7 +88,9 @@ void main() {
   test('a signed-out user is told to sign in', () async {
     final container = makeContainer(userId: null);
 
-    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg');
+    await container.read(aiResultViewModelProvider.notifier).analyze('p.jpg', [
+      sampleBox(),
+    ]);
 
     expect(
       container.read(aiResultViewModelProvider).failure,
@@ -93,10 +103,10 @@ void main() {
     service.failure = IdentificationFailure.network;
     final container = makeContainer();
     final viewModel = container.read(aiResultViewModelProvider.notifier);
-    await viewModel.analyze('p.jpg');
+    await viewModel.analyze('p.jpg', [sampleBox()]);
 
     service.failure = null;
-    final retry = viewModel.analyze('p.jpg');
+    final retry = viewModel.analyze('p.jpg', [sampleBox()]);
     expect(container.read(aiResultViewModelProvider).isAnalyzing, isTrue);
     expect(container.read(aiResultViewModelProvider).failure, isNull);
     await retry;

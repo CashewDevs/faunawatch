@@ -1,13 +1,13 @@
 import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
-import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:faunawatch/features/shell/views/search_view.dart';
 
 /// Top application bar for the FaunaWatch dashboard.
 ///
 /// Features a height of 60, #1A5DC9 background, app logo and wordmark on the left,
-/// a clickable search bar capsule, and a FaunaLens camera button on the far right.
+/// and a clickable search bar capsule on the right. FaunaLens opens from the
+/// "+" button in the bottom bar.
 class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
   const ShellHeader({super.key});
 
@@ -18,12 +18,6 @@ class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const SearchView()));
-  }
-
-  void _onCameraTap(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const FaunaLensView()));
   }
 
   @override
@@ -73,31 +67,6 @@ class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
                       ),
                       SizedBox(width: 48),
                     ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // FaunaLens Camera Button
-            Semantics(
-              button: true,
-              label: 'Open camera',
-              child: GestureDetector(
-                onTap: () => _onCameraTap(context),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppPaletteColors.of(
-                      context,
-                    ).onPrimary.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.camera_alt_rounded,
-                    color: Colors.white,
-                    size: 18,
                   ),
                 ),
               ),

@@ -1,10 +1,12 @@
 import 'package:faunawatch/core/constants/app_colors.dart';
-import 'package:faunawatch/core/widgets/local_image.dart';
 import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/viewmodels/ai_result_viewmodel.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/ai_failure_card.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/ai_result_cards.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/boxed_photo.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
 import 'package:flutter/material.dart';
@@ -29,13 +31,20 @@ class RetakeFromAiResult extends AiResultChoice {
   const RetakeFromAiResult();
 }
 
-/// "AI Result": asks the user's AI provider about [photo] and shows its
-/// preliminary assessment. While the AI works, the layout is shown as
-/// placeholders.
+/// "AI Result": asks the user's AI provider about the animals in [boxes] on
+/// [photo] and shows one combined preliminary assessment. While the AI works,
+/// the layout is shown as placeholders.
 class FaunaLensAiResultScreen extends ConsumerStatefulWidget {
-  const FaunaLensAiResultScreen({super.key, required this.photo});
+  const FaunaLensAiResultScreen({
+    super.key,
+    required this.photo,
+    required this.boxes,
+  });
 
   final FaunaLensPhoto photo;
+
+  /// The animals the user chose, one to [AnimalBox.maxChosen].
+  final List<AnimalBox> boxes;
 
   @override
   ConsumerState<FaunaLensAiResultScreen> createState() =>
@@ -53,7 +62,9 @@ class _FaunaLensAiResultScreenState
   }
 
   void _analyze() {
-    ref.read(aiResultViewModelProvider.notifier).analyze(widget.photo.path);
+    ref
+        .read(aiResultViewModelProvider.notifier)
+        .analyze(widget.photo.path, widget.boxes);
   }
 
   Future<void> _openKeySettings() async {
@@ -75,17 +86,20 @@ class _FaunaLensAiResultScreenState
         backgroundColor: Colors.white,
         body: Column(
           children: [
-            _Header(onBack: () => Navigator.of(context).pop()),
+            FaunaLensPageHeader(
+              title: 'AI Result',
+              onBack: () => Navigator.of(context).pop(),
+            ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 children: [
-                  _PhotoSummary(photo: widget.photo),
+                  _PhotoSummary(photo: widget.photo, boxes: widget.boxes),
                   const SizedBox(height: 16),
                   ...switch (state.status) {
                     AiResultStatus.analyzing => const [_LoadingBody()],
                     AiResultStatus.failed => [
-                      _FailureCard(
+                      AiFailureCard(
                         failure: state.failure!,
                         photoSubject: state.photoSubject,
                         onRetry: _analyze,
@@ -110,6 +124,12 @@ class _FaunaLensAiResultScreenState
                           ? () =>
                                 Navigator.of(context).pop(UseAiResults(result!))
                           : null,
+                    ),
+                    const SizedBox(height: 10),
+                    PillButton(
+                      label: 'Analyse again',
+                      isPrimary: false,
+                      onPressed: state.isAnalyzing ? null : _analyze,
                     ),
                     const SizedBox(height: 10),
                     PillButton(
@@ -202,55 +222,12 @@ class _FaunaLensAiResultScreenState
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.aiResultHeader,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Back',
-                onPressed: onBack,
-                icon: const Icon(
-                  Icons.chevron_left_rounded,
-                  color: AppColors.aiResultBackChevron,
-                  size: 34,
-                ),
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(right: 20),
-                child: Text(
-                  'AI Result',
-                  style: GoogleFonts.dmSans(
-                    color: AppColors.faunaLensBlue,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Thumbnail, "Preliminary AI assessment" chip and the always-on disclaimer.
 class _PhotoSummary extends StatelessWidget {
-  const _PhotoSummary({required this.photo});
+  const _PhotoSummary({required this.photo, required this.boxes});
 
   final FaunaLensPhoto photo;
+  final List<AnimalBox> boxes;
 
   @override
   Widget build(BuildContext context) {
@@ -259,16 +236,13 @@ class _PhotoSummary extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: LocalImage(
-            photo.path,
+          child: SizedBox(
             width: 68,
-            height: 68,
-            fit: BoxFit.cover,
-            semanticLabel: 'Your photo',
-            errorBuilder: (context, error, stackTrace) => const SizedBox(
-              width: 68,
-              height: 68,
-              child: ColoredBox(color: AppColors.aiResultSkeleton),
+            child: BoxedPhoto(
+              path: photo.path,
+              boxes: boxes,
+              chosen: {for (final box in boxes) box.color},
+              showLabels: false,
             ),
           ),
         ),
@@ -391,118 +365,6 @@ class _LoadingBodyState extends State<_LoadingBody>
             _block(height: 78),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _FailureCard extends StatelessWidget {
-  const _FailureCard({
-    required this.failure,
-    required this.photoSubject,
-    required this.onRetry,
-    required this.onOpenKeySettings,
-  });
-
-  final IdentificationFailure failure;
-  final String photoSubject;
-  final VoidCallback onRetry;
-  final VoidCallback onOpenKeySettings;
-
-  @override
-  Widget build(BuildContext context) {
-    final (title, message) = switch (failure) {
-      IdentificationFailure.noKey => (
-        'Add an AI key first',
-        'FaunaLens uses your own AI key to identify animals. Add one, then '
-            "we'll try again.",
-      ),
-      IdentificationFailure.invalidKey => (
-        "Your AI key didn't work",
-        'The AI provider rejected your key. Check or replace it, then try '
-            'again.',
-      ),
-      IdentificationFailure.rateLimited => (
-        'The AI is busy',
-        "The provider is busy or your key's limit was reached. Wait a "
-            'moment and try again.',
-      ),
-      IdentificationFailure.unavailable => (
-        "The AI isn't responding",
-        'The AI provider is having trouble, or its model is no longer '
-            'available. Please try again later.',
-      ),
-      IdentificationFailure.network => (
-        "Couldn't reach the AI",
-        'Check your internet connection and try again.',
-      ),
-      IdentificationFailure.unreadablePhoto => (
-        "Couldn't read this photo",
-        'Retake it or choose another photo.',
-      ),
-      IdentificationFailure.badResponse => (
-        "Couldn't read the AI's answer",
-        'Please try again.',
-      ),
-      IdentificationFailure.notAnimal => (
-        'FaunaLens only identifies animals',
-        '${photoSubject.isEmpty ? 'No animal was found in this photo.' : 'This photo seems to show $photoSubject, not an animal.'} '
-            'Retake it or choose a photo with an animal in it.',
-      ),
-      IdentificationFailure.signedOut => (
-        'Sign in again',
-        'Sign in to use AI suggestions.',
-      ),
-    };
-    final opensKeys =
-        failure == IdentificationFailure.noKey ||
-        failure == IdentificationFailure.invalidKey;
-    final canRetry =
-        failure != IdentificationFailure.unreadablePhoto &&
-        failure != IdentificationFailure.notAnimal &&
-        failure != IdentificationFailure.signedOut;
-
-    return AiResultCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                opensKeys
-                    ? Icons.key_rounded
-                    : failure == IdentificationFailure.notAnimal
-                    ? Icons.pets_rounded
-                    : Icons.error_outline_rounded,
-                color: AppColors.faunaLensBlue,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: Text(title, style: aiResultTitleStyle())),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(message, style: aiResultBodyStyle()),
-          if (opensKeys || canRetry) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.faunaLensBlue,
-                ),
-                onPressed: opensKeys ? onOpenKeySettings : onRetry,
-                child: Text(
-                  opensKeys
-                      ? (failure == IdentificationFailure.noKey
-                            ? 'Add an AI key'
-                            : 'Check AI keys')
-                      : 'Try again',
-                ),
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }
