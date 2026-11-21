@@ -604,7 +604,22 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   (`FeedViewModel.openReport`, fetching it through `community_feed(p_report_id)`
   when it is not loaded). The map shows only real approved reports at the
   approximate coordinates returned by `community_reports()`. It fits the first
-  nonempty load into view; later refreshes preserve the current camera. There
+  nonempty load into view; later refreshes preserve the current camera.
+  **Photo pins:** each pin shows its post's first photo in the blue pin head
+  (`createPhotoPinImage` in `lib/core/services/map_pin_image.dart`; same
+  104 x 128 size at 2x as the logo pin). `community_reports()` returns
+  `photo_path` (first photo, same `{report_id}/{filename}` rule as
+  `community_feed()`) after migration
+  `20261122090000_add_photo_to_community_reports.sql`, applied by hand; before
+  that, and for posts without a photo or whose photo fails, pins keep the logo.
+  Pins start as the logo; when the map stops moving (`MapWidget`'s idle event →
+  `CommunityMapViewModel.onMapIdle`) only the pins inside the visible area are
+  loaded, `photosAtOnce` (4) at a time and at most 24 per stop, through
+  `MapPinPhotoService` (downloads from `report-images` with the user's own
+  access and draws the pin). Pictures are kept for the session and put back
+  after each refresh or style reload; failed ones are retried after a manual
+  refresh; everything is forgotten on account changes. The layer picks each
+  feature's picture from its `icon` property (`report-photo-<id>` or the logo). There
   are no sample pins, simulated positions, or demo warning zones.
   Pin dialogs load the first available post photo on demand through
   `MapPostThumbnailViewModel` and the existing `FeedService.fetchPost` signed-URL

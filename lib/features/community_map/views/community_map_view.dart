@@ -170,6 +170,12 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                         .read(communityMapViewModelProvider.notifier)
                         .onStyleLoaded();
                   },
+                  // Loads the photo pins for the area now on screen.
+                  onMapIdle: (_) {
+                    ref
+                        .read(communityMapViewModelProvider.notifier)
+                        .onMapIdle();
+                  },
                 ),
               ),
               Positioned(

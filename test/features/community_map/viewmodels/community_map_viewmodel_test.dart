@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
@@ -20,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/services/map_pin_photo_service.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 
@@ -266,6 +268,141 @@ void main() {
     );
   });
 
+  group('photo pins', () {
+    late _PinPhotos photos;
+    late ProviderContainer pins;
+    final user = StateProvider<String?>((ref) => 'me');
+
+    CommunityReport photoReport(
+      String id, {
+      double lat = 10,
+      double lng = 120,
+    }) => CommunityReport(
+      id: id,
+      category: 'animal_in_need',
+      latitude: lat,
+      longitude: lng,
+      description: id,
+      photoPath: '$id/photo.webp',
+    );
+
+    Future<CommunityMapViewModel> open(
+      List<CommunityReport> items, {
+      Set<String> failing = const {},
+      Completer<void>? gate,
+    }) async {
+      photos = _PinPhotos()
+        ..failing.addAll(failing)
+        ..gate = gate;
+      reports.items = items;
+      pins = ProviderContainer(
+        overrides: [
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          currentUserIdProvider.overrideWith(
+            (ref) => Stream.value(ref.watch(user)),
+          ),
+          feedServiceProvider.overrideWithValue(feed),
+          mapPinPhotoServiceProvider.overrideWithValue(photos),
+        ],
+      );
+      addTearDown(pins.dispose);
+      await pins.read(currentUserIdProvider.future);
+      final map = pins.read(communityMapViewModelProvider.notifier);
+      await map.onStyleLoaded();
+      await pumpEventQueue();
+      return map;
+    }
+
+    Set<String> shown() => {
+      for (final call in mapboxMapService.photoCalls) ...call.keys,
+    };
+
+    test('loads only on-screen pins with a photo, once each', () async {
+      mapboxMapService.bounds = (south: 9, west: 119, north: 11, east: 121);
+      final map = await open([
+        photoReport('near'),
+        photoReport('far', lat: 40, lng: 140),
+        const CommunityReport(
+          id: 'no-photo',
+          category: 'animal_in_need',
+          latitude: 10,
+          longitude: 120,
+          description: 'x',
+        ),
+      ]);
+      expect(photos.requests, ['near/photo.webp']);
+      expect(shown(), {'near'});
+
+      await map.onMapIdle();
+      expect(photos.requests, hasLength(1));
+
+      mapboxMapService.bounds = (south: 39, west: 139, north: 41, east: 141);
+      await map.onMapIdle();
+      expect(photos.requests, ['near/photo.webp', 'far/photo.webp']);
+      expect(shown(), {'near', 'far'});
+    });
+
+    test('loads at most four at a time', () async {
+      final gate = Completer<void>();
+      await open([for (var i = 0; i < 6; i++) photoReport('r$i')], gate: gate);
+      expect(photos.requests, hasLength(CommunityMapViewModel.photosAtOnce));
+      gate.complete();
+      await pumpEventQueue();
+      expect(photos.requests, hasLength(6));
+      expect(shown(), hasLength(6));
+    });
+
+    test('a failed photo keeps the logo and retries after a refresh', () async {
+      final map = await open(
+        [photoReport('broken')],
+        failing: {'broken/photo.webp'},
+      );
+      expect(photos.requests, hasLength(1));
+      expect(shown(), isEmpty);
+      await map.onMapIdle();
+      expect(photos.requests, hasLength(1));
+
+      photos.failing.clear();
+      await map.refreshReports();
+      await pumpEventQueue();
+      expect(photos.requests, hasLength(2));
+      expect(shown(), {'broken'});
+    });
+
+    test('loaded photos are put back after the reports refresh', () async {
+      final map = await open([photoReport('kept')]);
+      mapboxMapService.photoCalls.clear();
+      await map.refreshReports();
+      await pumpEventQueue();
+      expect(mapboxMapService.photoCalls.first.keys, ['kept']);
+      expect(photos.requests, hasLength(1));
+    });
+
+    test('an account change forgets photos and drops late ones', () async {
+      final map = await open([photoReport('a')]);
+      expect(photos.requests, hasLength(1));
+
+      pins.read(user.notifier).state = 'someone-else';
+      await pumpEventQueue();
+      await map.onMapIdle();
+      // Forgotten, so it is loaded again for the new account.
+      expect(photos.requests, hasLength(2));
+
+      photos.gate = Completer<void>();
+      reports.items = [photoReport('a'), photoReport('b')];
+      final refreshing = map.refreshReports();
+      await pumpEventQueue();
+      mapboxMapService.photoCalls.clear();
+      pins.read(user.notifier).state = 'third-user';
+      await pumpEventQueue();
+      photos.gate!.complete();
+      await refreshing;
+      await pumpEventQueue();
+      expect(shown(), isNot(contains('b')));
+    });
+  });
+
   group('focusOn', () {
     const public = MapFocus(
       postId: 'approved',
@@ -467,6 +604,20 @@ void main() {
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  MapBounds? bounds = (south: -90, west: -180, north: 90, east: 180);
+  final boundsRequests = <int>[];
+  @override
+  Future<MapBounds?> visibleBounds() async {
+    boundsRequests.add(boundsRequests.length);
+    return bounds;
+  }
+
+  final photoCalls = <Map<String, StyleImage>>[];
+  @override
+  Future<void> showPinPhotos(Map<String, StyleImage> photos) async {
+    photoCalls.add(Map.of(photos));
+  }
+
   final focusCalls = <({MapFocus? focus, bool moveCamera})>[];
   @override
   Future<void> showFocus(MapFocus? focus, {bool moveCamera = true}) async {
@@ -552,4 +703,24 @@ class _OwnLocations implements ReportDetailService {
 
   @override
   Future<OwnReport?> fetchOwnReport(String reportId) async => null;
+}
+
+class _PinPhotos implements MapPinPhotoService {
+  final requests = <String>[];
+
+  /// Photos that cannot be loaded.
+  final failing = <String>{};
+  Completer<void>? gate;
+
+  @override
+  Future<StyleImage?> loadPin(String photoPath) async {
+    requests.add(photoPath);
+    await gate?.future;
+    if (failing.contains(photoPath)) return null;
+    return StyleImage.rgba(
+      width: 1,
+      height: 1,
+      pixels: Uint8List.fromList([0, 0, 0, 255]),
+    );
+  }
 }

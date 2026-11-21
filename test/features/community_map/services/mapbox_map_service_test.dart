@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 // The SDK's controller constructor accepts this test-only platform contract.
 // ignore_for_file: depend_on_referenced_packages, invalid_use_of_internal_member
 import 'dart:async';
@@ -294,9 +296,11 @@ void main() {
           (platform.style.data['community-reports']['features'] as List).single;
       expect(feature['properties']['postId'], 'approved');
       expect(feature['geometry']['coordinates'], [123.12, 10.12]);
+      // Without a loaded photo the pin uses the shared logo picture.
+      expect(feature['properties']['icon'], 'community-report-logo-pin');
       final layer = platform.style.layers['community-report-pins']!;
       expect(layer['type'], 'symbol');
-      expect(layer['layout']['icon-image'], 'community-report-logo-pin');
+      expect(layer['layout']['icon-image'], ['get', 'icon']);
       expect(layer['layout']['icon-anchor'], 'bottom');
       expect(layer['layout']['icon-allow-overlap'], isTrue);
       expect(layer['layout']['icon-ignore-placement'], isTrue);
@@ -318,6 +322,58 @@ void main() {
       expect(platform.style.data['community-reports']['features'], isEmpty);
       expect(platform.style.layers, hasLength(1));
       expect(platform.style.imageAddCount, 1);
+    },
+  );
+
+  test(
+    'photo pins replace the logo per report and survive a refresh',
+    () async {
+      const reports = [
+        CommunityReport(
+          id: 'a',
+          category: 'animal_in_need',
+          latitude: 10.12,
+          longitude: 123.12,
+          description: 'Bird',
+        ),
+        CommunityReport(
+          id: 'b',
+          category: 'animal_in_need',
+          latitude: 10.13,
+          longitude: 123.13,
+          description: 'Toad',
+        ),
+      ];
+      Map<String, Object?> icons() => {
+        for (final f in platform.style.data['community-reports']['features'])
+          f['properties']['postId']: f['properties']['icon'],
+      };
+      await service.showReports(reports);
+      final photo = StyleImage.rgba(
+        width: 1,
+        height: 1,
+        pixels: Uint8List.fromList([0, 0, 0, 255]),
+      );
+      await service.showPinPhotos({'a': photo});
+      expect(platform.style.images, contains('report-photo-a'));
+      expect(platform.style.imageScales['report-photo-a'], 2);
+      expect(icons(), {
+        'a': 'report-photo-a',
+        'b': 'community-report-logo-pin',
+      });
+      final added = platform.style.imageAddCount;
+      await service.showPinPhotos({'a': photo});
+      expect(platform.style.imageAddCount, added);
+
+      await service.showReports(reports);
+      expect(icons()['a'], 'report-photo-a');
+
+      // A reloaded style lost the picture: back to the logo until re-shown.
+      platform.style.images.remove('report-photo-a');
+      await service.showReports(reports);
+      expect(icons()['a'], 'community-report-logo-pin');
+      await service.showPinPhotos({'a': photo});
+      expect(icons()['a'], 'report-photo-a');
     },
   );
 
