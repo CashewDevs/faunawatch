@@ -43,8 +43,11 @@ const migration = fs.readFileSync(
       create table public.ai_analyses (
         id uuid primary key, report_id uuid, status text,
         severity public.severity_level, possible_species jsonb, possible_invasive boolean,
-        created_at timestamptz
+        created_at timestamptz, visual_condition_assessment text, incident_summary text,
+        safety_recommendations text, community_warning text, invasive_match_species_id uuid,
+        responder_briefing text
       );
+      create table public.species_reference (id uuid primary key, common_name text);
       create table public.report_comments (id uuid primary key, report_id uuid);
       create function public.is_report_approved(p_id uuid) returns boolean
         language sql stable security definer set search_path = '' as
@@ -118,7 +121,21 @@ const migration = fs.readFileSync(
       set role authenticated;`);
     const afterReview = (await db.query(`select * from public.public_profile_gallery('${author}')`)).rows;
     assert.deepEqual(afterReview.map((row) => row.id), [reportId(2), reportId(1)], 'Revoked reports leave the public gallery.');
-    console.log('Public gallery PostgreSQL checks passed: permissions, public fields, approved-only visibility, author/category filtering, cursors, limits, and reapplication.');
+
+    // Main extends the feed's return columns. Galleries keep their existing
+    // projection both when upgraded in place and when installed afterwards.
+    await db.exec('reset role;');
+    await db.exec(fs.readFileSync(
+      'supabase/migrations/20261121090000_add_ai_and_location_to_community_feed.sql', 'utf8'));
+    await db.exec('set role authenticated;');
+    const upgraded = (await db.query(`select * from public.public_profile_gallery('${author}')`)).rows;
+    assert.deepEqual(upgraded, afterReview, 'Extending the feed does not change or break gallery fields.');
+    await db.exec('reset role;');
+    await db.exec(migration);
+    await db.exec('set role authenticated;');
+    const reapplied = (await db.query(`select * from public.public_profile_gallery('${author}')`)).rows;
+    assert.deepEqual(reapplied, afterReview, 'The gallery can also be installed after the extended feed.');
+    console.log('Public gallery PostgreSQL checks passed: permissions, public fields, approved-only visibility, author/category filtering, cursors, limits, reapplication, and extended-feed compatibility.');
   } finally {
     await db.close();
   }

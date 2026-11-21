@@ -14,6 +14,8 @@ import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:faunawatch/features/community_map/models/community_map_state.dart';
+import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 
@@ -259,9 +261,124 @@ void main() {
       equals((brightness: Brightness.light, is3dEnabled: false)),
     );
   });
+
+  group('focusOn', () {
+    const public = MapFocus(
+      postId: 'approved',
+      latitude: 10.12,
+      longitude: 123.12,
+      isPublic: true,
+    );
+    const private = MapFocus(
+      postId: 'mine',
+      latitude: 16.46,
+      longitude: 120.99,
+      isPublic: false,
+    );
+
+    CommunityMapState state() => container.read(communityMapViewModelProvider);
+    CommunityMapViewModel vm() =>
+        container.read(communityMapViewModelProvider.notifier);
+
+    test('opens the Map tab and waits for the map to load', () async {
+      container
+          .read(shellViewModelProvider.notifier)
+          .selectDestination(ShellDestination.profile);
+      await vm().focusOn(public);
+      expect(container.read(shellViewModelProvider), ShellDestination.feed);
+      expect(container.read(feedTabViewModelProvider), FeedTab.map);
+      expect(mapboxMapService.focusCalls, isEmpty);
+
+      await vm().onStyleLoaded();
+      expect(mapboxMapService.focusCalls.single.focus, public);
+      expect(mapboxMapService.focusCalls.single.moveCamera, isTrue);
+      // The requested spot wins over fitting every report into view.
+      expect(mapboxMapService.reportCalls.single.recenter, isFalse);
+      expect(state().privateFocus, isNull);
+    });
+
+    test('a public post missing from the map refreshes the pins', () async {
+      await vm().onStyleLoaded();
+      expect(mapboxMapService.reportCalls, hasLength(1));
+      await vm().focusOn(public);
+      expect(mapboxMapService.reportCalls, hasLength(1));
+      const newer = MapFocus(
+        postId: 'just-approved',
+        latitude: 1,
+        longitude: 2,
+        isPublic: true,
+      );
+      await vm().focusOn(newer);
+      expect(mapboxMapService.reportCalls, hasLength(2));
+      expect(mapboxMapService.focusCalls.last.focus, newer);
+    });
+
+    test('a private post shows the owner marker until dismissed', () async {
+      await vm().onStyleLoaded();
+      vm().selectPost('approved');
+      await vm().focusOn(private);
+      expect(state().privateFocus, private);
+      expect(state().selectedPostId, isNull);
+      expect(mapboxMapService.focusCalls.last.focus, private);
+
+      // A style reload redraws the marker without moving the camera.
+      await vm().onStyleLoaded();
+      expect(mapboxMapService.focusCalls.last.focus, private);
+      expect(mapboxMapService.focusCalls.last.moveCamera, isFalse);
+
+      await vm().dismissPrivateFocus();
+      expect(state().privateFocus, isNull);
+      expect(mapboxMapService.focusCalls.last.focus, isNull);
+
+      await vm().focusOn(private);
+      await vm().focusOn(public);
+      expect(state().privateFocus, isNull);
+    });
+
+    test('an account change removes the owner marker', () async {
+      final user = StateProvider<String?>((ref) => 'owner');
+      final accounts = ProviderContainer(
+        overrides: [
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          currentUserIdProvider.overrideWith(
+            (ref) => Stream.value(ref.watch(user)),
+          ),
+          feedServiceProvider.overrideWithValue(feed),
+        ],
+      );
+      addTearDown(accounts.dispose);
+      await accounts.read(currentUserIdProvider.future);
+      final map = accounts.read(communityMapViewModelProvider.notifier);
+      await map.onStyleLoaded();
+      await map.focusOn(private);
+      expect(
+        accounts.read(communityMapViewModelProvider).privateFocus,
+        private,
+      );
+
+      accounts.read(user.notifier).state = 'someone-else';
+      await pumpEventQueue();
+      expect(accounts.read(communityMapViewModelProvider).privateFocus, isNull);
+      expect(mapboxMapService.focusCalls.last.focus, isNull);
+    });
+
+    test('MapFocus.fromPost needs a location', () {
+      expect(
+        MapFocus.fromPost(testPost('no-location'), isPublic: true),
+        isNull,
+      );
+    });
+  });
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  final focusCalls = <({MapFocus? focus, bool moveCamera})>[];
+  @override
+  Future<void> showFocus(MapFocus? focus, {bool moveCamera = true}) async {
+    focusCalls.add((focus: focus, moveCamera: moveCamera));
+  }
+
   final locations = <GuardLocation?>[];
   @override
   Future<void> showGuardLocation(GuardLocation? location) async {

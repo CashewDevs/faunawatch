@@ -20,7 +20,7 @@ void main() {
   late FakeFeedService service;
   final provider = galleryPostViewModelProvider((
     id: 'own',
-    isPending: false,
+    status: ReportStatus.approved,
     authorId: null,
   ));
 
@@ -95,7 +95,7 @@ void main() {
       await open();
       final public = galleryPostViewModelProvider((
         id: 'own',
-        isPending: false,
+        status: ReportStatus.approved,
         authorId: 'other',
       ));
       container.listen(public, (_, _) {});
@@ -111,23 +111,25 @@ void main() {
     },
   );
 
-  test(
-    'a public gallery reference cannot load a private pending report',
-    () async {
-      await open();
-      service.postRequests.clear();
-      final public = galleryPostViewModelProvider((
-        id: 'private',
-        isPending: true,
-        authorId: 'other',
-      ));
-      container.listen(public, (_, _) {});
-      await pumpEventQueue();
-      expect(container.read(public).post, isNull);
-      expect(container.read(public).hasError, isFalse);
-      expect(service.postRequests, isEmpty);
-    },
-  );
+  for (final status in [ReportStatus.pending, ReportStatus.declined]) {
+    test(
+      'a public gallery reference cannot load a private ${status.name} report',
+      () async {
+        await open();
+        service.postRequests.clear();
+        final public = galleryPostViewModelProvider((
+          id: 'private',
+          status: status,
+          authorId: 'other',
+        ));
+        container.listen(public, (_, _) {});
+        await pumpEventQueue();
+        expect(container.read(public).post, isNull);
+        expect(container.read(public).hasError, isFalse);
+        expect(service.postRequests, isEmpty);
+      },
+    );
+  }
 
   test('failed load can retry without leaving Profile', () async {
     service.postError = Exception('offline');
@@ -240,15 +242,19 @@ void main() {
     late _FakeReports reports;
     final pending = galleryPostViewModelProvider((
       id: 'own',
-      isPending: true,
+      status: ReportStatus.pending,
       authorId: null,
     ));
 
-    Future<GalleryPostState> openPending(ReportStatus status) async {
+    Future<GalleryPostState> openPending(
+      ReportStatus status, {
+      DeclineReason? reason,
+    }) async {
       reports = _FakeReports()
         ..report = OwnReport(
           post: testPost('own', authorId: 'me', authorName: 'FaunaWatch user'),
           status: status,
+          declineReason: reason,
         );
       container = ProviderContainer(
         overrides: [
@@ -289,11 +295,59 @@ void main() {
       expect(service.postRequests, ['own']);
     });
 
-    test('declined meanwhile are no longer available', () async {
-      final state = await openPending(ReportStatus.declined);
+    test('declined meanwhile show as declined with the reason', () async {
+      final state = await openPending(
+        ReportStatus.declined,
+        reason: DeclineReason.notWildlife,
+      );
+      expect(state.isDeclined, isTrue);
+      expect(state.isPublic, isFalse);
+      expect(state.declineReason, DeclineReason.notWildlife);
+      expect(state.post!.authorName, 'Owner');
+      expect(service.postRequests, isEmpty);
+    });
+
+    test('changes requested meanwhile are no longer available', () async {
+      final state = await openPending(ReportStatus.changesRequested);
       expect(state.post, isNull);
       expect(state.hasError, isFalse);
       expect(service.postRequests, isEmpty);
+    });
+  });
+
+  group('declined posts', () {
+    const declined = (id: 'own', status: ReportStatus.declined, authorId: null);
+    late _FakeReports reports;
+
+    Future<void> openDeclined() async {
+      reports = _FakeReports()
+        ..report = OwnReport(
+          post: testPost('own', authorId: 'me'),
+          status: ReportStatus.declined,
+          declineReason: DeclineReason.duplicate,
+        );
+      container = ProviderContainer(
+        overrides: [
+          feedServiceProvider.overrideWithValue(service),
+          currentUserIdProvider.overrideWith((ref) => Stream.value('me')),
+          reportDetailServiceProvider.overrideWithValue(reports),
+          profileViewModelProvider.overrideWith(_Profile.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(currentUserIdProvider.future);
+      container.listen(galleryPostViewModelProvider(declined), (_, _) {});
+      await pumpEventQueue();
+    }
+
+    test('load through the owner report and cannot be liked', () async {
+      await openDeclined();
+      final provider = galleryPostViewModelProvider(declined);
+      expect(container.read(provider).declineReason, DeclineReason.duplicate);
+      expect(reports.requests, ['own']);
+      await container.read(provider.notifier).toggleLike();
+      expect(service.likes, isEmpty);
+      expect(container.read(provider).post!.likedByMe, isFalse);
     });
   });
 }

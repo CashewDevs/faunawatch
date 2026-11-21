@@ -150,6 +150,82 @@ void main() {
     });
   });
 
+  group('AI analysis and map point', () {
+    test('reads every public AI field and ignores the responder briefing', () {
+      final post = FeedPost.fromJson(
+        _row(
+          overrides: {
+            'severity': 'high',
+            'possible_species': [
+              {
+                'common_name': 'Cane toad',
+                'scientific_name': 'Rhinella marina',
+                'confidence': 'medium',
+              },
+              {'name': 'Common toad'},
+              {'common_name': ' '},
+            ],
+            'possible_invasive': true,
+            'invasive_match_name': 'Cane toad',
+            'visual_condition_assessment': 'Alert, no visible injury.',
+            'incident_summary': 'A toad on a garden path.',
+            'safety_recommendations': 'Do not touch it.',
+            'community_warning': 'Keep pets away.',
+            'responder_briefing': 'Admin-only text.',
+          },
+        ),
+      );
+      final ai = post.aiAnalysis!;
+      expect(ai.species.map((s) => s.commonName), ['Cane toad', 'Common toad']);
+      expect(ai.species.first.scientificName, 'Rhinella marina');
+      expect(ai.species.first.confidence, SpeciesConfidence.medium);
+      expect(ai.species.last.confidence, SpeciesConfidence.uncertain);
+      expect(ai.severity, SeverityLevel.high);
+      expect(ai.possibleInvasive, isTrue);
+      expect(ai.invasiveMatchName, 'Cane toad');
+      expect(ai.visualCondition, 'Alert, no visible injury.');
+      expect(ai.incidentSummary, 'A toad on a garden path.');
+      expect(ai.safetyRecommendations, 'Do not touch it.');
+      expect(ai.communityWarning, 'Keep pets away.');
+      expect(post.hasAiContent, isTrue);
+    });
+
+    test('a row without any AI result has no analysis', () {
+      final post = FeedPost.fromJson(
+        _row(overrides: {'safety_recommendations': '  '}),
+      );
+      expect(post.aiAnalysis, isNull);
+      expect(post.hasAiContent, isFalse);
+    });
+
+    test('an AI text alone still counts as AI content', () {
+      final post = FeedPost.fromJson(
+        _row(overrides: {'visual_condition_assessment': 'Limping.'}),
+      );
+      expect(post.aiAnalysis!.visualCondition, 'Limping.');
+      expect(post.hasAiContent, isTrue);
+    });
+
+    test('coordinates are always rounded to about 1 km', () {
+      final post = FeedPost.fromJson(
+        _row(overrides: {'latitude': 16.456789, 'longitude': 120.987654}),
+      );
+      expect(post.approxLatitude, 16.46);
+      expect(post.approxLongitude, 120.99);
+      expect(post.hasMapLocation, isTrue);
+      final copy = post.copyWith(likeCount: 9);
+      expect(copy.approxLatitude, 16.46);
+      expect(copy.aiAnalysis, same(post.aiAnalysis));
+    });
+
+    test('a row without coordinates has no map point', () {
+      final post = FeedPost.fromJson(_row(overrides: {'latitude': 16.4}));
+      expect(post.approxLatitude, 16.4);
+      expect(post.approxLongitude, isNull);
+      expect(post.hasMapLocation, isFalse);
+    });
+  });
+
   group('PostComment.fromJson', () {
     Map<String, dynamic> comment(Map<String, dynamic>? profile) => {
       'id': 'c1',

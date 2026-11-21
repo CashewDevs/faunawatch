@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:faunawatch/core/services/map_lighting.dart';
 import 'package:faunawatch/core/services/map_pin_image.dart';
 import '../models/community_report.dart';
+import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_proximity.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_radius.dart';
@@ -31,6 +32,10 @@ abstract interface class MapboxMapService {
   /// Draws FaunaGuard's 1 km and 500 m warning rings around [reports];
   /// an empty list removes them.
   Future<void> showGuardRadius(List<CommunityReport> reports);
+
+  /// Moves the camera to [focus] (unless [moveCamera] is false) and draws the
+  /// owner-only marker when the post is not public. Null removes the marker.
+  Future<void> showFocus(MapFocus? focus, {bool moveCamera = true});
 }
 
 /// Mapbox implementation using the Standard style's light and 3D settings.
@@ -98,6 +103,58 @@ class MapboxCommunityMapService implements MapboxMapService {
       );
       _guardHasCentered = true;
     }
+  }
+
+  @override
+  Future<void> showFocus(MapFocus? focus, {bool moveCamera = true}) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    const source = 'own-post-location';
+    final private = focus != null && !focus.isPublic;
+    final exists = await map.styleSourceExists(source);
+    if (private || exists) {
+      final data = jsonEncode({
+        'type': 'FeatureCollection',
+        'features': [
+          if (private)
+            {
+              'type': 'Feature',
+              'properties': <String, Object>{},
+              'geometry': {
+                'type': 'Point',
+                'coordinates': [focus.longitude, focus.latitude],
+              },
+            },
+        ],
+      });
+      if (exists) {
+        await map.setStyleSourceProperty(source, 'data', data);
+      } else {
+        await map.addSource(GeoJsonSource(id: source, data: data));
+      }
+      if (!await map.styleLayerExists('own-post-marker')) {
+        await map.addLayer(
+          CircleLayer(
+            id: 'own-post-marker',
+            sourceId: source,
+            slot: 'top',
+            circleRadius: 11,
+            circleColor: const Color(0xFFF57C00).toARGB32(),
+            circleStrokeColor: Colors.white.toARGB32(),
+            circleStrokeWidth: 3,
+            circleEmissiveStrength: 1,
+          ),
+        );
+      }
+    }
+    if (focus == null || !moveCamera || _mapboxMap != map) return;
+    await map.setCamera(
+      CameraOptions(
+        center: Point(coordinates: Position(focus.longitude, focus.latitude)),
+        zoom: 14,
+        pitch: _pitch,
+      ),
+    );
   }
 
   @override

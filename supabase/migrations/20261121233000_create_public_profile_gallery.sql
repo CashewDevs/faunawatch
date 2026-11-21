@@ -51,9 +51,27 @@ as $$
     order by r.created_at desc, r.id desc
     limit least(greatest(coalesce(p_limit, 12), 1), 50)
   )
-  -- Reuse the feed's public projection: no coordinates, notes, or admin data.
+  -- Keep the gallery's projection stable when community_feed adds columns.
+  -- Reuse only these public fields: no coordinates, notes, or admin data.
   -- Author/category filtering and keyset pagination happen before these calls.
-  select f.*
+  select
+    f.id,
+    f.category,
+    f.description,
+    f.user_species,
+    f.severity,
+    f.possible_species,
+    f.possible_invasive,
+    f.place_name,
+    f.author_id,
+    f.author_name,
+    f.author_avatar_path,
+    f.photo_paths,
+    f.like_count,
+    f.liked_by_me,
+    f.comment_count,
+    f.created_at,
+    f.feed_at
   from page p
   cross join lateral public.community_feed(
     p_report_id => p.id,

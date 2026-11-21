@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
@@ -205,7 +206,7 @@ void main() {
       expect(find.text('My pending post'), findsOneWidget);
       // The owner's own name, not the report's placeholder author.
       expect(find.textContaining('Me · ', findRichText: true), findsOneWidget);
-      expect(find.byType(PendingReviewBadge), findsOneWidget);
+      expect(find.byType(PostStatusBadge), findsOneWidget);
       expect(reports.requests, ['p1']);
       expect(service.postRequests, isNot(contains('p1')));
 
@@ -237,10 +238,78 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('My post 2'), findsOneWidget);
-      expect(find.byType(PendingReviewBadge), findsNothing);
+      expect(find.byType(PostStatusBadge), findsNothing);
       staysInProfile();
     },
   );
+
+  testWidgets(
+    'declined posts show their badge and reason; likes explain they are '
+    'closed',
+    (tester) async {
+      gallery.statuses['p1'] = ReportStatus.declined;
+      reports.reports['p1'] = OwnReport(
+        post: testPost('p1', authorId: 'me', title: 'My declined post'),
+        status: ReportStatus.declined,
+        declineReason: DeclineReason.duplicate,
+      );
+      await pumpGallery(tester);
+      expect(find.text('Declined'), findsWidgets);
+      await openPost(tester, 'p1');
+      expect(find.text('My declined post'), findsOneWidget);
+      final badge = tester.widget<PostStatusBadge>(
+        find.byType(PostStatusBadge),
+      );
+      expect(badge.status, ReportStatus.declined);
+      expect(find.text('Reason: Duplicate report'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Like, 0'));
+      await tester.pumpAndSettle();
+      expect(find.text('This post was declined'), findsOneWidget);
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(service.likes, isEmpty);
+      staysInProfile();
+    },
+  );
+
+  testWidgets(
+    'tapping the location of a pending post closes the viewer and shows the '
+    'owner-only marker on the map',
+    (tester) async {
+      gallery.statuses['p1'] = ReportStatus.pending;
+      reports.reports['p1'] = OwnReport(
+        post: testPost(
+          'p1',
+          authorId: 'me',
+          title: 'My pending post',
+          latitude: 16.46,
+          longitude: 120.99,
+        ),
+        status: ReportStatus.pending,
+      );
+      await pumpGallery(tester);
+      await openPost(tester, 'p1');
+      await tester.tap(find.text('Lusod, Kabayan, Benguet'));
+      await tester.pumpAndSettle();
+      expect(find.byType(GalleryPostViewer), findsNothing);
+      expect(container.read(shellViewModelProvider), ShellDestination.feed);
+      expect(container.read(feedTabViewModelProvider), FeedTab.map);
+      final focus = container.read(communityMapViewModelProvider).privateFocus;
+      expect(focus!.postId, 'p1');
+      expect(focus.isPublic, isFalse);
+      expect(focus.latitude, 16.46);
+    },
+  );
+
+  testWidgets('posts without a location keep it as plain text', (tester) async {
+    await pumpGallery(tester);
+    await openPost(tester, 'p0');
+    await tester.tap(find.text('Lusod, Kabayan, Benguet'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryPostViewer), findsOneWidget);
+    staysInProfile();
+  });
 
   testWidgets('viewer supports the app dark theme', (tester) async {
     await pumpGallery(tester, dark: true);

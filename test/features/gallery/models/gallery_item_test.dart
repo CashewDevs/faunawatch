@@ -50,7 +50,7 @@ void main() {
       expect(title(const GalleryFilter()), 'No posts yet.');
       expect(
         const GalleryState().emptyMessage.hint,
-        'Your approved and pending posts will appear here.',
+        'Your posts will appear here.',
       );
       expect(
         title(const GalleryFilter(status: GalleryStatusFilter.pending)),
@@ -59,6 +59,10 @@ void main() {
       expect(
         title(const GalleryFilter(status: GalleryStatusFilter.approved)),
         'No approved posts yet.',
+      );
+      expect(
+        title(const GalleryFilter(status: GalleryStatusFilter.declined)),
+        'No declined posts.',
       );
       expect(
         title(
@@ -85,7 +89,13 @@ void main() {
       expect(GalleryStatusFilter.all.statuses, [
         ReportStatus.approved,
         ReportStatus.pending,
+        ReportStatus.declined,
       ]);
+      expect(GalleryStatusFilter.declined.statuses, [ReportStatus.declined]);
+      expect(
+        GalleryStatusFilter.values.expand((filter) => filter.statuses),
+        isNot(contains(ReportStatus.changesRequested)),
+      );
     });
   });
 }

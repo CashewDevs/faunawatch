@@ -90,6 +90,7 @@ class GalleryHeader extends StatelessWidget {
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: [
                 for (final status in GalleryStatusFilter.values)
                   _StatusChip(

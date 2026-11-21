@@ -437,12 +437,13 @@ Settings live in `ProfilePreferencesDrawer`, opened by the hamburger icon at
 the top-right of the banner. Selecting an action closes the drawer before
 opening the existing editor, theme picker or settings screen.
 Gallery is absent from the feed tabs,
-which contain Map and For You only. Gallery shows the signed-in user's approved
-AND pending reports, mixed in one three-column grid with yellow title/date
-footers, newest submission first; changes-requested and declined reports stay
-out. Pending tiles carry a "Pending review" badge (clock icon, `PendingReviewBadge`)
-under every filter. Under the "My Gallery" title, status chips All · Pending ·
-Approved (`GalleryStatusFilter`) combine with the Filter menu's report category
+which contain Map and For You only. Gallery shows the signed-in user's approved,
+pending AND declined reports, mixed in one three-column grid with yellow
+title/date footers, newest submission first; changes-requested reports stay
+out. Pending tiles carry a "Pending review" badge (clock icon) and declined tiles
+a red "Declined" badge (`PostStatusBadge`) under every filter. Under the "My
+Gallery" title, status chips All · Pending · Approved · Declined
+(`GalleryStatusFilter`; All includes declined) combine with the Filter menu's report category
 (`GalleryFilter`); the Filter button names the active category ("Filter · Animal
 in need"). Both are applied by the server, so older matches are found, and each
 filter has its own empty message (`GalleryState.emptyMessage`).
@@ -464,20 +465,30 @@ shown). Everything is forgotten on account changes. `reload()` always starts ove
 is already open, so the new pending post appears. Every tile pushes a
 profile-local full-screen `GalleryPostViewer` (TikTok-style vertical swiping under
 a "My posts" bar), starting at the tapped post; it swipes through the gallery's
-own approved and pending posts, respecting its filters, and Back returns to the
+own posts, respecting its filters, and Back returns to the
 existing profile/grid scroll position. Neither the shell destination nor the For
 You tab/page changes. `GalleryPostViewModel` (keyed by `GalleryPostRef`: id,
-whether it is pending, and an optional public-gallery author ID) loads approved
-posts with photos and engagement through `FeedService.fetchPost`, checks the
-current owner or the specified public author, and manages local likes and
-comment counts. Pending posts are not in that approved-only feed, so they load
-through `ReportDetailService.fetchOwnReport` (owner RLS) with the owner's profile
-name and avatar, show a large "Pending review" badge, and their like and comment
-buttons open a "This post is still pending" dialog instead (likes are also ignored
-by the ViewModel). A pending post reviewed meanwhile loads from the feed if it was
-approved and is otherwise unavailable. The shared post widgets accept action
+the tile's `ReportStatus`, and an optional public-gallery author ID) loads
+approved posts with photos and engagement through `FeedService.fetchPost`, checks
+the current owner or the specified public author, and manages local likes and
+comment counts. Pending and declined posts are not in that approved-only feed, so
+they load through `ReportDetailService.fetchOwnReport` (owner RLS) with the
+owner's profile name and avatar and show a large status badge. A declined post
+also shows the admin's latest reason ("Reason: Duplicate report"), which
+`fetchOwnReport` reads from `my_report_reviews()` (`DeclineReason`; a failed
+lookup only hides the reason). Their like and comment buttons open a "This post
+is still pending" or "This post was declined" dialog instead
+(`showNotPublicPostDialog`; likes are also ignored by the ViewModel). A post
+reviewed meanwhile loads from the feed if it was approved, shows as declined if
+it was declined, and is otherwise unavailable. The shared post widgets accept action
 callbacks; the comments sheet can notify this local ViewModel of changes. Full
 post data is discarded when its page is disposed and on account changes.
+Tapping a post's location in the viewer closes it and opens the map there (see
+"Post location on the map" below). The grid's own query reads no location and
+only the species guesses; the full AI analysis and the rounded point are read
+when a single post is opened (`ownReportColumns` / `ownReportPost` in
+`report_detail_service.dart`, which never read `user_notes` or
+`responder_briefing`).
 Scrolling or "Load older posts" loads more. While a filter's first page loads
 (opening the gallery, a filter's first visit, or refreshing an empty grid)
 `GallerySkeleton` shows pulsing placeholder tiles in the same three-column layout
@@ -503,16 +514,19 @@ controls. `SupabasePublicProfileService` reads public identity through
 Both it and the auto-disposed full-post state clear on account changes. The
 public gallery viewer swipes only that account's approved posts and returns to
 the existing grid position. It reuses `GalleryPostViewModel` for full photos,
-likes and comments; public references can never load pending owner reports.
+likes and comments; public references can never load pending or declined owner reports.
 
 Apply `20261121233000_create_public_profile_gallery.sql` manually after
 `20261112100000_create_community_feed.sql` and its prerequisites. Agents must
 not apply hosted changes. This adds one gallery RPC and an index, no table or
 notification changes. It filters by author, approved status and optional
 category before keyset pagination by submission time/id, then reuses the
-existing `community_feed()` projection, excluding exact coordinates, private
-notes and admin fields. It is executable only by authenticated users and also
-checks `auth.uid()`; existing table RLS is unchanged. Photo/avatar URLs reuse
+existing `community_feed()` projection, selecting gallery fields explicitly so
+the feed's added AI/location columns do not change its return type. Reapply the
+corrected gallery script if an older `select f.*` version is already installed.
+It excludes coordinates, private notes and admin fields. It is executable only by
+authenticated users and also checks `auth.uid()`; existing table RLS is unchanged.
+Photo/avatar URLs reuse
 the feed's one-hour signing and are not persisted. No new app dependency is
 required. A local-only PostgreSQL permission/pagination check is in
 `test/features/public_profile/public_gallery_security_test.cjs`; its PGlite
@@ -534,7 +548,34 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
 - **Location:** the feed returns `reports.place_name` exactly as stored (it is
   not split into city and province, because missing parts make that unreliable)
   and shows "Approximate location" when it is null. It never returns exact
-  coordinates, and `user_notes` and the admin fields stay private.
+  coordinates, and `user_notes` and the admin fields stay private. Since
+  `20261121090000_add_ai_and_location_to_community_feed.sql` it also returns
+  `latitude`/`longitude` rounded to 2 decimals (about 1 km), exactly like
+  `community_reports()`, for the post's map link.
+- **AI analysis:** every post with an AI result has an "AI analysis" button under
+  its caption that opens `PostAiAnalysisSheet` (possible species with confidence,
+  severity, condition, possible invasive with the matched species, summary,
+  safety tips and community warning; empty sections are left out). The data is
+  `FeedPost.aiAnalysis` (`PostAiAnalysis`). For other people's approved posts it
+  comes from `community_feed()`, which returns `visual_condition_assessment`,
+  `incident_summary`, `safety_recommendations`, `community_warning` and
+  `invasive_match_name` only after the same 20261121090000 migration (applied by
+  hand; until then the sheet shows only species, severity and the invasive flag).
+  The app currently saves no summary or community warning, so those sections
+  appear only if a later change fills them. `responder_briefing` and
+  `user_notes` are never shown on posts.
+- **Post location on the map:** tapping a post's location (For You or the
+  gallery viewer) calls `CommunityMapViewModel.focusOn(MapFocus)`, which switches
+  the shell to Feed and the feed tab to Map and moves the camera to the rounded
+  point (zoom 14), waiting for the map's style if it has not loaded yet. An
+  approved post's pin sits in the middle (the pins are refreshed if it is not
+  loaded yet); the pin dialog is not opened automatically. The owner's pending or
+  declined post gets an orange marker (`MapboxMapService.showFocus`) and a banner
+  "Only you can see this", removed by its close button, by opening an approved
+  post's location, or on account changes. `FeedPost` rounds any coordinates it is
+  given, so the owner's exact point is never kept. Posts without coordinates keep
+  their location as plain text. With FaunaGuard on, the next GPS fix recentres the
+  map on the user.
 - **Likes** are real: `report_likes` (report, user) rows that a user can add or
   remove only for themselves, only on approved reports and not while suspended.
   Counts and `liked_by_me` come from the RPC; the app likes optimistically and

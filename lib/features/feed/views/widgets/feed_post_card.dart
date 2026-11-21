@@ -15,10 +15,14 @@ class FeedPostCard extends StatelessWidget {
     this.onLike,
     this.onComments,
     this.onAuthorTap,
+    this.onLocation,
   });
   final FeedPost post;
   final Color backgroundColor;
   final VoidCallback? onLike, onComments, onAuthorTap;
+
+  /// Shows the post on the map; null leaves its location as plain text.
+  final VoidCallback? onLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +48,11 @@ class FeedPostCard extends StatelessWidget {
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(16, 4, 80, bottomInset + 12),
-              child: PostCaption(post: post, onAuthorTap: openAuthor),
+              child: PostCaption(
+                post: post,
+                onAuthorTap: openAuthor,
+                onLocationTap: onLocation,
+              ),
             ),
           ],
         ),

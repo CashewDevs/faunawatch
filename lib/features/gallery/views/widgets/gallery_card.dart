@@ -18,8 +18,8 @@ const galleryGridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
 /// - Rounded rectangular card (BorderRadius.circular(18))
 /// - Signed network photo over a blue gradient fallback
 /// - Yellow [#FFF7D6] bottom section for the title and submission date
-/// - A "Pending review" badge on posts an admin has not reviewed yet, shown
-///   under every filter so pending posts never look published
+/// - A "Pending review" or "Declined" badge on posts that are not public,
+///   shown under every filter so they never look published
 class GalleryCard extends StatelessWidget {
   const GalleryCard({super.key, required this.item, this.onTap});
 
@@ -33,7 +33,8 @@ class GalleryCard extends StatelessWidget {
       label: [
         item.title,
         item.location,
-        if (item.isPending) PendingReviewBadge.label,
+        if (PostStatusBadge.shows(item.status))
+          PostStatusBadge.labelFor(item.status),
       ].join(', '),
       child: GestureDetector(
         onTap: onTap,
@@ -78,14 +79,14 @@ class GalleryCard extends StatelessWidget {
                                 const _PhotoPlaceholder(),
                           )
                         : const _PhotoPlaceholder(),
-                    if (item.isPending)
-                      const Positioned(
+                    if (PostStatusBadge.shows(item.status))
+                      Positioned(
                         top: 6,
                         left: 6,
                         right: 6,
                         child: Align(
                           alignment: Alignment.topLeft,
-                          child: PendingReviewBadge(),
+                          child: PostStatusBadge(status: item.status),
                         ),
                       ),
                   ],
@@ -138,16 +139,25 @@ class GalleryCard extends StatelessWidget {
   }
 }
 
-/// Marks a post that is still waiting for an admin's review: small on grid
+/// Marks a post that is not public: "Pending review" while it waits for an
+/// admin, "Declined" once an admin declined or took it down. Small on grid
 /// tiles, [large] on the full-screen post.
-class PendingReviewBadge extends StatelessWidget {
-  const PendingReviewBadge({super.key, this.large = false});
+class PostStatusBadge extends StatelessWidget {
+  const PostStatusBadge({super.key, required this.status, this.large = false});
 
-  static const label = 'Pending review';
+  final ReportStatus status;
   final bool large;
+
+  /// Whether [status] gets a badge at all (approved posts do not).
+  static bool shows(ReportStatus status) =>
+      status == ReportStatus.pending || status == ReportStatus.declined;
+
+  static String labelFor(ReportStatus status) =>
+      status == ReportStatus.declined ? 'Declined' : 'Pending review';
 
   @override
   Widget build(BuildContext context) {
+    final declined = status == ReportStatus.declined;
     return ExcludeSemantics(
       // Scales down instead of overflowing on narrow tiles.
       child: FittedBox(
@@ -158,20 +168,22 @@ class PendingReviewBadge extends StatelessWidget {
               ? const EdgeInsets.symmetric(horizontal: 10, vertical: 5)
               : const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.72),
+            color: declined
+                ? const Color(0xFFC62828).withValues(alpha: 0.92)
+                : Colors.black.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(large ? 14 : 10),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.schedule_rounded,
+                declined ? Icons.block_rounded : Icons.schedule_rounded,
                 size: large ? 16 : 11,
-                color: const Color(0xFFFFC94D),
+                color: declined ? Colors.white : const Color(0xFFFFC94D),
               ),
               SizedBox(width: large ? 5 : 3),
               Text(
-                label,
+                labelFor(status),
                 style: GoogleFonts.dmSans(
                   fontSize: large ? 13 : 9,
                   fontWeight: FontWeight.w700,

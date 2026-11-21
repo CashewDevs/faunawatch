@@ -16,8 +16,9 @@ export 'package:faunawatch/features/gallery/models/gallery_post_state.dart';
 /// or the shell destination. All account changes discard the previous result.
 ///
 /// Approved posts load from the public feed (with likes and comments). Pending
-/// posts are not in it, so they load through the owner's own report access and
-/// keep likes and comments closed until an admin approves them.
+/// and declined posts are not in it, so they load through the owner's own
+/// report access and keep likes and comments closed. A declined post also
+/// carries the admin's reason.
 class GalleryPostViewModel
     extends AutoDisposeFamilyNotifier<GalleryPostState, GalleryPostRef> {
   late FeedService _service;
@@ -49,8 +50,8 @@ class GalleryPostViewModel
       return;
     }
     try {
-      if (arg.isPending) {
-        // Public galleries never read pending/private owner reports.
+      if (arg.status != ReportStatus.approved) {
+        // Public galleries never read pending or declined owner reports.
         if (arg.authorId != null) {
           state = const GalleryPostState();
           return;
@@ -60,14 +61,20 @@ class GalleryPostViewModel
             .read(reportDetailServiceProvider)
             .fetchOwnReport(arg.id);
         if (generation != _generation) return;
-        if (report?.status == ReportStatus.pending) {
+        final status = report?.status;
+        if (status == ReportStatus.pending || status == ReportStatus.declined) {
           final post = await _withOwnProfile(report!.post);
           if (generation != _generation) return;
-          state = GalleryPostState(post: post, isPending: true);
+          state = GalleryPostState(
+            post: post,
+            status: status!,
+            declineReason: report.declineReason,
+          );
           return;
         }
-        // Reviewed since the gallery loaded: only an approval is still shown.
-        if (report?.status != ReportStatus.approved) {
+        // Reviewed since the gallery loaded: an approval loads from the feed,
+        // and a change request is no longer part of the gallery.
+        if (status != ReportStatus.approved) {
           state = const GalleryPostState();
           return;
         }
@@ -108,7 +115,7 @@ class GalleryPostViewModel
 
   Future<void> toggleLike() async {
     final before = state.post;
-    if (before == null || _liking || state.isPending) return;
+    if (before == null || _liking || !state.isPublic) return;
     _liking = true;
     final generation = _generation;
     final liked = !before.likedByMe;

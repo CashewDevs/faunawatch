@@ -155,9 +155,10 @@ Before using the public gallery, you or the backend owner must run
 [`20261121233000_create_public_profile_gallery.sql`](supabase/migrations/20261121233000_create_public_profile_gallery.sql)
 in the Supabase SQL editor, after `20261112100000_create_community_feed.sql`
 and its prerequisites. This adds an approved-only author-filtered query and
-index, without changing notification SQL or table access policies. It returns
-the same public fields as the feed, with no exact coordinates or private notes.
-The app does not apply this script automatically.
+index, without changing notification SQL or table access policies. It selects
+the gallery's public fields explicitly so later feed columns do not break its
+return type. If you applied an earlier copy using `select f.*`, rerun the corrected
+script when updating the feed. The app does not apply this script automatically.
 
 The migration has an isolated PostgreSQL regression test, with no hosted
 connection or app dependency:

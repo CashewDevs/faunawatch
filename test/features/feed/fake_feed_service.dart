@@ -24,6 +24,9 @@ FeedPost testPost(
   String? aiSpeciesGuess,
   bool possibleInvasive = false,
   String? avatarAsset,
+  double? latitude,
+  double? longitude,
+  PostAiAnalysis? aiAnalysis,
 }) {
   final base = DateTime.utc(2026, 11, 12, 8);
   return FeedPost(
@@ -37,6 +40,9 @@ FeedPost testPost(
     categoryLabel: category?.label ?? FeedPost.fallbackTitle,
     description: description,
     placeName: placeName,
+    approxLatitude: latitude,
+    approxLongitude: longitude,
+    aiAnalysis: aiAnalysis,
     likeCount: likeCount,
     likedByMe: likedByMe,
     commentCount: commentCount,
