@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/community_reports_service.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'dart:async';
+
+import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/services/map_pin_photo_service.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
@@ -26,6 +30,19 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   /// A focus requested before the map finished loading.
   MapFocus? _pendingFocus;
 
+  /// Photo pins load this many at a time, and at most [_photosPerPass] each
+  /// time the map stops moving, so a zoomed-out view cannot download every
+  /// photo at once.
+  static const photosAtOnce = 4, _photosPerPass = 24;
+
+  /// Pin pictures loaded this session, by report id.
+  final _pinPhotos = <String, StyleImage>{};
+
+  /// Reports whose photo could not be loaded; retried after a manual refresh.
+  final _failedPhotos = <String>{};
+  bool _loadingPhotos = false, _photosAgain = false;
+  int _photoGeneration = 0;
+
   @override
   CommunityMapState build() {
     _mapboxMapService = ref.watch(mapboxMapServiceProvider);
@@ -43,7 +60,9 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       previous,
       next,
     ) {
-      if (previous != next) dismissPrivateFocus();
+      if (previous == next) return;
+      dismissPrivateFocus();
+      _forgetPinPhotos();
     });
     ref.onDispose(() {
       _disposed = true;
@@ -231,8 +250,94 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
         ?.preview;
   }
 
+  /// Loads the photo pins of the reports on screen that do not have one yet.
+  /// Called whenever the map stops moving and after the reports change.
+  Future<void> onMapIdle() async {
+    if (_disposed || !_isStyleLoaded) return;
+    if (_loadingPhotos) {
+      // Moved again while loading: check the new area afterwards.
+      _photosAgain = true;
+      return;
+    }
+    _loadingPhotos = true;
+    try {
+      do {
+        _photosAgain = false;
+        await _loadVisiblePhotos();
+      } while (_photosAgain && !_disposed);
+    } finally {
+      _loadingPhotos = false;
+    }
+  }
+
+  Future<void> _loadVisiblePhotos() async {
+    final generation = _photoGeneration;
+    final waiting = [
+      for (final report in state.reports)
+        if (report.photoPath != null &&
+            !_pinPhotos.containsKey(report.id) &&
+            !_failedPhotos.contains(report.id))
+          report,
+    ];
+    if (waiting.isEmpty) return;
+    final MapBounds? bounds;
+    try {
+      bounds = await _mapboxMapService.visibleBounds();
+    } catch (_) {
+      return;
+    }
+    if (bounds == null || _disposed) return;
+    final visible = waiting
+        .where((report) => _isInside(report, bounds!))
+        .take(_photosPerPass)
+        .toList();
+    if (visible.isEmpty) return;
+    final photos = ref.read(mapPinPhotoServiceProvider);
+    for (var start = 0; start < visible.length; start += photosAtOnce) {
+      final batch = visible.skip(start).take(photosAtOnce).toList();
+      final images = await Future.wait([
+        for (final report in batch) photos.loadPin(report.photoPath!),
+      ]);
+      // An account change or dispose meanwhile discards these.
+      if (_disposed || generation != _photoGeneration) return;
+      final loaded = <String, StyleImage>{};
+      for (var i = 0; i < batch.length; i++) {
+        final image = images[i];
+        if (image == null) {
+          _failedPhotos.add(batch[i].id);
+        } else {
+          _pinPhotos[batch[i].id] = image;
+          loaded[batch[i].id] = image;
+        }
+      }
+      try {
+        await _mapboxMapService.showPinPhotos(loaded);
+      } catch (_) {
+        // Kept in memory; shown again with the next refresh.
+      }
+    }
+  }
+
+  static bool _isInside(CommunityReport report, MapBounds bounds) {
+    if (report.latitude < bounds.south || report.latitude > bounds.north) {
+      return false;
+    }
+    // A view across the date line has west > east.
+    return bounds.west <= bounds.east
+        ? report.longitude >= bounds.west && report.longitude <= bounds.east
+        : report.longitude >= bounds.west || report.longitude <= bounds.east;
+  }
+
+  void _forgetPinPhotos() {
+    _photoGeneration++;
+    _pinPhotos.clear();
+    _failedPhotos.clear();
+  }
+
   Future<void> refreshReports() async {
     if (!_isStyleLoaded || state.isLoadingReports) return;
+    // A refresh retries photos that failed before.
+    _failedPhotos.clear();
     state = state.copyWith(isLoadingReports: true, reportsHaveError: false);
     try {
       final reports = await ref.read(communityReportsServiceProvider).load();
@@ -252,11 +357,26 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
           clearSelectedPost: !reports.any((r) => r.id == state.selectedPostId),
         );
         await _updateGuardRadius();
+        await _showKnownPinPhotos();
+        unawaited(onMapIdle());
       }
     } catch (_) {
       if (!_disposed) {
         state = state.copyWith(reportsHaveError: true, isLoadingReports: false);
       }
+    }
+  }
+
+  /// Puts back the photo pins already loaded, e.g. after the style reloaded.
+  Future<void> _showKnownPinPhotos() async {
+    final known = {
+      for (final report in state.reports) report.id: ?_pinPhotos[report.id],
+    };
+    if (known.isEmpty || _disposed) return;
+    try {
+      await _mapboxMapService.showPinPhotos(known);
+    } catch (_) {
+      // The pins keep the logo until the next refresh.
     }
   }
 

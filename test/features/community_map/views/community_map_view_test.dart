@@ -459,6 +459,7 @@ class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
     required ViewportState viewport,
     required MapCreatedCallback onMapCreated,
     required OnStyleLoadedListener onStyleLoaded,
+    OnMapIdleListener? onMapIdle,
   }) {
     viewports.add(viewport);
     return const SizedBox(key: Key('fake_mapbox_map'));
@@ -466,6 +467,12 @@ class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  @override
+  Future<MapBounds?> visibleBounds() async => null;
+
+  @override
+  Future<void> showPinPhotos(Map<String, StyleImage> photos) async {}
+
   @override
   Future<void> showFocus(MapFocus? focus, {bool moveCamera = true}) async {}
 

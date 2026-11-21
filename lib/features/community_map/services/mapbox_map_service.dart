@@ -36,14 +36,33 @@ abstract interface class MapboxMapService {
   /// Moves the camera to [focus] (unless [moveCamera] is false) and draws the
   /// owner-only marker when [MapFocus.showsOwnerMarker]. Null removes it.
   Future<void> showFocus(MapFocus? focus, {bool moveCamera = true});
+
+  /// The map area currently on screen, or null when the map is not ready.
+  Future<MapBounds?> visibleBounds();
+
+  /// Gives each report in [photos] (report id to pin picture) its own pin;
+  /// the others keep the logo pin.
+  Future<void> showPinPhotos(Map<String, StyleImage> photos);
 }
+
+/// A map area in degrees.
+typedef MapBounds = ({double south, double west, double north, double east});
 
 /// Mapbox implementation using the Standard style's light and 3D settings.
 class MapboxCommunityMapService implements MapboxMapService {
   MapboxMap? _mapboxMap;
   double _pitch = 55;
   static const _pinImage = 'community-report-logo-pin';
+  static const _reportsSource = 'community-reports';
   bool _guardHasCentered = false;
+
+  /// The reports last drawn, to redraw them when pin pictures arrive.
+  List<CommunityReport> _reports = const [];
+
+  /// Reports whose own photo pin was added to the current style.
+  final _photoIds = <String>{};
+
+  static String _photoImage(String reportId) => 'report-photo-$reportId';
 
   @override
   Future<void> showGuardLocation(GuardLocation? location) async {
@@ -213,26 +232,13 @@ class MapboxCommunityMapService implements MapboxMapService {
   }) async {
     final map = _mapboxMap;
     if (map == null) return;
-    const source = 'community-reports';
-    final data = jsonEncode({
-      'type': 'FeatureCollection',
-      'features': [
-        for (final report in reports)
-          {
-            'type': 'Feature',
-            'properties': {'postId': report.id},
-            'geometry': {
-              'type': 'Point',
-              'coordinates': [report.longitude, report.latitude],
-            },
-          },
-      ],
-    });
-    if (await map.styleSourceExists(source)) {
-      await map.setStyleSourceProperty(source, 'data', data);
-    } else {
-      await map.addSource(GeoJsonSource(id: source, data: data));
+    _reports = List.of(reports);
+    // A reloaded style loses its images; those pins fall back to the logo
+    // until their pictures are shown again.
+    for (final id in _photoIds.toList()) {
+      if (!await map.hasStyleImage(_photoImage(id))) _photoIds.remove(id);
     }
+    await _setReportsData(map);
     if (!await map.hasStyleImage(_pinImage)) {
       await map.addImage(_pinImage, 2, await createMapPinImage());
     }
@@ -240,9 +246,10 @@ class MapboxCommunityMapService implements MapboxMapService {
       await map.addLayer(
         SymbolLayer(
           id: 'community-report-pins',
-          sourceId: source,
+          sourceId: _reportsSource,
           slot: 'top',
-          iconImage: _pinImage,
+          // Each feature names its pin picture (its photo or the logo).
+          iconImageExpression: ['get', 'icon'],
           iconAnchor: IconAnchor.BOTTOM,
           iconAllowOverlap: true,
           iconIgnorePlacement: true,
@@ -269,6 +276,66 @@ class MapboxCommunityMapService implements MapboxMapService {
     }
   }
 
+  Future<void> _setReportsData(MapboxMap map) async {
+    final data = jsonEncode({
+      'type': 'FeatureCollection',
+      'features': [
+        for (final report in _reports)
+          {
+            'type': 'Feature',
+            'properties': {
+              'postId': report.id,
+              'icon': _photoIds.contains(report.id)
+                  ? _photoImage(report.id)
+                  : _pinImage,
+            },
+            'geometry': {
+              'type': 'Point',
+              'coordinates': [report.longitude, report.latitude],
+            },
+          },
+      ],
+    });
+    if (await map.styleSourceExists(_reportsSource)) {
+      await map.setStyleSourceProperty(_reportsSource, 'data', data);
+    } else {
+      await map.addSource(GeoJsonSource(id: _reportsSource, data: data));
+    }
+  }
+
+  @override
+  Future<MapBounds?> visibleBounds() async {
+    final map = _mapboxMap;
+    if (map == null) return null;
+    final camera = await map.getCameraState();
+    final bounds = await map.coordinateBoundsForCamera(
+      camera.toCameraOptions(),
+    );
+    final sw = bounds.southwest.coordinates, ne = bounds.northeast.coordinates;
+    return (
+      south: sw.lat.toDouble(),
+      west: sw.lng.toDouble(),
+      north: ne.lat.toDouble(),
+      east: ne.lng.toDouble(),
+    );
+  }
+
+  @override
+  Future<void> showPinPhotos(Map<String, StyleImage> photos) async {
+    final map = _mapboxMap;
+    if (map == null || photos.isEmpty) return;
+    var changed = false;
+    for (final MapEntry(key: id, value: image) in photos.entries) {
+      final name = _photoImage(id);
+      if (!await map.hasStyleImage(name)) {
+        await map.addImage(name, 2, image);
+      }
+      changed = _photoIds.add(id) || changed;
+    }
+    if (_mapboxMap != map) return;
+    if (changed && _reports.isNotEmpty) await _setReportsData(map);
+  }
+
   @override
   Future<void> attach(
     MapboxMap mapboxMap, {
@@ -276,6 +343,7 @@ class MapboxCommunityMapService implements MapboxMapService {
   }) async {
     _mapboxMap = mapboxMap;
     _guardHasCentered = false;
+    _photoIds.clear();
     mapboxMap.addInteraction(
       TapInteraction(FeaturesetDescriptor(layerId: 'community-report-pins'), (
         feature,

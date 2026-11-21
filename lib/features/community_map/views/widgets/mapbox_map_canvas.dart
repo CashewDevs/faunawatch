@@ -11,6 +11,7 @@ abstract interface class MapboxMapCanvasBuilder {
     required ViewportState viewport,
     required MapCreatedCallback onMapCreated,
     required OnStyleLoadedListener onStyleLoaded,
+    OnMapIdleListener? onMapIdle,
   });
 }
 
@@ -22,12 +23,14 @@ class DefaultMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
     required ViewportState viewport,
     required MapCreatedCallback onMapCreated,
     required OnStyleLoadedListener onStyleLoaded,
+    OnMapIdleListener? onMapIdle,
   }) {
     return MapWidget(
       styleUri: MapboxStyles.STANDARD,
       viewport: viewport,
       onMapCreated: onMapCreated,
       onStyleLoadedListener: onStyleLoaded,
+      onMapIdleListener: onMapIdle,
     );
   }
 }
