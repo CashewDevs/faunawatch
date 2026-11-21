@@ -1,4 +1,4 @@
-import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
@@ -92,11 +92,12 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
     final state = ref.watch(animalBoxesViewModelProvider);
     final isGallery = widget.photo.source == FaunaLensPhotoSource.gallery;
     final chosenCount = state.chosen.length;
+    final colors = FaunaLensTheme.of(context);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: colors.statusBar,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: colors.page,
         body: Column(
           children: [
             FaunaLensPageHeader(
@@ -149,7 +150,7 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
                         liveRegion: true,
                         child: Text(
                           _guidance(state),
-                          style: aiResultBodyStyle(),
+                          style: aiResultBodyStyle(context),
                         ),
                       ),
                       if (state.boxes.isNotEmpty) ...[
@@ -183,6 +184,9 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
                                   ? 'Cancel drawing'
                                   : 'Draw a box',
                               isPrimary: false,
+                              secondaryFill: colors.outlineFill,
+                              secondaryBorder: colors.outlineBorder,
+                              secondaryText: colors.outlineText,
                               onPressed: state.canDrawBox || _isDrawing
                                   ? () =>
                                         setState(() => _isDrawing = !_isDrawing)
@@ -196,6 +200,9 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
                                   ? 'Choose another photo'
                                   : 'Retake photo',
                               isPrimary: false,
+                              secondaryFill: colors.outlineFill,
+                              secondaryBorder: colors.outlineBorder,
+                              secondaryText: colors.outlineText,
                               onPressed: () => Navigator.of(
                                 context,
                               ).pop(const RetakeFromAiResult()),
@@ -284,6 +291,7 @@ class _BoxChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(box.color.argb);
+    final colors = FaunaLensTheme.of(context);
     return Semantics(
       button: true,
       selected: isChosen,
@@ -295,7 +303,7 @@ class _BoxChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: isChosen ? color.withValues(alpha: 0.15) : Colors.white,
+            color: isChosen ? color.withValues(alpha: 0.18) : colors.card,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: color, width: isChosen ? 2 : 1),
           ),
@@ -313,7 +321,7 @@ class _BoxChip extends StatelessWidget {
               Text(
                 box.label,
                 style: GoogleFonts.dmSans(
-                  color: AppColors.consentTitleNavy,
+                  color: colors.title,
                   fontSize: 13,
                   fontWeight: isChosen ? FontWeight.w700 : FontWeight.w500,
                 ),

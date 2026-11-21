@@ -13,6 +13,9 @@ class PillButton extends StatelessWidget {
     required this.onPressed,
     this.isPrimary = true,
     this.isLoading = false,
+    this.secondaryFill,
+    this.secondaryBorder,
+    this.secondaryText,
   });
 
   final String label;
@@ -22,9 +25,18 @@ class PillButton extends StatelessWidget {
   final bool isPrimary;
   final bool isLoading;
 
+  /// Colours of the secondary (outlined) style, for screens that follow the
+  /// app's dark mode. They default to the original white outline.
+  final Color? secondaryFill;
+  final Color? secondaryBorder;
+  final Color? secondaryText;
+
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !isLoading;
+    final textColor = isPrimary
+        ? AppColors.consentTitleNavy
+        : secondaryText ?? AppColors.consentTitleNavy;
     final radius = BorderRadius.circular(26);
 
     return AnimatedOpacity(
@@ -35,7 +47,7 @@ class PillButton extends StatelessWidget {
         height: 50,
         decoration: BoxDecoration(
           borderRadius: radius,
-          color: isPrimary ? null : Colors.white,
+          color: isPrimary ? null : secondaryFill ?? Colors.white,
           gradient: isPrimary
               ? const LinearGradient(
                   colors: [
@@ -47,7 +59,8 @@ class PillButton extends StatelessWidget {
           border: Border.all(
             color: isPrimary
                 ? AppColors.consentButtonBorder
-                : AppColors.consentMutedText.withValues(alpha: 0.5),
+                : secondaryBorder ??
+                      AppColors.consentMutedText.withValues(alpha: 0.5),
           ),
           boxShadow: isPrimary && onPressed != null
               ? [
@@ -66,17 +79,17 @@ class PillButton extends StatelessWidget {
             onTap: enabled ? onPressed : null,
             child: Center(
               child: isLoading
-                  ? const SizedBox.square(
+                  ? SizedBox.square(
                       dimension: 22,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        color: AppColors.consentTitleNavy,
+                        color: textColor,
                       ),
                     )
                   : Text(
                       label,
                       style: GoogleFonts.dmSans(
-                        color: AppColors.consentTitleNavy,
+                        color: textColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),

@@ -1,9 +1,10 @@
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// White rounded card used for the species list and the advice.
+/// Rounded card used for the species list and the advice.
 class AiResultCard extends StatelessWidget {
   const AiResultCard({super.key, required this.child});
 
@@ -11,33 +12,34 @@ class AiResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = FaunaLensTheme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.aiResultCardBorder),
+        border: Border.all(color: colors.cardBorder),
       ),
       child: child,
     );
   }
 }
 
-TextStyle aiResultTitleStyle() => GoogleFonts.dmSans(
-  color: AppColors.consentTitleNavy,
+TextStyle aiResultTitleStyle(BuildContext context) => GoogleFonts.dmSans(
+  color: FaunaLensTheme.of(context).title,
   fontSize: 15,
   fontWeight: FontWeight.w700,
 );
 
-TextStyle aiResultBodyStyle() => GoogleFonts.dmSans(
-  color: AppColors.consentBodyText,
+TextStyle aiResultBodyStyle(BuildContext context) => GoogleFonts.dmSans(
+  color: FaunaLensTheme.of(context).body,
   fontSize: 13,
   height: 1.35,
 );
 
-TextStyle aiResultMutedStyle() => GoogleFonts.dmSans(
-  color: AppColors.consentMutedText,
+TextStyle aiResultMutedStyle(BuildContext context) => GoogleFonts.dmSans(
+  color: FaunaLensTheme.of(context).muted,
   fontSize: 11.5,
   height: 1.3,
 );
@@ -54,13 +56,13 @@ class PossibleSpeciesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Possible species', style: aiResultTitleStyle()),
+          Text('Possible species', style: aiResultTitleStyle(context)),
           const SizedBox(height: 2),
           Text(
             result.coversSeveralAnimals
                 ? 'One guess for each animal you chose. None of these is confirmed.'
                 : 'Up to ${AiIdentification.maxSpecies} guesses. None of these is confirmed.',
-            style: aiResultMutedStyle(),
+            style: aiResultMutedStyle(context),
           ),
           const SizedBox(height: 6),
           if (!result.hasSpecies)
@@ -69,7 +71,7 @@ class PossibleSpeciesCard extends StatelessWidget {
               child: Text(
                 "The AI couldn't suggest a species for this photo. "
                 'Try a closer, clearer shot.',
-                style: aiResultBodyStyle(),
+                style: aiResultBodyStyle(context),
               ),
             )
           else
@@ -110,12 +112,13 @@ class _SpeciesRow extends StatelessWidget {
     // With several animals every row is an equal; only one animal's guesses
     // are ranked.
     final isTop = showBox || rank == 1;
-    final background =
-        boxColor ??
-        (isTop ? AppColors.faunaLensBlue : AppColors.aiResultRankBackground);
+    final colors = FaunaLensTheme.of(context);
+    final background = boxColor ?? (isTop ? colors.accent : colors.rank);
     final foreground = boxColor != null
         ? (boxColor.computeLuminance() > 0.5 ? Colors.black : Colors.white)
-        : (isTop ? Colors.white : AppColors.faunaLensBlue);
+        : (isTop
+              ? (colors.isDark ? AppColors.darkSurface : Colors.white)
+              : colors.accent);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -148,7 +151,7 @@ class _SpeciesRow extends StatelessWidget {
                 Text(
                   species.commonName,
                   style: GoogleFonts.dmSans(
-                    color: AppColors.consentTitleNavy,
+                    color: colors.title,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -156,9 +159,9 @@ class _SpeciesRow extends StatelessWidget {
                 if (species.scientificName.isNotEmpty)
                   Text(
                     species.scientificName,
-                    style: aiResultMutedStyle().copyWith(
-                      fontStyle: FontStyle.italic,
-                    ),
+                    style: aiResultMutedStyle(
+                      context,
+                    ).copyWith(fontStyle: FontStyle.italic),
                   ),
               ],
             ),
@@ -269,19 +272,20 @@ class InvasiveHintCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = FaunaLensTheme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.aiResultInvasiveBackground,
+        color: colors.invasive,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.warning_amber_rounded,
-            color: AppColors.aiResultInvasiveText,
+            color: colors.invasiveText,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -291,18 +295,17 @@ class InvasiveHintCard extends StatelessWidget {
               children: [
                 Text(
                   'Possible invasive species',
-                  style: aiResultTitleStyle().copyWith(
-                    color: AppColors.aiResultInvasiveText,
-                  ),
+                  style: aiResultTitleStyle(
+                    context,
+                  ).copyWith(color: colors.invasiveText),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'The top guess appears in the pilot-area reference list. '
                   'This is a hint only, not an official classification.',
-                  style: aiResultBodyStyle().copyWith(
-                    color: AppColors.aiResultInvasiveText,
-                    fontSize: 12.5,
-                  ),
+                  style: aiResultBodyStyle(
+                    context,
+                  ).copyWith(color: colors.invasiveText, fontSize: 12.5),
                 ),
               ],
             ),
@@ -313,7 +316,7 @@ class InvasiveHintCard extends StatelessWidget {
   }
 }
 
-/// Light blue card with a small caps label, used for condition and severity.
+/// Tinted card with a small caps label, used for condition and severity.
 class AiResultInfoCard extends StatelessWidget {
   const AiResultInfoCard({
     super.key,
@@ -326,12 +329,13 @@ class AiResultInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = FaunaLensTheme.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.aiResultInfoBackground,
+        color: colors.info,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.aiResultInfoBorder),
+        border: Border.all(color: colors.infoBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,7 +343,7 @@ class AiResultInfoCard extends StatelessWidget {
           Text(
             label,
             style: GoogleFonts.dmSans(
-              color: AppColors.faunaLensBlue,
+              color: colors.accent,
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
@@ -353,7 +357,7 @@ class AiResultInfoCard extends StatelessWidget {
   }
 }
 
-/// The white top bar of the FaunaLens result pages: a back chevron and a
+/// The top bar of the FaunaLens result pages: a back chevron and a
 /// title on the right.
 class FaunaLensPageHeader extends StatelessWidget {
   const FaunaLensPageHeader({
@@ -368,8 +372,9 @@ class FaunaLensPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = FaunaLensTheme.of(context);
     return Container(
-      color: AppColors.aiResultHeader,
+      color: colors.header,
       child: SafeArea(
         bottom: false,
         child: SizedBox(
@@ -391,7 +396,7 @@ class FaunaLensPageHeader extends StatelessWidget {
                 child: Text(
                   title,
                   style: GoogleFonts.dmSans(
-                    color: AppColors.faunaLensBlue,
+                    color: colors.accent,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                   ),

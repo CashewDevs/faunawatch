@@ -4,6 +4,7 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/local_image.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_icons.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,10 +31,11 @@ class FaunaLensReviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
+    final colors = FaunaLensTheme.of(context);
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: colors.statusBar,
       child: Scaffold(
-        backgroundColor: AppColors.profileGradientTop,
+        backgroundColor: colors.reviewTop,
         body: Column(
           children: [
             Padding(
@@ -59,12 +61,9 @@ class FaunaLensReviewScreen extends StatelessWidget {
                     photo.path,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
-                        const ColoredBox(color: AppColors.faunaLensPhotoEmpty),
+                        ColoredBox(color: colors.skeleton),
                     frameBuilder: (context, child, frame, wasSynchronous) =>
-                        ColoredBox(
-                          color: AppColors.faunaLensPhotoEmpty,
-                          child: child,
-                        ),
+                        ColoredBox(color: colors.skeleton, child: child),
                   ),
                 ),
               ),
@@ -89,6 +88,7 @@ class _BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = FaunaLensTheme.of(context);
     return Semantics(
       button: true,
       label: 'Back to camera',
@@ -98,13 +98,13 @@ class _BackButton extends StatelessWidget {
         child: Container(
           width: 42,
           height: 42,
-          decoration: const BoxDecoration(
-            color: AppColors.faunaLensBackButton,
+          decoration: BoxDecoration(
+            color: colors.backButton,
             shape: BoxShape.circle,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.arrow_back_rounded,
-            color: AppColors.faunaLensInk,
+            color: colors.backIcon,
             size: 28,
           ),
         ),
@@ -201,6 +201,7 @@ class _ActionSheet extends StatelessWidget {
     final isGallery = photo.source == FaunaLensPhotoSource.gallery;
     final hasNoLocation =
         photo.locationStatus == FaunaLensLocationStatus.missing;
+    final colors = FaunaLensTheme.of(context);
 
     // Short and landscape screens scroll the sheet and keep part of the photo.
     final maxHeight = MediaQuery.sizeOf(context).height * 0.6;
@@ -210,9 +211,9 @@ class _ActionSheet extends StatelessWidget {
         minHeight: math.min(333 + bottomInset, maxHeight),
         maxHeight: maxHeight,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      decoration: BoxDecoration(
+        color: colors.isDark ? colors.card : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(22, 28, 22, 24 + bottomInset),
@@ -228,7 +229,9 @@ class _ActionSheet extends StatelessWidget {
                   Text(
                     isGallery ? 'Use this photo?' : 'Happy with this photo?',
                     style: GoogleFonts.inter(
-                      color: AppColors.profileTitleNavy,
+                      color: colors.isDark
+                          ? Colors.white
+                          : AppColors.profileTitleNavy,
                       fontSize: 21,
                       fontWeight: FontWeight.w700,
                     ),
@@ -239,7 +242,7 @@ class _ActionSheet extends StatelessWidget {
                         ? 'Ask AI to suggest what animal this might be, or pick a different photo.'
                         : 'Ask AI to suggest what animal this might be, or retake it for a clearer shot.',
                     style: GoogleFonts.inter(
-                      color: AppColors.faunaLensBlue,
+                      color: colors.accent,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w400,
                       height: 1.25,
@@ -260,8 +263,8 @@ class _ActionSheet extends StatelessWidget {
                 Expanded(
                   child: _OutlinedAction(
                     label: isGallery ? 'Choose another' : 'Retake photo',
-                    borderColor: AppColors.faunaLensInk,
-                    textColor: AppColors.faunaLensInk,
+                    borderColor: colors.outlineBorder,
+                    textColor: colors.outlineText,
                     onTap: onChangePhoto,
                   ),
                 ),
@@ -269,8 +272,12 @@ class _ActionSheet extends StatelessWidget {
                 Expanded(
                   child: _OutlinedAction(
                     label: 'Skip AI',
-                    borderColor: AppColors.faunaLensSkipBorder,
-                    textColor: AppColors.faunaLensSkipText,
+                    borderColor: colors.isDark
+                        ? const Color(0xFF64748B)
+                        : AppColors.faunaLensSkipBorder,
+                    textColor: colors.isDark
+                        ? const Color(0xFFCBD5E1)
+                        : AppColors.faunaLensSkipText,
                     onTap: onSkipAi,
                   ),
                 ),
@@ -385,7 +392,7 @@ class _OutlinedAction extends StatelessWidget {
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: FaunaLensTheme.of(context).outlineFill,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: borderColor),
           ),

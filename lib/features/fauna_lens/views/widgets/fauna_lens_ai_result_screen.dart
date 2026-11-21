@@ -1,4 +1,4 @@
-import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
@@ -79,11 +79,12 @@ class _FaunaLensAiResultScreenState
     final state = ref.watch(aiResultViewModelProvider);
     final result = state.result;
     final isGallery = widget.photo.source == FaunaLensPhotoSource.gallery;
+    final colors = FaunaLensTheme.of(context);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: colors.statusBar,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: colors.page,
         body: Column(
           children: [
             FaunaLensPageHeader(
@@ -129,6 +130,9 @@ class _FaunaLensAiResultScreenState
                     PillButton(
                       label: 'Analyse again',
                       isPrimary: false,
+                      secondaryFill: colors.outlineFill,
+                      secondaryBorder: colors.outlineBorder,
+                      secondaryText: colors.outlineText,
                       onPressed: state.isAnalyzing ? null : _analyze,
                     ),
                     const SizedBox(height: 10),
@@ -137,6 +141,9 @@ class _FaunaLensAiResultScreenState
                           ? 'Choose another photo'
                           : 'Retake photo',
                       isPrimary: false,
+                      secondaryFill: colors.outlineFill,
+                      secondaryBorder: colors.outlineBorder,
+                      secondaryText: colors.outlineText,
                       onPressed: () =>
                           Navigator.of(context).pop(const RetakeFromAiResult()),
                     ),
@@ -168,7 +175,7 @@ class _FaunaLensAiResultScreenState
                 children: [
                   Text(
                     result.visibleCondition,
-                    style: aiResultBodyStyle().copyWith(fontSize: 12.5),
+                    style: aiResultBodyStyle(context).copyWith(fontSize: 12.5),
                   ),
                 ],
               ),
@@ -182,7 +189,7 @@ class _FaunaLensAiResultScreenState
                   const SizedBox(height: 6),
                   Text(
                     result.severityReason,
-                    style: aiResultBodyStyle().copyWith(fontSize: 12.5),
+                    style: aiResultBodyStyle(context).copyWith(fontSize: 12.5),
                   ),
                 ],
               ),
@@ -196,7 +203,7 @@ class _FaunaLensAiResultScreenState
         children: [
           Text(
             result.category.label,
-            style: aiResultBodyStyle().copyWith(fontSize: 12.5),
+            style: aiResultBodyStyle(context).copyWith(fontSize: 12.5),
           ),
         ],
       ),
@@ -205,9 +212,9 @@ class _FaunaLensAiResultScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('What to do', style: aiResultTitleStyle()),
+            Text('What to do', style: aiResultTitleStyle(context)),
             const SizedBox(height: 6),
-            Text(result.whatToDo, style: aiResultBodyStyle()),
+            Text(result.whatToDo, style: aiResultBodyStyle(context)),
           ],
         ),
       ),
@@ -216,7 +223,7 @@ class _FaunaLensAiResultScreenState
         'This is a preliminary AI-assisted assessment from '
         '${result.provider.displayName}. It is not a veterinary diagnosis, '
         'and it is not advice from a wildlife authority or emergency service.',
-        style: aiResultMutedStyle(),
+        style: aiResultMutedStyle(context),
       ),
     ];
   }
@@ -257,13 +264,13 @@ class _PhotoSummary extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.consentBadgeYellowBackground,
+                  color: FaunaLensTheme.of(context).badge,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '✦ Preliminary AI assessment',
                   style: GoogleFonts.dmSans(
-                    color: AppColors.consentTitleNavy,
+                    color: FaunaLensTheme.of(context).badgeText,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -272,7 +279,7 @@ class _PhotoSummary extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'AI can be wrong. Please check the results before you post.',
-                style: aiResultBodyStyle().copyWith(fontSize: 12),
+                style: aiResultBodyStyle(context).copyWith(fontSize: 12),
               ),
             ],
           ),
@@ -304,16 +311,19 @@ class _LoadingBodyState extends State<_LoadingBody>
     super.dispose();
   }
 
-  Widget _block({required double height, Color? color, Widget? child}) {
+  Widget _block(
+    FaunaLensTheme colors, {
+    required double height,
+    Color? color,
+    Widget? child,
+  }) {
     return Container(
       height: height,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: color ?? Colors.white,
+        color: color ?? colors.card,
         borderRadius: BorderRadius.circular(14),
-        border: color == null
-            ? Border.all(color: AppColors.aiResultCardBorder)
-            : null,
+        border: color == null ? Border.all(color: colors.cardBorder) : null,
       ),
       child: child,
     );
@@ -321,6 +331,7 @@ class _LoadingBodyState extends State<_LoadingBody>
 
   @override
   Widget build(BuildContext context) {
+    final colors = FaunaLensTheme.of(context);
     return Semantics(
       label: 'Identifying the animal in your photo',
       liveRegion: true,
@@ -329,6 +340,7 @@ class _LoadingBodyState extends State<_LoadingBody>
         child: Column(
           children: [
             _block(
+              colors,
               height: 150,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -336,33 +348,23 @@ class _LoadingBodyState extends State<_LoadingBody>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     for (var i = 0; i < 3; i++)
-                      const Divider(color: AppColors.aiResultCardBorder),
+                      Divider(color: colors.cardBorder),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            _block(height: 64, color: AppColors.aiResultInvasiveBackground),
+            _block(colors, height: 64, color: colors.invasive),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(
-                  child: _block(
-                    height: 96,
-                    color: AppColors.aiResultInfoBackground,
-                  ),
-                ),
+                Expanded(child: _block(colors, height: 96, color: colors.info)),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: _block(
-                    height: 96,
-                    color: AppColors.aiResultInfoBackground,
-                  ),
-                ),
+                Expanded(child: _block(colors, height: 96, color: colors.info)),
               ],
             ),
             const SizedBox(height: 12),
-            _block(height: 78),
+            _block(colors, height: 78),
           ],
         ),
       ),
