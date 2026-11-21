@@ -468,6 +468,8 @@ class _FakeMapboxMapService implements MapboxMapService {
   @override
   Future<void> showGuardLocation(GuardLocation? location) async {}
   @override
+  Future<void> showGuardRadius(List<CommunityReport> reports) async {}
+  @override
   Future<void> applyAppearance({
     required Brightness brightness,
     required bool is3dEnabled,

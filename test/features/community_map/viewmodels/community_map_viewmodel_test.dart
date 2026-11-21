@@ -79,6 +79,42 @@ void main() {
     },
   );
 
+  test('FaunaGuard rings show only while FaunaGuard is on', () async {
+    final gps = FakeGuardLocation();
+    final guardContainer = ProviderContainer(
+      overrides: [
+        currentUserIdProvider.overrideWith((ref) => Stream.value('map-user')),
+        mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+        communityReportsServiceProvider.overrideWithValue(reports),
+        guardLocationServiceProvider.overrideWithValue(gps),
+        guardNotificationServiceProvider.overrideWithValue(
+          FakeGuardNotifications(),
+        ),
+      ],
+    );
+    addTearDown(guardContainer.dispose);
+    addTearDown(gps.fixes.close);
+    final map = guardContainer.read(communityMapViewModelProvider.notifier);
+    await pumpEventQueue();
+    await map.onStyleLoaded();
+    expect(mapboxMapService.radiusCalls.last, isEmpty);
+
+    final guard = guardContainer.read(faunaGuardViewModelProvider.notifier);
+    await guard.enable();
+    await pumpEventQueue();
+    expect(mapboxMapService.radiusCalls.last.map((r) => r.id), ['approved']);
+
+    reports.items = [];
+    await map.refreshReports();
+    expect(mapboxMapService.radiusCalls.last, isEmpty);
+
+    reports.items = [_report];
+    await map.refreshReports();
+    guard.disable();
+    await pumpEventQueue();
+    expect(mapboxMapService.radiusCalls.last, isEmpty);
+  });
+
   test(
     'loads approved reports, opens a report, and can retry a failed refresh',
     () async {
@@ -230,6 +266,12 @@ class _FakeMapboxMapService implements MapboxMapService {
   @override
   Future<void> showGuardLocation(GuardLocation? location) async {
     locations.add(location);
+  }
+
+  final radiusCalls = <List<CommunityReport>>[];
+  @override
+  Future<void> showGuardRadius(List<CommunityReport> reports) async {
+    radiusCalls.add(reports);
   }
 
   @override

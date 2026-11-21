@@ -27,6 +27,10 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       faunaGuardViewModelProvider.select((guard) => guard.location),
       (_, next) => _updateGuardLocation(),
     );
+    ref.listen(
+      faunaGuardViewModelProvider.select((guard) => guard.isEnabled),
+      (_, next) => _updateGuardRadius(),
+    );
     ref.onDispose(() {
       _disposed = true;
       _mapboxMapService.detach();
@@ -67,6 +71,20 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     await _applyAppearance();
     await refreshReports();
     await _updateGuardLocation();
+  }
+
+  /// Shows FaunaGuard's 1 km / 500 m rings around the map's reports only
+  /// while FaunaGuard is on.
+  Future<void> _updateGuardRadius() async {
+    if (_disposed || !_isStyleLoaded) return;
+    final enabled = ref.read(faunaGuardViewModelProvider).isEnabled;
+    try {
+      await _mapboxMapService.showGuardRadius(
+        enabled ? state.reports : const [],
+      );
+    } catch (_) {
+      // Alerts keep working without the rings; the next refresh retries.
+    }
   }
 
   Future<void> _updateGuardLocation() async {
@@ -117,6 +135,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
           isLoadingReports: false,
           clearSelectedPost: !reports.any((r) => r.id == state.selectedPostId),
         );
+        await _updateGuardRadius();
       }
     } catch (_) {
       if (!_disposed) {

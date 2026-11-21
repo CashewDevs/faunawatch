@@ -3,6 +3,8 @@ import 'package:faunawatch/core/services/map_lighting.dart';
 import 'package:faunawatch/core/services/map_pin_image.dart';
 import '../models/community_report.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_proximity.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_radius.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +27,10 @@ abstract interface class MapboxMapService {
   void detach();
 
   Future<void> showGuardLocation(GuardLocation? location);
+
+  /// Draws FaunaGuard's 1 km and 500 m warning rings around [reports];
+  /// an empty list removes them.
+  Future<void> showGuardRadius(List<CommunityReport> reports);
 }
 
 /// Mapbox implementation using the Standard style's light and 3D settings.
@@ -91,6 +97,55 @@ class MapboxCommunityMapService implements MapboxMapService {
         ),
       );
       _guardHasCentered = true;
+    }
+  }
+
+  @override
+  Future<void> showGuardRadius(List<CommunityReport> reports) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    final rings = guardRadiusRings(reports);
+    // Outer (1 km) is drawn first so the inner (500 m) ring sits on top.
+    for (final (proximity, source, color) in const [
+      (GuardProximity.gettingCloser, 'fauna-guard-radius-outer', 0xFFFFA000),
+      (GuardProximity.nearby, 'fauna-guard-radius-inner', 0xFFE53935),
+    ]) {
+      final exists = await map.styleSourceExists(source);
+      if (rings.isEmpty && !exists) continue;
+      final data = jsonEncode({
+        'type': 'FeatureCollection',
+        'features': [
+          for (final ring in rings)
+            if (ring.proximity == proximity)
+              {
+                'type': 'Feature',
+                'properties': <String, Object>{},
+                'geometry': {
+                  'type': 'Polygon',
+                  'coordinates': [ring.points],
+                },
+              },
+        ],
+      });
+      if (exists) {
+        await map.setStyleSourceProperty(source, 'data', data);
+      } else {
+        await map.addSource(GeoJsonSource(id: source, data: data));
+      }
+      if (!await map.styleLayerExists(source)) {
+        await map.addLayer(
+          FillLayer(
+            id: source,
+            sourceId: source,
+            // Under road names and the report pins, above the ground.
+            slot: 'middle',
+            fillColor: color,
+            fillOpacity: 0.18,
+            fillOutlineColor: color,
+            fillEmissiveStrength: 1,
+          ),
+        );
+      }
     }
   }
 

@@ -129,6 +129,52 @@ void main() {
     expect(platform.cameras, hasLength(1));
   });
 
+  test(
+    'FaunaGuard rings draw 1 km and 500 m fills under the pins and clear',
+    () async {
+      await service.showGuardRadius([]);
+      expect(platform.style.sources, isEmpty);
+      const reports = [
+        CommunityReport(
+          id: 'r1',
+          category: 'animal_in_need',
+          latitude: 14.6,
+          longitude: 121,
+          description: 'Bird',
+        ),
+        CommunityReport(
+          id: 'r2',
+          category: 'animal_in_need',
+          latitude: 14.7,
+          longitude: 121.1,
+          description: 'Snake',
+        ),
+      ];
+      await service.showGuardRadius(reports);
+      for (final id in [
+        'fauna-guard-radius-outer',
+        'fauna-guard-radius-inner',
+      ]) {
+        final layer = platform.style.layers[id]!;
+        expect(layer['type'], 'fill');
+        expect(layer['slot'], 'middle');
+      }
+      // Redrawing reuses the sources and layers.
+      await service.showGuardRadius(reports);
+      for (final id in [
+        'fauna-guard-radius-outer',
+        'fauna-guard-radius-inner',
+      ]) {
+        final features = platform.style.data[id]['features'] as List;
+        expect(features, hasLength(2));
+        expect(features.first['geometry']['type'], 'Polygon');
+      }
+      await service.showGuardRadius([]);
+      expect(platform.style.data['fauna-guard-radius-outer']['features'], []);
+      expect(platform.style.data['fauna-guard-radius-inner']['features'], []);
+    },
+  );
+
   test('report fitting preserves an explicitly selected 2D view', () async {
     await service.applyAppearance(
       brightness: Brightness.light,
