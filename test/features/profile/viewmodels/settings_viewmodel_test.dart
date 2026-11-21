@@ -12,7 +12,7 @@ void main() {
       final state = container.read(settingsViewModelProvider);
       expect(state.pushNotificationsEnabled, isTrue);
       expect(state.locationPrivacyEnabled, isTrue);
-      expect(state.activePaletteId, 'forest');
+      expect(state.activePaletteId, 'apollo');
     });
 
     test('setPalette updates active theme palette ID', () {

@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
@@ -38,8 +39,8 @@ class MessageTile extends StatelessWidget {
         child: Container(
           color: isUnread
               ? (isDark
-                    ? AppColors.darkUnreadBackground
-                    : AppColors.messagesUnreadBackground)
+                    ? AppPaletteColors.of(context).darkUnreadBackground
+                    : AppPaletteColors.of(context).messagesUnreadBackground)
               : Colors.transparent,
           child: IntrinsicHeight(
             child: Row(
@@ -47,7 +48,10 @@ class MessageTile extends StatelessWidget {
               children: [
                 // Left accent bar for new messages: #FECE01
                 if (isUnread)
-                  Container(width: 8, color: AppColors.messagesUnreadBar)
+                  Container(
+                    width: 8,
+                    color: AppPaletteColors.of(context).messagesUnreadBar,
+                  )
                 else
                   const SizedBox(width: 8),
 
@@ -100,10 +104,14 @@ class MessageTile extends StatelessWidget {
                                           : FontWeight.w400,
                                       color: isDark
                                           ? (isUnread
-                                                ? AppColors.darkAccentBlue
+                                                ? AppPaletteColors.of(
+                                                    context,
+                                                  ).darkAccentBlue
                                                 : AppColors.darkTextSecondary)
                                           : (isUnread
-                                                ? AppColors.messagesHeaderBlue
+                                                ? AppPaletteColors.of(
+                                                    context,
+                                                  ).messagesHeaderBlue
                                                 : const Color(0xFF90A4AE)),
                                     ),
                                   ),

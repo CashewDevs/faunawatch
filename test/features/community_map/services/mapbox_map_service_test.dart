@@ -1,7 +1,9 @@
 // The SDK's controller constructor accepts this test-only platform contract.
 // ignore_for_file: depend_on_referenced_packages, invalid_use_of_internal_member
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart' show Brightness;
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/create_post/models/post_location.dart';
 import 'package:faunawatch/features/create_post/services/location_picker_map_service.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
@@ -25,6 +27,46 @@ void main() {
     service.detach();
     expect(platform.interactions, isEmpty);
   });
+
+  test(
+    'FaunaGuard draws live fixes, follows movement, preserves zoom and removes location on stop',
+    () async {
+      await service.showGuardLocation(null);
+      expect(platform.style.sources, isEmpty);
+      final fix = GuardLocation(
+        latitude: 14.6,
+        longitude: 121,
+        accuracy: 8,
+        timestamp: DateTime.now(),
+      );
+      await service.showGuardLocation(fix);
+      expect(platform.cameras.last.zoom, 14);
+      expect(platform.cameras.last.center!.coordinates.toJson(), [121.0, 14.6]);
+      expect(platform.style.layers['fauna-guard-marker']!['type'], 'circle');
+      await service.showGuardLocation(
+        GuardLocation(
+          latitude: 14.61,
+          longitude: 121.01,
+          accuracy: 5,
+          timestamp: DateTime.now(),
+        ),
+      );
+      expect(platform.cameras.last.zoom, isNull);
+      expect(platform.cameras.last.center!.coordinates.toJson(), [
+        121.01,
+        14.61,
+      ]);
+      final cameras = platform.cameras.length;
+      await service.showGuardLocation(null);
+      expect(platform.style.data['fauna-guard-location']['features'], isEmpty);
+      expect(platform.cameras.length, cameras);
+      await service.showGuardLocation(fix);
+      expect(platform.cameras.last.zoom, 14);
+      service.detach();
+      await service.showGuardLocation(fix);
+      expect(platform.cameras.length, cameras + 1);
+    },
+  );
 
   test(
     'both maps use matching day and night lighting without picker camera changes',
@@ -77,7 +119,8 @@ void main() {
     ]);
     expect(platform.maxZoom, 12);
     expect(platform.cameras, hasLength(1));
-    expect(platform.cameras.single.pitch, isNull);
+    expect(platform.fitOptions!.pitch, 55);
+    expect(platform.cameras.single.pitch, 55);
     await service.showReports(reports);
     await service.showReports([], recenter: true);
     expect(platform.cameras, hasLength(1));
@@ -85,6 +128,155 @@ void main() {
     await service.showReports(reports, recenter: true);
     expect(platform.cameras, hasLength(1));
   });
+
+  test(
+    'FaunaGuard rings draw 1 km and 500 m fills under the pins and clear',
+    () async {
+      await service.showGuardRadius([]);
+      expect(platform.style.sources, isEmpty);
+      const reports = [
+        CommunityReport(
+          id: 'r1',
+          category: 'animal_in_need',
+          latitude: 14.6,
+          longitude: 121,
+          description: 'Bird',
+        ),
+        CommunityReport(
+          id: 'r2',
+          category: 'animal_in_need',
+          latitude: 14.7,
+          longitude: 121.1,
+          description: 'Snake',
+        ),
+      ];
+      await service.showGuardRadius(reports);
+      for (final id in [
+        'fauna-guard-radius-outer',
+        'fauna-guard-radius-inner',
+      ]) {
+        final layer = platform.style.layers[id]!;
+        expect(layer['type'], 'fill');
+        expect(layer['slot'], 'middle');
+      }
+      // Redrawing reuses the sources and layers.
+      await service.showGuardRadius(reports);
+      for (final id in [
+        'fauna-guard-radius-outer',
+        'fauna-guard-radius-inner',
+      ]) {
+        final features = platform.style.data[id]['features'] as List;
+        expect(features, hasLength(2));
+        expect(features.first['geometry']['type'], 'Polygon');
+      }
+      await service.showGuardRadius([]);
+      expect(platform.style.data['fauna-guard-radius-outer']['features'], []);
+      expect(platform.style.data['fauna-guard-radius-inner']['features'], []);
+    },
+  );
+
+  test('report fitting preserves an explicitly selected 2D view', () async {
+    await service.applyAppearance(
+      brightness: Brightness.light,
+      is3dEnabled: false,
+    );
+    await service.showReports(const [
+      CommunityReport(
+        id: 'r1',
+        category: 'animal_in_need',
+        latitude: 14.6,
+        longitude: 121,
+        description: 'Bird',
+      ),
+    ], recenter: true);
+
+    expect(platform.fitOptions!.pitch, 0);
+    expect(platform.cameras.last.pitch, 0);
+    expect(platform.style.importSettings['basemap/show3dObjects'], false);
+  });
+
+  test(
+    'a slow report fit cannot override FaunaGuard following the user',
+    () async {
+      final fit = Completer<CameraOptions>();
+      final fitting = Completer<void>();
+      platform.fitOverride = () {
+        fitting.complete();
+        return fit.future;
+      };
+      final reports = service.showReports(const [
+        CommunityReport(
+          id: 'r1',
+          category: 'animal_in_need',
+          latitude: 10,
+          longitude: 123,
+          description: '',
+        ),
+      ], recenter: true);
+      await fitting.future;
+      await service.showGuardLocation(
+        GuardLocation(
+          latitude: 14.6,
+          longitude: 121,
+          accuracy: 5,
+          timestamp: DateTime.now(),
+        ),
+      );
+      final cameraCount = platform.cameras.length;
+      fit.complete(
+        CameraOptions(center: Point(coordinates: Position(123, 10)), zoom: 12),
+      );
+      await reports;
+      expect(platform.cameras, hasLength(cameraCount));
+      expect(platform.cameras.last.center!.coordinates.toJson(), [121.0, 14.6]);
+    },
+  );
+
+  for (final initially3d in [true, false]) {
+    test(
+      'keeps the latest mode when toggled from ${initially3d ? '3D' : '2D'} during report fitting',
+      () async {
+        await service.applyAppearance(
+          brightness: Brightness.light,
+          is3dEnabled: initially3d,
+        );
+        final fitStarted = Completer<void>();
+        final fittedCamera = Completer<CameraOptions>();
+        platform.fitOverride = () {
+          fitStarted.complete();
+          return fittedCamera.future;
+        };
+        final showingReports = service.showReports(const [
+          CommunityReport(
+            id: 'r1',
+            category: 'animal_in_need',
+            latitude: 14.6,
+            longitude: 121,
+            description: 'Bird',
+          ),
+        ], recenter: true);
+        await fitStarted.future;
+
+        await service.applyAppearance(
+          brightness: Brightness.light,
+          is3dEnabled: !initially3d,
+        );
+        final center = Point(coordinates: Position(121, 14.6));
+        fittedCamera.complete(
+          CameraOptions(center: center, zoom: 12, pitch: initially3d ? 55 : 0),
+        );
+        await showingReports;
+
+        expect(platform.cameras.last.pitch, initially3d ? 0 : 55);
+        expect(platform.cameras.last.center, center);
+        expect(platform.cameras.last.zoom, 12);
+        expect(
+          platform.style.importSettings['basemap/show3dObjects'],
+          !initially3d,
+        );
+      },
+    );
+  }
 
   test(
     'draws approved report markers with RPC coordinates and replaces on refresh',
@@ -254,6 +446,8 @@ class _FakeMapPlatform implements MapboxMapPlatformInterface {
   final cameras = <CameraOptions>[];
   List<Point> fittedPoints = [];
   double? maxZoom;
+  CameraOptions? fitOptions;
+  Future<CameraOptions> Function()? fitOverride;
   @override
   Future<CameraOptions> cameraForCoordinatesPadding(
     List<Point> coordinates,
@@ -264,7 +458,9 @@ class _FakeMapPlatform implements MapboxMapPlatformInterface {
   ) async {
     fittedPoints = coordinates;
     this.maxZoom = maxZoom;
-    return CameraOptions(center: coordinates.first, zoom: maxZoom);
+    fitOptions = camera;
+    return fitOverride?.call() ??
+        CameraOptions(center: coordinates.first, zoom: maxZoom, pitch: 0);
   }
 
   final interactions = <String, Interaction>{};

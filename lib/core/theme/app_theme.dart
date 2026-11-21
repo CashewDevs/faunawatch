@@ -1,47 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:faunawatch/features/profile/models/theme_palette.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 
 /// Application theme definitions for FaunaWatch.
 class AppTheme {
   AppTheme._();
 
-  // Seed color representing nature and wildlife
-  static const Color _seedColor = Color(0xFF1B5E20);
-
   /// Light theme configuration
-  static ThemeData get lightTheme {
-    final baseTheme = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _seedColor,
-        brightness: Brightness.light,
-      ),
-      appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
-    );
-    return baseTheme.copyWith(
-      textTheme: GoogleFonts.dmSansTextTheme(baseTheme.textTheme),
-    );
-  }
+  static ThemeData get lightTheme =>
+      forPalette(AppThemePalette.presets.first, brightness: Brightness.light);
 
   /// Dark theme configuration
-  static ThemeData get darkTheme {
+  static ThemeData get darkTheme =>
+      forPalette(AppThemePalette.presets.first, brightness: Brightness.dark);
+
+  /// The accent and brightness are independent appearance choices.
+  static ThemeData forPalette(
+    AppThemePalette palette, {
+    required Brightness brightness,
+  }) {
+    final isDark = brightness == Brightness.dark;
+    final isApollo = palette.id == AppThemePalette.apollo.id;
+    final scheme = ColorScheme.fromSeed(
+      seedColor: isApollo
+          ? AppColors.primarySeed
+          : Color(palette.primaryColorValue),
+      brightness: brightness,
+    );
+    final appliedScheme = isDark
+        ? scheme.copyWith(
+            surface: AppColors.darkSurface,
+            onSurface: Colors.white,
+          )
+        : scheme;
     final baseTheme = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF0F172A),
-      dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1E293B)),
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _seedColor,
-        brightness: Brightness.dark,
-        surface: const Color(0xFF1E293B),
-        onSurface: Colors.white,
+      brightness: brightness,
+      scaffoldBackgroundColor: isDark
+          ? const Color(0xFF0F172A)
+          : scheme.surface,
+      dialogTheme: DialogThemeData(
+        backgroundColor: isDark
+            ? const Color(0xFF1E293B)
+            : scheme.surfaceContainerHigh,
       ),
-      dividerColor: const Color(0xFF334155),
-      appBarTheme: const AppBarTheme(
+      colorScheme: appliedScheme,
+      extensions: [
+        AppPaletteColors(scheme: appliedScheme, apolloWeight: isApollo ? 1 : 0),
+      ],
+      dividerColor: isDark ? const Color(0xFF334155) : scheme.outlineVariant,
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Color(0xFF0F172A),
-        foregroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF0F172A) : scheme.surface,
+        foregroundColor: isDark && isApollo ? Colors.white : scheme.onSurface,
       ),
     );
     return baseTheme.copyWith(

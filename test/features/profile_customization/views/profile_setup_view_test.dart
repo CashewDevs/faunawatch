@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
+import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
 import 'package:faunawatch/features/profile_customization/views/profile_setup_view.dart';
 import 'package:faunawatch/features/profile_customization/views/widgets/profile_continue_button.dart';
+import '../../profile/fake_profile_service.dart';
 
 void main() {
   Widget createWidgetUnderTest() {
     return ProviderScope(
+      overrides: [
+        profileServiceProvider.overrideWithValue(FakeProfileService()),
+      ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
         home: const ProfileSetupView(),

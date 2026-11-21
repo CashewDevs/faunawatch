@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -268,6 +269,10 @@ class _FakeMapboxMapCanvasBuilder implements MapboxMapCanvasBuilder {
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  @override
+  Future<void> showGuardLocation(GuardLocation? location) async {}
+  @override
+  Future<void> showGuardRadius(List<CommunityReport> reports) async {}
   @override
   Future<void> showReports(
     List<CommunityReport> reports, {

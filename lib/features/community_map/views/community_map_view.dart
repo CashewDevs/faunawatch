@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/fauna_guard/viewmodels/fauna_guard_viewmodel.dart';
+import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_intro_dialog.dart';
+import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_status.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
@@ -19,6 +22,38 @@ class CommunityMapView extends ConsumerStatefulWidget {
 class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   Brightness? _lastBrightness;
   bool _postDialogOpen = false;
+  bool _guardDialogOpen = false;
+  late final AppLifecycleListener _lifecycle;
+  late final FaunaGuardViewModel _guardViewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _guardViewModel = ref.read(faunaGuardViewModelProvider.notifier);
+    _lifecycle = AppLifecycleListener(
+      onPause: () => _guardViewModel.setForeground(false),
+      onResume: () => _guardViewModel.setForeground(true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleGuard() async {
+    final viewModel = ref.read(faunaGuardViewModelProvider.notifier);
+    if (ref.read(faunaGuardViewModelProvider).isEnabled) {
+      viewModel.disable();
+      return;
+    }
+    if (_guardDialogOpen) return;
+    _guardDialogOpen = true;
+    final enable = await FaunaGuardIntroDialog.show(context);
+    _guardDialogOpen = false;
+    if (mounted && enable == true) await viewModel.enable();
+  }
 
   Future<void> _openPost() async {
     if (_postDialogOpen) return;
@@ -104,6 +139,8 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
       }
     });
     final state = ref.watch(communityMapViewModelProvider);
+    final guard = ref.watch(faunaGuardViewModelProvider);
+    final guardViewModel = ref.read(faunaGuardViewModelProvider.notifier);
     final canvasBuilder = ref.watch(mapboxMapCanvasBuilderProvider);
     final refreshLabel = state.isLoadingReports
         ? 'Loading reports'
@@ -144,6 +181,21 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      _MapControlButton(
+                        tooltip: guard.isEnabled
+                            ? 'Turn off FaunaGuard'
+                            : 'Turn on FaunaGuard',
+                        onPressed: _toggleGuard,
+                        icon: Icon(
+                          guard.isEnabled
+                              ? Icons.shield
+                              : Icons.shield_outlined,
+                          color: guard.isEnabled
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       _MapControlButton(
                         tooltip: refreshLabel,
                         onPressed: state.isLoadingReports
@@ -187,6 +239,28 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   ),
                 ),
               ),
+              if (guard.isEnabled || guard.message != null)
+                Positioned(
+                  top: 72,
+                  left: 12,
+                  right: 12,
+                  child: SafeArea(
+                    bottom: false,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: constraints.maxHeight * 0.45,
+                      ),
+                      child: SingleChildScrollView(
+                        child: FaunaGuardStatus(
+                          state: guard,
+                          onDismissAlert: guardViewModel.dismissAlert,
+                          onDismissMessage: guardViewModel.dismissMessage,
+                          onSettings: guardViewModel.openSettings,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           );
         },

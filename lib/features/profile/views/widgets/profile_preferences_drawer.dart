@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/widgets/profile_action_card.dart';
 
@@ -23,6 +24,8 @@ class ProfilePreferencesDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = AppPaletteColors.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final paletteId = ref.watch(
       settingsViewModelProvider.select((settings) => settings.activePaletteId),
     );
@@ -58,24 +61,42 @@ class ProfilePreferencesDrawer extends ConsumerWidget {
                 children: [
                   ProfileActionCard(
                     icon: Icons.person_outline_rounded,
-                    iconBackgroundColor: const Color(0xFFE0F2FE),
-                    iconColor: const Color(0xFF0284C7),
+                    iconBackgroundColor: colors.resolve(
+                      const Color(0xFFE0F2FE),
+                      scheme.primaryContainer,
+                    ),
+                    iconColor: colors.resolve(
+                      const Color(0xFF0284C7),
+                      scheme.primary,
+                    ),
                     title: 'Edit Profile',
                     subtitle: 'Update username, bio, avatar & banner',
                     onTap: () => _select(context, onEditProfile),
                   ),
                   ProfileActionCard(
                     icon: Icons.palette_outlined,
-                    iconBackgroundColor: const Color(0xFFFEF3C7),
-                    iconColor: const Color(0xFFD97706),
+                    iconBackgroundColor: colors.resolve(
+                      const Color(0xFFFEF3C7),
+                      scheme.primaryContainer,
+                    ),
+                    iconColor: colors.resolve(
+                      const Color(0xFFD97706),
+                      scheme.primary,
+                    ),
                     title: 'Change Theme',
                     subtitle: 'Accent palette: ${paletteId.toUpperCase()}',
                     onTap: () => _select(context, onChangeTheme),
                   ),
                   ProfileActionCard(
                     icon: Icons.settings_outlined,
-                    iconBackgroundColor: const Color(0xFFCCFBF1),
-                    iconColor: const Color(0xFF0D9488),
+                    iconBackgroundColor: colors.resolve(
+                      const Color(0xFFCCFBF1),
+                      scheme.primaryContainer,
+                    ),
+                    iconColor: colors.resolve(
+                      const Color(0xFF0D9488),
+                      scheme.primary,
+                    ),
                     title: 'Settings',
                     subtitle: 'Appearance, AI keys, preferences & account',
                     onTap: () => _select(context, onSettings),

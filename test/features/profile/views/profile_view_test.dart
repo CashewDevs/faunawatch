@@ -5,6 +5,10 @@ import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_notice.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
 import 'package:faunawatch/features/profile/views/widgets/profile_preferences_drawer.dart';
+import 'package:faunawatch/features/profile/views/widgets/profile_action_card.dart';
+import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
+import 'package:faunawatch/core/theme/theme_provider.dart';
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import '../../gallery/fake_gallery_service.dart';
 import '../../feed/fake_feed_service.dart';
 import '../fake_profile_service.dart';
@@ -29,6 +33,7 @@ void main() {
     _FakeKeyStorage? keyStorage,
     FakeGalleryService? gallery,
     ThemeData? theme,
+    bool liveThemes = false,
   }) {
     return ProviderScope(
       overrides: [
@@ -45,7 +50,16 @@ void main() {
           writer ?? FakeProfileService(),
         ),
       ],
-      child: MaterialApp(theme: theme, home: const ProfileView()),
+      child: liveThemes
+          ? Consumer(
+              builder: (context, ref, _) => MaterialApp(
+                theme: ref.watch(appLightThemeProvider),
+                darkTheme: ref.watch(appDarkThemeProvider),
+                themeMode: ref.watch(themeModeProvider),
+                home: const ProfileView(),
+              ),
+            )
+          : MaterialApp(theme: theme, home: const ProfileView()),
     );
   }
 
@@ -55,6 +69,117 @@ void main() {
   }
 
   group('ProfileView', () {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      testWidgets('drawer palette changes reach profile and gallery in $mode', (
+        tester,
+      ) async {
+        final gallery = FakeGalleryService(
+          posts: [
+            testPost('own', authorId: 'user-a', title: 'My eagle sighting'),
+          ],
+        );
+        await tester.pumpWidget(
+          buildTestProfile(gallery: gallery, liveThemes: true),
+        );
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(ProfileView)),
+          listen: false,
+        );
+        container.read(themeModeProvider.notifier).setThemeMode(mode);
+        await tester.pumpAndSettle();
+        for (final choice in [
+          ('Forest Emerald', 'forest'),
+          ('Apollo', 'apollo'),
+        ]) {
+          await openMenu(tester);
+          await tester.tap(find.text('Change Theme'));
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(find.text(choice.$1));
+          await tester.tap(find.text(choice.$1));
+          await tester.pumpAndSettle();
+          expect(
+            container.read(settingsViewModelProvider).activePaletteId,
+            choice.$2,
+          );
+          expect(container.read(themeModeProvider), mode);
+          final theme = Theme.of(tester.element(find.byType(ProfileView)));
+          final colors = theme.extension<AppPaletteColors>()!;
+          final background = tester.widget<Container>(
+            find
+                .descendant(
+                  of: find.byType(ProfileView),
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is Container &&
+                        widget.decoration is BoxDecoration &&
+                        (widget.decoration! as BoxDecoration).gradient
+                            is LinearGradient,
+                  ),
+                )
+                .first,
+          );
+          expect(
+            ((background.decoration! as BoxDecoration).gradient!
+                    as LinearGradient)
+                .colors,
+            mode == ThemeMode.dark
+                ? [
+                    colors.darkProfileGradientStart,
+                    colors.darkProfileGradientEnd,
+                  ]
+                : [
+                    colors.profileBackgroundGradientStart,
+                    colors.profileBackgroundGradientEnd,
+                  ],
+          );
+          final filter = tester.widget<PopupMenuButton<String>>(
+            find.descendant(
+              of: find.byType(GalleryHeader),
+              matching: find.byType(PopupMenuButton<String>),
+            ),
+          );
+          expect(filter.color, colors.galleryFilterButtonBackground);
+          expect(
+            tester.widget<Icon>(find.byIcon(Icons.tune_rounded)).color,
+            colors.galleryTitleBlue,
+          );
+          expect(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container &&
+                  widget.color == colors.galleryCardDetailsYellow,
+            ),
+            findsOneWidget,
+          );
+          expect(find.text('My eagle sighting'), findsOneWidget);
+          await openMenu(tester);
+          final action = tester
+              .widgetList<ProfileActionCard>(find.byType(ProfileActionCard))
+              .first;
+          expect(
+            action.iconColor,
+            colors.resolve(const Color(0xFF0284C7), theme.colorScheme.primary),
+          );
+          expect(
+            action.iconBackgroundColor,
+            colors.resolve(
+              const Color(0xFFE0F2FE),
+              theme.colorScheme.primaryContainer,
+            ),
+          );
+          expect(
+            find.text('Accent palette: ${choice.$2.toUpperCase()}'),
+            findsOneWidget,
+          );
+          await tester.tap(find.byTooltip('Close profile menu'));
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('Profile & preferences'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }
+      });
+    }
+
     testWidgets('shows My Gallery directly below the profile header', (
       tester,
     ) async {

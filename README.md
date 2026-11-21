@@ -139,13 +139,49 @@ No hosted configuration is changed by this repository update.
 Reference: [Supabase OAuth for Flutter](https://supabase.com/docs/reference/dart/auth-signinwithoauth)
 and [mobile deep linking](https://supabase.com/docs/guides/auth/native-mobile-deep-linking).
 
-## Map demo
+## Community map and FaunaGuard
 
-The map starts in Cebu City with a synthetic incident pin, colored warning
-zones, and a blue simulated-position marker. Dismiss the preview card with X
-to select Approaching, Near, or Danger Zone. The info button reopens the
-preview; the demo controls can also be collapsed and reopened.
+The map shows approved reports at the approximate coordinates returned by
+`community_reports()`. Refresh reloads reports; pins open anonymous previews,
+with a link to the full post in For You.
 
-The 900 m / 500 m / 180 m radii are demo presets only, not approved proximity
-thresholds. This demo does not read GPS, query reports, send notifications,
-or write sample data to Supabase. Replace it when live reporting is connected.
+FaunaGuard is off by default. Tap the shield beside Refresh to open its animated
+flip-card explanation, then choose **Turn on FaunaGuard**. After location and
+notification access are granted, a blue marker and the map camera follow the
+device. All approved report categories are monitored: **Getting closer** at
+1 km and **Nearby** at 500 m. Distances use the public approximate pins (about
+1 km precision), so they are estimates, not an animal's current position.
+Each report alerts once per band per enabled session. Simultaneous crossings
+are grouped into one notification, featuring the closest report.
+
+Tracking continues across tabs and while the app is backgrounded or the phone
+is locked. Android uses geolocator's location foreground service, started only
+from the visible app, with an ongoing notification and wake lock. iOS enables
+the `location` background mode with its visible location indicator. The existing
+geolocator Android/Apple packages provide GPS; `flutter_local_notifications`
+22.x provides immediate system notifications. Android enables Java desugaring
+and retains the notification icon for release builds. No backend changes,
+FCM, scheduled alarms, or background-location permission on Android are needed
+for this user-started foreground-service session.
+
+Coordinates and notification history are not stored or uploaded by FaunaGuard.
+It loads approved reports when enabled and refreshes them every minute while
+active. Failed refreshes or GPS/notification errors turn it off with a retry
+message. The shield stops tracking and clears the marker and proximity
+notification. Signing out or switching accounts also stops it. It does not
+restart after force-close, process termination or reboot; device battery
+management can interrupt background operation. Web preview shows the explanation
+but background tracking is supported only on Android/iOS. These local alerts do
+not create rows in the in-app Notifications inbox or `warning_zones`.
+
+Device checks (Android and iOS): enable/deny each permission, enable GPS, walk or
+simulate movement across both thresholds, verify the moving marker and no
+duplicate alerts, lock the phone and verify system alerts, return to the app,
+turn off, sign out, and force-close/reopen to confirm tracking stays off.
+Check iOS foreground notification banners and Android release notification
+icons on a real device before release. iOS builds require macOS/Xcode.
+
+References: [geolocator background configuration](https://pub.dev/packages/geolocator),
+[local notification setup](https://pub.dev/packages/flutter_local_notifications/versions/22.3.3),
+[Android while-in-use location](https://developer.android.com/codelabs/while-in-use-location),
+and [iOS background location authorization](https://developer.apple.com/documentation/corelocation/requestwheninuseauthorization()).

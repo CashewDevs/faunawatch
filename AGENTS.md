@@ -45,9 +45,10 @@ This repository contains the FaunaWatch mobile application.
   `android/settings.gradle.kts`) is applied by `android/app/build.gradle.kts`
   only when `android/app/google-services.json` exists; that file is git-ignored
   (shared privately with teammates; there is no copy in `keys/`).
-  `flutter_local_notifications` (^21; 22+ needs a newer AGP/compileSdk 37 than
-  this project's AGP 9.0.1 / SDK 36) is used only through
-  `LocalNotificationService` in `lib/features/push/services/`, to show a
+  `flutter_local_notifications` (^22.3.2, compatible with this project's
+  AGP 9.0.1 / SDK 36) is shared by `LocalGuardNotificationService` in
+  `lib/features/fauna_guard/services/` and `LocalNotificationService` in
+  `lib/features/push/services/`, the latter showing a
   heads-up banner on Android when a push arrives while the app is open (FCM
   shows nothing in the foreground). It needs core library desugaring, enabled in
   `android/app/build.gradle.kts`. `firebase_messaging` 17 deprecates `getToken` and
@@ -360,7 +361,8 @@ trigger functions and the `notifications_report_ref` check now covering
 `report_like`; re-runnable). The `nearby_alert` type exists so the app can
 render it, but nothing generates it yet; that is pending the decision on the
 `warning_zones` radius values and how proximity is generated (`alerts` is
-unchanged and unused by the app).
+unchanged and unused by the app). FaunaGuard's local device notifications are
+separate from this server inbox; see below.
 
 Push notifications live in `lib/features/push/` (Model → Service → ViewModel;
 there is no View: the Settings switch and the shell use the ViewModel).
@@ -490,6 +492,39 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   changes. Previews stay anonymous and show a placeholder when no photo is
   attached or available; a failed photo load can be retried.
 
+FaunaGuard lives in `lib/features/fauna_guard/`
+(Model → Service → ViewModel → View), integrated into the community map.
+It is opt-in, off by default, with a shield button beside Refresh and a
+flip-card disclosure before permission requests. The map follows the live
+device location with a blue marker while enabled. All approved reports from
+the existing `community_reports()` RPC are watched, using approximate public
+coordinates only: Getting closer at 1 km and Nearby at 500 m. Each report
+alerts once per band per enabled session; simultaneous crossings are grouped.
+Locations are approximate (~1 km precision); these are awareness estimates,
+not exact wildlife positions. Device coordinates stay in memory and are not
+uploaded or persisted by this feature. Reports refresh every minute while
+enabled; failed refreshes and GPS/notification errors stop the session.
+
+`DeviceGuardLocationService` reuses geolocator_android/geolocator_apple and
+their platform interface. Do not add the umbrella geolocator package.
+Android uses its location foreground service and wake lock, started from
+the visible app with while-in-use location permission and an ongoing
+notification; the app declares FOREGROUND_SERVICE, FOREGROUND_SERVICE_LOCATION,
+WAKE_LOCK and POST_NOTIFICATIONS. iOS enables UIBackgroundModes/location and
+background updates with a visible location indicator. Shared photo/map
+behavior remains in its existing Services. `flutter_local_notifications`
+22.x adds immediate Android/iOS system proximity notifications. When Android
+push has initialized the shared plugin, FaunaGuard reuses it to preserve the
+push tap handler and sets its own icon per notification. Android requires Java
+desugaring and the retained ic_fauna_guard drawable. No FCM,
+scheduled notifications, backend migration, warning_zones writes, or server
+notification rows are added. Background operation continues while the session
+and app process live, including across tabs and while locked; force-close,
+OS termination and reboot do not restart tracking. Turning off, signing out,
+or changing accounts cancels GPS/timers and clears location/alerts. Web
+preview shows the intro but reports background tracking as mobile-only.
+Verify background/locked operation on real Android/iOS devices before release.
+
 Post creation lives in `lib/features/create_post/` (Model → Service → ViewModel →
 View). A category and valid observation coordinates are required; photos and
 description/species/notes are optional. Reports are saved with `status = pending`.
@@ -549,6 +584,16 @@ Post photos are limited to 5 MB
 to the private `report-images` bucket; `report_images` stores their Storage paths
 and metadata. Apply `20261103152000_limit_report_images_to_5mb.sql` to enforce
 the same per-file limit in Storage. Existing objects are unaffected.
+
+Appearance palettes (Apollo, Forest, Ocean, Sunset, Arctic and Meadow) are selected
+in Profile > Change Theme. Apollo is the default and retains the original blue
+controls, yellow highlights and green Material accents in both brightness modes.
+`SettingsViewModel.activePaletteId` drives the shared light/dark theme providers
+in `lib/core/theme/`; `AppPaletteColors` preserves the original UI colors for
+Apollo and maps them to the generated scheme for other palettes. Light/Dark/System
+remains an independent choice. Both appearance choices currently live in memory
+for the app session; they are not saved to the profile or local storage.
+No database change or new dependency is required.
 
 Profile banners persist in `profiles.banner_asset` (preset asset identifier) or
 `profiles.banner_color` (unsigned 32-bit ARGB stored as bigint), with at most one

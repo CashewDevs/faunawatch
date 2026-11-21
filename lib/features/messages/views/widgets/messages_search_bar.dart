@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
@@ -24,8 +25,8 @@ class MessagesSearchBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: isDark
-              ? AppColors.darkAccentBlue
-              : AppColors.messagesSearchBorder,
+              ? AppPaletteColors.of(context).darkAccentBlue
+              : AppPaletteColors.of(context).messagesSearchBorder,
           width: 2.0,
         ),
       ),
@@ -37,7 +38,7 @@ class MessagesSearchBar extends StatelessWidget {
             width: 20,
             height: 20,
             fit: BoxFit.contain,
-            color: isDark ? AppColors.darkAccentBlue : null,
+            color: isDark ? AppPaletteColors.of(context).darkAccentBlue : null,
             colorBlendMode: isDark ? BlendMode.srcIn : null,
           ),
           const SizedBox(width: 12),
@@ -46,8 +47,8 @@ class MessagesSearchBar extends StatelessWidget {
               controller: controller,
               onChanged: onChanged,
               cursorColor: isDark
-                  ? AppColors.darkAccentBlue
-                  : AppColors.messagesHeaderBlue,
+                  ? AppPaletteColors.of(context).darkAccentBlue
+                  : AppPaletteColors.of(context).messagesHeaderBlue,
               style: GoogleFonts.dmSans(
                 color: isDark ? AppColors.darkTextPrimary : Colors.black87,
                 fontSize: 15,

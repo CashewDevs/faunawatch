@@ -57,6 +57,15 @@ class MapGuideSheet extends StatelessWidget {
                   'invasive species, or another wildlife incident. Open the full post in the feed for photos and more details.',
             ),
             const SizedBox(height: 24),
+            const _GuideStep(
+              icon: Icons.shield_outlined,
+              title: 'Turn on FaunaGuard',
+              description:
+                  'Tap the shield beside Refresh to learn about FaunaGuard and turn it on. '
+                  'The map follows your location and sends alerts within 1 km and 500 m of approximate report pins, '
+                  'including while the app is in the background or your phone is locked. Tap the shield again to stop.',
+            ),
+            const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(

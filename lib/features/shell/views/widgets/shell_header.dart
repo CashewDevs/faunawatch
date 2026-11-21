@@ -1,6 +1,6 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
-import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:faunawatch/features/shell/views/search_view.dart';
 
@@ -35,7 +35,7 @@ class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
         left: 14,
         right: 14,
       ),
-      color: AppColors.shellHeaderBlue,
+      color: AppPaletteColors.of(context).shellHeaderBlue,
       child: SizedBox(
         height: 60,
         child: Row(
@@ -57,15 +57,18 @@ class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
                   height: 32,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppPaletteColors.of(context).resolve(
+                      Colors.white,
+                      Theme.of(context).colorScheme.surface,
+                    ),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.search,
-                        color: AppColors.shellHeaderBlue,
+                        color: AppPaletteColors.of(context).shellHeaderBlue,
                         size: 18,
                       ),
                       SizedBox(width: 48),
@@ -86,7 +89,9 @@ class ShellHeader extends StatelessWidget implements PreferredSizeWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
+                    color: AppPaletteColors.of(
+                      context,
+                    ).onPrimary.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

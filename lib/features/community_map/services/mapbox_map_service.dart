@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:faunawatch/core/services/map_lighting.dart';
 import 'package:faunawatch/core/services/map_pin_image.dart';
 import '../models/community_report.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_proximity.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_radius.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,12 +25,129 @@ abstract interface class MapboxMapService {
   });
 
   void detach();
+
+  Future<void> showGuardLocation(GuardLocation? location);
+
+  /// Draws FaunaGuard's 1 km and 500 m warning rings around [reports];
+  /// an empty list removes them.
+  Future<void> showGuardRadius(List<CommunityReport> reports);
 }
 
 /// Mapbox implementation using the Standard style's light and 3D settings.
 class MapboxCommunityMapService implements MapboxMapService {
   MapboxMap? _mapboxMap;
+  double _pitch = 55;
   static const _pinImage = 'community-report-logo-pin';
+  bool _guardHasCentered = false;
+
+  @override
+  Future<void> showGuardLocation(GuardLocation? location) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    const source = 'fauna-guard-location';
+    final exists = await map.styleSourceExists(source);
+    if (location == null && !exists) {
+      _guardHasCentered = false;
+      return;
+    }
+    final data = jsonEncode({
+      'type': 'FeatureCollection',
+      'features': [
+        if (location != null)
+          {
+            'type': 'Feature',
+            'properties': <String, Object>{},
+            'geometry': {
+              'type': 'Point',
+              'coordinates': [location.longitude, location.latitude],
+            },
+          },
+      ],
+    });
+    if (exists) {
+      await map.setStyleSourceProperty(source, 'data', data);
+    } else {
+      await map.addSource(GeoJsonSource(id: source, data: data));
+    }
+    if (!await map.styleLayerExists('fauna-guard-marker')) {
+      await map.addLayer(
+        CircleLayer(
+          id: 'fauna-guard-marker',
+          sourceId: source,
+          slot: 'top',
+          circleRadius: 9,
+          circleColor: const Color(0xFF1976D2).toARGB32(),
+          circleStrokeColor: Colors.white.toARGB32(),
+          circleStrokeWidth: 3,
+          circleEmissiveStrength: 1,
+        ),
+      );
+    }
+    if (_mapboxMap != map) return;
+    if (location == null) {
+      _guardHasCentered = false;
+    } else {
+      await map.setCamera(
+        CameraOptions(
+          center: Point(
+            coordinates: Position(location.longitude, location.latitude),
+          ),
+          zoom: _guardHasCentered ? null : 14,
+          pitch: _pitch,
+        ),
+      );
+      _guardHasCentered = true;
+    }
+  }
+
+  @override
+  Future<void> showGuardRadius(List<CommunityReport> reports) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    final rings = guardRadiusRings(reports);
+    // Outer (1 km) is drawn first so the inner (500 m) ring sits on top.
+    for (final (proximity, source, color) in const [
+      (GuardProximity.gettingCloser, 'fauna-guard-radius-outer', 0xFFFFA000),
+      (GuardProximity.nearby, 'fauna-guard-radius-inner', 0xFFE53935),
+    ]) {
+      final exists = await map.styleSourceExists(source);
+      if (rings.isEmpty && !exists) continue;
+      final data = jsonEncode({
+        'type': 'FeatureCollection',
+        'features': [
+          for (final ring in rings)
+            if (ring.proximity == proximity)
+              {
+                'type': 'Feature',
+                'properties': <String, Object>{},
+                'geometry': {
+                  'type': 'Polygon',
+                  'coordinates': [ring.points],
+                },
+              },
+        ],
+      });
+      if (exists) {
+        await map.setStyleSourceProperty(source, 'data', data);
+      } else {
+        await map.addSource(GeoJsonSource(id: source, data: data));
+      }
+      if (!await map.styleLayerExists(source)) {
+        await map.addLayer(
+          FillLayer(
+            id: source,
+            sourceId: source,
+            // Under road names and the report pins, above the ground.
+            slot: 'middle',
+            fillColor: color,
+            fillOpacity: 0.18,
+            fillOutlineColor: color,
+            fillEmissiveStrength: 1,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Future<void> showReports(
@@ -79,11 +199,15 @@ class MapboxCommunityMapService implements MapboxMapService {
           for (final report in reports)
             Point(coordinates: Position(report.longitude, report.latitude)),
         ],
-        CameraOptions(),
+        CameraOptions(pitch: _pitch),
         MbxEdgeInsets(top: 180, left: 48, bottom: 80, right: 48),
         12,
         null,
       );
+      // Keep the selected mode even if it changed while fitting the reports.
+      camera.pitch = _pitch;
+      // A GPS fix may have taken over the camera while the fit was pending.
+      if (_mapboxMap != map || _guardHasCentered) return;
       await map.setCamera(camera);
     }
   }
@@ -94,6 +218,7 @@ class MapboxCommunityMapService implements MapboxMapService {
     void Function(String)? onPostTap,
   }) async {
     _mapboxMap = mapboxMap;
+    _guardHasCentered = false;
     mapboxMap.addInteraction(
       TapInteraction(FeaturesetDescriptor(layerId: 'community-report-pins'), (
         feature,
@@ -111,6 +236,7 @@ class MapboxCommunityMapService implements MapboxMapService {
     required Brightness brightness,
     required bool is3dEnabled,
   }) async {
+    _pitch = is3dEnabled ? 55 : 0;
     final mapboxMap = _mapboxMap;
     if (mapboxMap == null) {
       return;
@@ -126,7 +252,7 @@ class MapboxCommunityMapService implements MapboxMapService {
       'show3dObjects',
       is3dEnabled,
     );
-    await mapboxMap.setCamera(CameraOptions(pitch: is3dEnabled ? 55 : 0));
+    await mapboxMap.setCamera(CameraOptions(pitch: _pitch));
   }
 
   @override

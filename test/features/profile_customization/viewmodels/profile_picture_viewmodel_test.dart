@@ -45,7 +45,11 @@ class _FakeImagePickerService implements ImagePickerService {
 void main() {
   group('ProfilePictureViewModel', () {
     test('initial state has no avatar and continue disabled', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          profileServiceProvider.overrideWithValue(_FakeProfileService()),
+        ],
+      );
       addTearDown(container.dispose);
 
       final state = container.read(profilePictureViewModelProvider);
@@ -55,7 +59,11 @@ void main() {
     });
 
     test('selectPresetAvatar sets avatar and activates continue', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          profileServiceProvider.overrideWithValue(_FakeProfileService()),
+        ],
+      );
       addTearDown(container.dispose);
 
       container
@@ -73,7 +81,10 @@ void main() {
       () async {
         final fakePicker = _FakeImagePickerService();
         final container = ProviderContainer(
-          overrides: [imagePickerServiceProvider.overrideWithValue(fakePicker)],
+          overrides: [
+            imagePickerServiceProvider.overrideWithValue(fakePicker),
+            profileServiceProvider.overrideWithValue(_FakeProfileService()),
+          ],
         );
         addTearDown(container.dispose);
 

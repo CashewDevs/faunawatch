@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
@@ -756,6 +757,10 @@ class _FakeMapCanvasBuilder implements MapboxMapCanvasBuilder {
 }
 
 class _FakeMapService implements MapboxMapService {
+  @override
+  Future<void> showGuardLocation(GuardLocation? location) async {}
+  @override
+  Future<void> showGuardRadius(List<CommunityReport> reports) async {}
   @override
   Future<void> showReports(
     List<CommunityReport> reports, {

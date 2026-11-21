@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
+import 'package:faunawatch/features/fauna_guard/services/guard_location_service.dart';
+import 'package:faunawatch/features/fauna_guard/services/guard_notification_service.dart';
+import 'package:faunawatch/features/fauna_guard/viewmodels/fauna_guard_viewmodel.dart';
+import '../../fauna_guard/guard_fakes.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
@@ -33,6 +38,82 @@ void main() {
   });
 
   tearDown(() => container.dispose());
+
+  test(
+    'FaunaGuard waits for style, restores its fix after reload, and clears on stop',
+    () async {
+      final gps = FakeGuardLocation();
+      final guardContainer = ProviderContainer(
+        overrides: [
+          currentUserIdProvider.overrideWith((ref) => Stream.value('map-user')),
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          guardLocationServiceProvider.overrideWithValue(gps),
+          guardNotificationServiceProvider.overrideWithValue(
+            FakeGuardNotifications(),
+          ),
+        ],
+      );
+      addTearDown(guardContainer.dispose);
+      addTearDown(gps.fixes.close);
+      final map = guardContainer.read(communityMapViewModelProvider.notifier);
+      await pumpEventQueue();
+      final guard = guardContainer.read(faunaGuardViewModelProvider.notifier);
+      await guard.enable();
+      final first = guardFix(1500);
+      gps.fixes.add(first);
+      await pumpEventQueue();
+      expect(mapboxMapService.locations, isEmpty);
+      await map.onStyleLoaded();
+      expect(mapboxMapService.locations.last, first);
+      expect(mapboxMapService.reportCalls.last.recenter, isFalse);
+      final moved = guardFix(1600);
+      gps.fixes.add(moved);
+      await pumpEventQueue();
+      expect(mapboxMapService.locations.last, moved);
+      await map.onStyleLoaded();
+      expect(mapboxMapService.locations.last, moved);
+      guard.disable();
+      await pumpEventQueue();
+      expect(mapboxMapService.locations.last, isNull);
+    },
+  );
+
+  test('FaunaGuard rings show only while FaunaGuard is on', () async {
+    final gps = FakeGuardLocation();
+    final guardContainer = ProviderContainer(
+      overrides: [
+        currentUserIdProvider.overrideWith((ref) => Stream.value('map-user')),
+        mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+        communityReportsServiceProvider.overrideWithValue(reports),
+        guardLocationServiceProvider.overrideWithValue(gps),
+        guardNotificationServiceProvider.overrideWithValue(
+          FakeGuardNotifications(),
+        ),
+      ],
+    );
+    addTearDown(guardContainer.dispose);
+    addTearDown(gps.fixes.close);
+    final map = guardContainer.read(communityMapViewModelProvider.notifier);
+    await pumpEventQueue();
+    await map.onStyleLoaded();
+    expect(mapboxMapService.radiusCalls.last, isEmpty);
+
+    final guard = guardContainer.read(faunaGuardViewModelProvider.notifier);
+    await guard.enable();
+    await pumpEventQueue();
+    expect(mapboxMapService.radiusCalls.last.map((r) => r.id), ['approved']);
+
+    reports.items = [];
+    await map.refreshReports();
+    expect(mapboxMapService.radiusCalls.last, isEmpty);
+
+    reports.items = [_report];
+    await map.refreshReports();
+    guard.disable();
+    await pumpEventQueue();
+    expect(mapboxMapService.radiusCalls.last, isEmpty);
+  });
 
   test(
     'loads approved reports, opens a report, and can retry a failed refresh',
@@ -181,6 +262,18 @@ void main() {
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
+  final locations = <GuardLocation?>[];
+  @override
+  Future<void> showGuardLocation(GuardLocation? location) async {
+    locations.add(location);
+  }
+
+  final radiusCalls = <List<CommunityReport>>[];
+  @override
+  Future<void> showGuardRadius(List<CommunityReport> reports) async {
+    radiusCalls.add(reports);
+  }
+
   @override
   Future<void> showReports(
     List<CommunityReport> reports, {

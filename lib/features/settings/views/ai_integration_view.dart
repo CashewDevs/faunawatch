@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -77,13 +78,13 @@ class AiIntegrationView extends ConsumerWidget {
             end: Alignment.bottomCenter,
             stops: const [0.3, 1.0],
             colors: isDark
-                ? const [
-                    AppColors.darkProfileGradientStart,
-                    AppColors.darkProfileGradientEnd,
+                ? [
+                    AppPaletteColors.of(context).darkProfileGradientStart,
+                    AppPaletteColors.of(context).darkProfileGradientEnd,
                   ]
-                : const [
-                    AppColors.profileBackgroundGradientStart,
-                    AppColors.profileBackgroundGradientEnd,
+                : [
+                    AppPaletteColors.of(context).profileBackgroundGradientStart,
+                    AppPaletteColors.of(context).profileBackgroundGradientEnd,
                   ],
           ),
         ),
@@ -98,16 +99,16 @@ class AiIntegrationView extends ConsumerWidget {
                     IconButton(
                       tooltip: 'Back',
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.chevron_left_rounded,
-                        color: AppColors.shellHeaderBlue,
+                        color: AppPaletteColors.of(context).shellHeaderBlue,
                         size: 32,
                       ),
                     ),
                     Text(
                       'AI Integration',
                       style: GoogleFonts.dmSans(
-                        color: AppColors.shellHeaderBlue,
+                        color: AppPaletteColors.of(context).shellHeaderBlue,
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
@@ -389,7 +390,11 @@ class _Row extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
         child: Row(
           children: [
-            Icon(icon, color: iconColor ?? AppColors.shellHeaderBlue, size: 26),
+            Icon(
+              icon,
+              color: iconColor ?? AppPaletteColors.of(context).shellHeaderBlue,
+              size: 26,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -444,7 +449,9 @@ class _ProviderPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         color: isDark
-            ? AppColors.shellHeaderBlue.withValues(alpha: 0.2)
+            ? AppPaletteColors.of(
+                context,
+              ).shellHeaderBlue.withValues(alpha: 0.2)
             : AppColors.consentBadgeBlueBackground,
         borderRadius: BorderRadius.circular(14),
       ),

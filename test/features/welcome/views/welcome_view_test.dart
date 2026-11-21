@@ -2,12 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
+import 'package:faunawatch/features/auth/services/auth_service.dart';
 import 'package:faunawatch/features/welcome/views/welcome_view.dart';
 import 'package:faunawatch/features/welcome/views/widgets/welcome_pop_button.dart';
+
+class _FakeAuthService implements AuthService {
+  @override
+  Future<bool> login(String email, String password) async => true;
+
+  @override
+  Future<bool> signUp(String email, String password) async => true;
+
+  @override
+  Future<void> signOut() async {}
+}
 
 void main() {
   Widget createWidgetUnderTest() {
     return ProviderScope(
+      overrides: [authServiceProvider.overrideWithValue(_FakeAuthService())],
       child: MaterialApp(theme: AppTheme.lightTheme, home: const WelcomeView()),
     );
   }
