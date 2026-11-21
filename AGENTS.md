@@ -432,25 +432,39 @@ Settings live in `ProfilePreferencesDrawer`, opened by the hamburger icon at
 the top-right of the banner. Selecting an action closes the drawer before
 opening the existing editor, theme picker or settings screen.
 Gallery is absent from the feed tabs,
-which contain Map and For You only. Gallery shows only the signed-in user's
-approved reports in the three-column grid with yellow title/date footers.
-`SupabaseGalleryService` queries `reports` with both `user_id = current user`
-and `status = approved`, relying on existing owner RLS, and loads pages of 12
-by submission time and ID, newest first. It reuses `FeedPost` for title/category
-fallbacks and signs the first available private report photo for one hour.
-`GalleryViewModel` owns its independent pagination, refresh and category filter;
-it resets on account changes and discards superseded requests. Cards push a
-profile-local full-screen `GalleryPostViewer`, starting at the tapped post.
-Vertical swipes browse only the gallery's own posts (respecting its filter),
-and Back returns to the existing profile/grid scroll position. Neither the shell
+which contain Map and For You only. Gallery shows the signed-in user's approved
+AND pending reports, mixed in one three-column grid with yellow title/date
+footers, newest submission first; changes-requested and declined reports stay
+out. Pending tiles carry a "Pending review" badge (clock icon, `PendingReviewBadge`)
+under every filter. Under the "My Gallery" title, status chips All · Pending ·
+Approved (`GalleryStatusFilter`) combine with the Filter menu's report category
+(`GalleryFilter`); the Filter button names the active category ("Filter · Animal
+in need"). Both are applied by the server, so older matches are found, and each
+filter has its own empty message (`GalleryState.emptyMessage`).
+`SupabaseGalleryService` queries `reports` with `user_id = current user`, `status`
+in the chosen statuses and the optional `category`, relying on existing owner RLS
+(owners can read their own pending reports, photos and AI results), and loads
+pages of 12 by submission time and ID, newest first. It returns `GalleryPost`
+(a `FeedPost`, reused for title/category fallbacks, plus its `ReportStatus`) and
+signs the first available private report photo for one hour.
+`GalleryViewModel` owns its independent pagination, refresh and filters; changing
+a filter reloads the first page, and it resets on account changes and discards
+superseded requests. `reload()` always starts over (unlike pull to refresh,
+which is ignored while loading); `CreatePostViewModel.submit` calls it after a
+successful submit when the gallery is already open, so the new pending post
+appears. Pending tiles open `ReportDetailScreen` (`lib/features/report_detail/`),
+which shows the status. Approved tiles push a profile-local full-screen
+`GalleryPostViewer`, starting at the tapped post.
+Vertical swipes browse only the gallery's own approved posts (respecting its
+filters; pending ones are skipped because the viewer loads through the
+approved-only `FeedService.fetchPost`), and Back returns to the existing
+profile/grid scroll position. Neither the shell
 destination nor the For You tab/page changes. `GalleryPostViewModel` loads full
 photos and engagement through `FeedService.fetchPost`, checks the current owner,
 and manages local likes and comment counts. The shared post widgets accept
 action callbacks; the comments sheet can notify this local ViewModel of changes.
 Full post data is discarded when its page is disposed and on account changes.
-The Filter menu uses report categories
-on loaded pages; scrolling or "Load older posts" loads more, including when a
-filter currently has no matches. No dependency or migration is added.
+Scrolling or "Load older posts" loads more. No dependency or migration is added.
 
 Apply `20261112100000_create_community_feed.sql` before using the feed. The user
 applies it manually in the Supabase SQL editor; agents must not apply hosted

@@ -1,7 +1,10 @@
 import 'dart:convert';
 
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/gallery/models/gallery_filter.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
+import 'package:faunawatch/features/report_detail/models/own_report.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -17,6 +20,7 @@ void main() {
   Map<String, dynamic> row(String id) => {
     'id': id,
     'user_id': 'user-a',
+    'status': 'approved',
     'category': 'animal_in_need',
     'user_species': 'Eagle',
     'created_at': '2026-11-17T08:00:00Z',
@@ -99,31 +103,38 @@ void main() {
     expect(requests, isEmpty);
   });
 
-  test(
-    'restricts queries to own approved posts with stable keyset paging',
-    () async {
-      await signIn();
-      rows = [row('r1')];
-      final posts = await service.fetchPage();
-      final query = requests.single.url.queryParameters;
-      expect(query['user_id'], 'eq.user-a');
-      expect(query['status'], 'eq.approved');
-      expect(query['order'], 'created_at.desc.nullslast,id.desc.nullslast');
-      expect(query['limit'], '${GalleryService.pageSize}');
-      expect(query['select'], isNot(contains('latitude')));
-      expect(query['select'], isNot(contains('user_notes')));
-      expect(posts.single.title, 'Eagle');
-      expect(posts.single.authorId, 'user-a');
-      expect(posts.single.location, 'Cebu City');
-      requests.clear();
-      await service.fetchPage(before: posts.single);
-      expect(
-        requests.single.url.queryParameters['or'],
-        '(created_at.lt.2026-11-17T08:00:00.000Z,'
-        'and(created_at.eq.2026-11-17T08:00:00.000Z,id.lt.r1))',
-      );
-    },
-  );
+  test('restricts queries to own approved and pending posts with stable keyset '
+      'paging', () async {
+    await signIn();
+    rows = [
+      row('r1'),
+      {...row('r0'), 'status': 'pending'},
+    ];
+    final posts = await service.fetchPage();
+    final query = requests.single.url.queryParameters;
+    expect(query['user_id'], 'eq.user-a');
+    expect(query['status'], 'in.("approved","pending")');
+    expect(query.containsKey('category'), isFalse);
+    expect(query['select'], startsWith('id,user_id,status,'));
+    expect(query['order'], 'created_at.desc.nullslast,id.desc.nullslast');
+    expect(query['limit'], '${GalleryService.pageSize}');
+    expect(query['select'], isNot(contains('latitude')));
+    expect(query['select'], isNot(contains('user_notes')));
+    expect(posts.first.post.title, 'Eagle');
+    expect(posts.first.post.authorId, 'user-a');
+    expect(posts.first.post.location, 'Cebu City');
+    expect(posts.map((entry) => entry.status), [
+      ReportStatus.approved,
+      ReportStatus.pending,
+    ]);
+    requests.clear();
+    await service.fetchPage(before: posts.first.post);
+    expect(
+      requests.single.url.queryParameters['or'],
+      '(created_at.lt.2026-11-17T08:00:00.000Z,'
+      'and(created_at.eq.2026-11-17T08:00:00.000Z,id.lt.r1))',
+    );
+  });
 
   test(
     'uses the completed AI title and first signable private photo',
@@ -155,7 +166,7 @@ void main() {
         },
       ];
       missing.add('missing.webp');
-      final post = (await service.fetchPage()).single;
+      final post = (await service.fetchPage()).single.post;
       expect(post.title, 'Owl');
       expect(post.photoUrls.single, contains('r1/available.webp'));
       final signing = requests.where(
@@ -170,6 +181,27 @@ void main() {
     },
   );
 
+  test('the server applies the status and category filters', () async {
+    await signIn();
+    await service.fetchPage(
+      filter: const GalleryFilter(
+        status: GalleryStatusFilter.pending,
+        category: ReportCategory.animalInNeed,
+      ),
+    );
+    var query = requests.single.url.queryParameters;
+    expect(query['user_id'], 'eq.user-a');
+    expect(query['status'], 'in.("pending")');
+    expect(query['category'], 'eq.animal_in_need');
+    requests.clear();
+    await service.fetchPage(
+      filter: const GalleryFilter(status: GalleryStatusFilter.approved),
+    );
+    query = requests.single.url.queryParameters;
+    expect(query['status'], 'in.("approved")');
+    expect(query.containsKey('category'), isFalse);
+  });
+
   test('missing photos and analysis keep a usable category card', () async {
     await signIn();
     rows = [
@@ -183,7 +215,7 @@ void main() {
       },
     ];
     missing.add('missing.webp');
-    final post = (await service.fetchPage()).single;
+    final post = (await service.fetchPage()).single.post;
     expect(post.title, 'Animal in need');
     expect(post.photoUrls, isEmpty);
     expect(post.location, FeedPost.approximateLocation);

@@ -133,10 +133,10 @@ void main() {
                     colors.profileBackgroundGradientEnd,
                   ],
           );
-          final filter = tester.widget<PopupMenuButton<String>>(
+          final filter = tester.widget<PopupMenuButton>(
             find.descendant(
               of: find.byType(GalleryHeader),
-              matching: find.byType(PopupMenuButton<String>),
+              matching: find.byWidgetPredicate((w) => w is PopupMenuButton),
             ),
           );
           expect(filter.color, colors.galleryFilterButtonBackground);

@@ -78,11 +78,36 @@ void main() {
     expect(service.pageRequests, hasLength(1));
   });
 
-  test('preserves the filter across pagination and refresh', () async {
+  test('pending posts are mixed in newest first with their status', () async {
     create(
       FakeGalleryService(
         posts: [
-          for (var i = 0; i < 15; i++)
+          testPost('new-pending', index: 0),
+          testPost('approved', index: 1),
+          testPost('old-pending', index: 2),
+        ],
+        statuses: {
+          'new-pending': ReportStatus.pending,
+          'old-pending': ReportStatus.pending,
+        },
+      ),
+    );
+    await open();
+    expect(state().items.map((item) => item.id), [
+      'new-pending',
+      'approved',
+      'old-pending',
+    ]);
+    expect(state().items.map((item) => item.isPending), [true, false, true]);
+    expect(service.filterRequests.single, const GalleryFilter());
+    expect(state().approvedItems.single.id, 'approved');
+  });
+
+  test('filters reload from the server, combine and survive paging', () async {
+    create(
+      FakeGalleryService(
+        posts: [
+          for (var i = 0; i < 30; i++)
             testPost(
               'p$i',
               index: i,
@@ -91,21 +116,105 @@ void main() {
                   : ReportCategory.otherWildlifeIncident,
             ),
         ],
+        statuses: {
+          for (var i = 0; i < 30; i++)
+            if (i % 3 == 0) 'p$i': ReportStatus.pending,
+        },
       ),
     );
     await open();
-    vm().setCategory(ReportCategory.animalInNeed.label);
-    expect(state().filteredItems, hasLength(6));
+    expect(state().items, hasLength(12));
+
+    vm().setStatus(GalleryStatusFilter.pending);
+    expect(state().isLoading, isTrue);
+    expect(state().items, isEmpty);
+    await pumpEventQueue();
+    expect(state().items.map((item) => item.id), [
+      for (var i = 0; i < 30; i += 3) 'p$i',
+    ]);
+    expect(state().items.every((item) => item.isPending), isTrue);
+    expect(state().hasMore, isFalse);
+
+    vm().setCategory(ReportCategory.animalInNeed);
+    await pumpEventQueue();
+    expect(
+      service.filterRequests.last,
+      const GalleryFilter(
+        status: GalleryStatusFilter.pending,
+        category: ReportCategory.animalInNeed,
+      ),
+    );
+    // Older matches beyond the first loaded page are found too.
+    expect(state().items.map((item) => item.id), [
+      'p0',
+      'p6',
+      'p12',
+      'p18',
+      'p24',
+    ]);
+
+    vm().setStatus(GalleryStatusFilter.all);
+    await pumpEventQueue();
+    expect(state().items, hasLength(12));
     expect(state().hasMore, isTrue);
     await vm().loadMore();
-    expect(state().filteredItems, hasLength(8));
-    expect(state().hasMore, isFalse);
-    expect(service.pageRequests.last!.id, 'p11');
+    expect(state().items, hasLength(15));
+    expect(service.filterRequests.last.category, ReportCategory.animalInNeed);
     await vm().refresh();
+    expect(state().filter.category, ReportCategory.animalInNeed);
     expect(state().items, hasLength(12));
-    expect(state().selectedCategory, ReportCategory.animalInNeed.label);
-    vm().setCategory('All');
-    expect(state().filteredItems, hasLength(12));
+
+    final requests = service.pageRequests.length;
+    vm().setCategory(ReportCategory.animalInNeed);
+    vm().setStatus(GalleryStatusFilter.all);
+    await pumpEventQueue();
+    expect(service.pageRequests, hasLength(requests));
+
+    vm().setCategory(null);
+    await pumpEventQueue();
+    expect(state().filter, const GalleryFilter());
+    expect(state().items.first.id, 'p0');
+  });
+
+  test('a filter change drops the reply for the previous filter', () async {
+    create(
+      FakeGalleryService(
+        posts: [testPost('approved'), testPost('pending', index: 1)],
+        statuses: {'pending': ReportStatus.pending},
+      ),
+    );
+    await open();
+    final gate = Completer<void>();
+    service.pageGate = gate;
+    vm().setStatus(GalleryStatusFilter.approved);
+    await pumpEventQueue();
+    service.pageGate = null;
+    vm().setStatus(GalleryStatusFilter.pending);
+    await pumpEventQueue();
+    expect(state().items.single.id, 'pending');
+    gate.complete();
+    await pumpEventQueue();
+    expect(state().items.single.id, 'pending');
+    expect(state().filter.status, GalleryStatusFilter.pending);
+  });
+
+  test('reload runs even while a refresh is loading', () async {
+    create(FakeGalleryService(posts: [testPost('old')]));
+    await open();
+    final gate = Completer<void>();
+    service.pageGate = gate;
+    final refresh = vm().refresh();
+    await pumpEventQueue();
+    service.pageGate = null;
+    service.posts = [testPost('new'), ...service.posts];
+    service.statuses['new'] = ReportStatus.pending;
+    await vm().reload();
+    expect(state().items.map((item) => item.id), ['new', 'old']);
+    expect(state().items.first.isPending, isTrue);
+    gate.complete();
+    await refresh;
+    expect(state().items.map((item) => item.id), ['new', 'old']);
+    expect(state().isRefreshing, isFalse);
   });
 
   test(

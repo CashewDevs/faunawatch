@@ -1,11 +1,12 @@
-import 'dart:async';
-
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
+import 'package:faunawatch/features/report_detail/models/own_report.dart';
+import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
+import 'package:faunawatch/features/report_detail/views/screens/report_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,10 +14,22 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../feed/fake_feed_service.dart';
 import '../fake_gallery_service.dart';
 
+class _FakeReportDetailService implements ReportDetailService {
+  final requests = <String>[];
+
+  @override
+  Future<OwnReport?> fetchOwnReport(String reportId) async {
+    requests.add(reportId);
+    return null;
+  }
+}
+
 void main() {
   late FakeGalleryService service;
+  late _FakeReportDetailService details;
 
   setUp(() {
+    details = _FakeReportDetailService();
     service = FakeGalleryService(
       posts: [
         testPost(
@@ -45,7 +58,10 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [galleryServiceProvider.overrideWithValue(service)],
+        overrides: [
+          galleryServiceProvider.overrideWithValue(service),
+          reportDetailServiceProvider.overrideWithValue(details),
+        ],
         child: const MaterialApp(home: GalleryView()),
       ),
     );
@@ -62,6 +78,9 @@ void main() {
       );
       expect(find.byType(GalleryHeader), findsOneWidget);
       expect(find.text('Filter'), findsOneWidget);
+      for (final chip in ['All', 'Pending', 'Approved']) {
+        expect(find.text(chip), findsOneWidget);
+      }
       expect(find.byType(GalleryCard), findsNWidgets(3));
       final grid = tester.widget<SliverGrid>(find.byType(SliverGrid));
       expect(
@@ -95,11 +114,51 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(GalleryCard), findsNWidgets(2));
     expect(find.text('Red Fox'), findsNothing);
-    await tester.tap(find.text('Filter'));
+    expect(service.filterRequests.last.category, ReportCategory.animalInNeed);
+    final active = 'Filter · ${ReportCategory.animalInNeed.label}';
+    expect(find.text(active), findsOneWidget);
+    await tester.tap(find.text(active));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('All').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Filter'), findsOneWidget);
+    expect(find.byType(GalleryCard), findsNWidgets(3));
+  });
+
+  testWidgets('pending posts carry a badge under All and open the report '
+      'detail', (tester) async {
+    service.statuses['other'] = ReportStatus.pending;
+    await pumpGallery(tester);
+    expect(find.byType(GalleryCard), findsNWidgets(3));
+    expect(find.byType(PendingReviewBadge), findsOneWidget);
+    expect(find.text('Pending review'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byWidgetPredicate(
+          (w) => w is GalleryCard && w.item.id == 'other',
+        ),
+        matching: find.byType(PendingReviewBadge),
+      ),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel(RegExp('Red Fox.*Pending review')), findsOne);
+
+    await tester.tap(find.text('Pending'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsOneWidget);
+    expect(find.text('Red Fox'), findsOneWidget);
+
+    await tester.tap(find.text('Approved'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsNWidgets(2));
+    expect(find.byType(PendingReviewBadge), findsNothing);
+
     await tester.tap(find.text('All'));
     await tester.pumpAndSettle();
-    expect(find.byType(GalleryCard), findsNWidgets(3));
+    await tester.tap(find.text('Red Fox'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReportDetailScreen), findsOneWidget);
+    expect(details.requests, ['other']);
   });
 
   testWidgets('uses network photos and handles missing or failed photos', (
@@ -171,38 +230,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('empty filters can load older matches and retry failed pages', (
-    tester,
-  ) async {
-    service.posts = [
-      for (var i = 0; i < 12; i++)
-        testPost('p$i', index: i, category: ReportCategory.animalInNeed),
-      testPost(
-        'older',
-        index: 10,
-        title: 'Older fox',
-        category: ReportCategory.otherWildlifeIncident,
-      ),
-    ];
+  testWidgets('each filter shows its own empty message', (tester) async {
+    service.posts = [service.posts.first];
     await pumpGallery(tester);
+    await tester.tap(find.text('Pending'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing waiting for review.'), findsOneWidget);
+    expect(
+      find.text('New posts stay here until an admin reviews them.'),
+      findsOneWidget,
+    );
+    service.posts = [];
+    await tester.tap(find.text('Approved'));
+    await tester.pumpAndSettle();
+    expect(find.text('No approved posts yet.'), findsOneWidget);
     await tester.tap(find.text('Filter'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(ReportCategory.otherWildlifeIncident.label));
     await tester.pumpAndSettle();
-    expect(find.text('No matching posts loaded.'), findsOneWidget);
-    service.pageError = Exception('offline');
-    await tester.tap(find.text('Load older posts'));
-    await tester.pumpAndSettle();
-    expect(find.text('Load older posts'), findsOneWidget);
-    service.pageError = null;
-    final gate = Completer<void>();
-    service.pageGate = gate;
-    await tester.tap(find.text('Load older posts'));
-    await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    gate.complete();
-    await tester.pumpAndSettle();
-    expect(find.text('Older fox'), findsOneWidget);
+    expect(find.text('No posts in this category.'), findsOneWidget);
     expect(find.text('Load older posts'), findsNothing);
   });
 }
