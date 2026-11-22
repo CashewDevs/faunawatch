@@ -870,14 +870,16 @@ remains an independent choice. Both appearance choices currently live in memory
 for the app session; they are not saved to the profile or local storage.
 
 Coloured tags and chips use `TagColors` (`lib/core/theme/tag_colors.dart`): one
-filled background + text pair per `TagTone` (neutral, low, moderate, high,
+filled background + text pair per `TagTone` (neutral, info, low, moderate, high,
 critical, invasive), each with a light and a dark version and a contrast of at
 least 4.5:1 (checked by `test/core/theme/tag_colors_test.dart`). Severity maps to
 a tone through `SeverityLevel.tagTone` (`fauna_lens/views/widgets/severity_tone.dart`):
 low green, moderate yellow, high orange, critical red, uncertain grey. The feed's
 "Severity: …" tag and the FaunaLens AI result `SeverityChip` both use it, and
 "Possible invasive species" uses the red-orange invasive tone. The category tag
-stays neutral, so colour always means urgency. Use these instead of
+stays neutral, so colour always means urgency. The AI result `ConfidenceChip`
+maps `SpeciesConfidence.tagTone` (`fauna_lens/views/widgets/confidence_tone.dart`):
+high green, medium yellow, low blue (info), uncertain grey. Use these instead of
 hand-set colours for new status labels, so they follow dark mode.
 No database change or new dependency is required.
 

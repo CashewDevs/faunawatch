@@ -1,6 +1,7 @@
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/theme/tag_colors.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/confidence_tone.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/severity_tone.dart';
 import 'package:flutter/material.dart';
@@ -184,25 +185,12 @@ class ConfidenceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (background, text) = switch (confidence) {
-      SpeciesConfidence.high => (
-        AppColors.consentBadgeGreenBackground,
-        AppColors.consentBadgeGreenText,
-      ),
-      SpeciesConfidence.medium => (
-        AppColors.consentBadgeYellowBackground,
-        AppColors.consentBadgeYellowText,
-      ),
-      SpeciesConfidence.low => (
-        AppColors.consentBadgeBlueBackground,
-        AppColors.consentBadgeBlueText,
-      ),
-      SpeciesConfidence.uncertain => (
-        AppColors.consentInfoBackground,
-        AppColors.consentMutedText,
-      ),
-    };
-    return _Pill(label: confidence.label, background: background, text: text);
+    final colors = TagColors.of(context, confidence.tagTone);
+    return _Pill(
+      label: confidence.label,
+      background: colors.background,
+      text: colors.foreground,
+    );
   }
 }
 
