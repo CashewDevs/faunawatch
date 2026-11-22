@@ -120,15 +120,16 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = FaunaLensTheme.of(context);
     final isGallery = photo.source == FaunaLensPhotoSource.gallery;
     final isFound = photo.locationStatus == FaunaLensLocationStatus.found;
     final Widget icon;
     final String label;
     if (isGallery) {
-      icon = const FaunaLensPictureIcon(
+      icon = FaunaLensPictureIcon(
         size: 17,
-        color: AppColors.faunaLensNoticeText,
-        background: AppColors.faunaLensChipGallery,
+        color: colors.chipGalleryIcon,
+        background: colors.chipGallery,
       );
       label = 'From your gallery';
     } else {
@@ -138,9 +139,7 @@ class _StatusChip extends StatelessWidget {
           FaunaLensLocationStatus.found => Icons.check_rounded,
           FaunaLensLocationStatus.missing => Icons.location_off_rounded,
         },
-        color: isFound
-            ? AppColors.faunaLensChipCheck
-            : AppColors.faunaLensChipText,
+        color: isFound ? colors.chipCheck : colors.chipLocationText,
         size: 17,
       );
       label = switch (photo.locationStatus) {
@@ -154,9 +153,7 @@ class _StatusChip extends StatelessWidget {
       height: 30,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: isGallery
-            ? AppColors.faunaLensChipGallery
-            : AppColors.faunaLensChipLocation,
+        color: isGallery ? colors.chipGallery : colors.chipLocation,
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
@@ -169,8 +166,10 @@ class _StatusChip extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
-                color: AppColors.faunaLensChipText,
+              style: GoogleFonts.dmSans(
+                color: isGallery
+                    ? colors.chipGalleryText
+                    : colors.chipLocationText,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -228,7 +227,7 @@ class _ActionSheet extends StatelessWidget {
                 children: [
                   Text(
                     isGallery ? 'Use this photo?' : 'Happy with this photo?',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.dmSans(
                       color: colors.isDark
                           ? Colors.white
                           : AppColors.profileTitleNavy,
@@ -241,7 +240,7 @@ class _ActionSheet extends StatelessWidget {
                     isGallery
                         ? 'Ask AI to suggest what animal this might be, or pick a different photo.'
                         : 'Ask AI to suggest what animal this might be, or retake it for a clearer shot.',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.dmSans(
                       color: colors.accent,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w400,
@@ -295,21 +294,23 @@ class _NoLocationNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = FaunaLensTheme.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 12, 10, 12),
       decoration: BoxDecoration(
-        color: AppColors.faunaLensNotice,
+        color: colors.notice,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.noticeBorder),
       ),
       child: Row(
         children: [
-          const FaunaLensPinIcon(color: AppColors.faunaLensNoticeText),
+          FaunaLensPinIcon(color: colors.noticeText),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
               'No location was found in this photo. You will set where you saw the animal when you post.',
-              style: GoogleFonts.inter(
-                color: AppColors.faunaLensNoticeText,
+              style: GoogleFonts.dmSans(
+                color: colors.noticeText,
                 fontSize: 11.8,
                 fontWeight: FontWeight.w400,
                 height: 1.2,
@@ -355,7 +356,7 @@ class _AskAiButton extends StatelessWidget {
           ),
           child: Text(
             'Ask AI',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.dmSans(
               color: AppColors.faunaLensYellow,
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -400,7 +401,7 @@ class _OutlinedAction extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.dmSans(
               color: textColor,
               fontSize: 14,
               fontWeight: FontWeight.w500,

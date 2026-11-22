@@ -35,6 +35,15 @@ class FaunaLensTheme {
     required this.outlineFill,
     required this.outlineBorder,
     required this.outlineText,
+    required this.chipLocation,
+    required this.chipLocationText,
+    required this.chipCheck,
+    required this.chipGallery,
+    required this.chipGalleryText,
+    required this.chipGalleryIcon,
+    required this.notice,
+    required this.noticeBorder,
+    required this.noticeText,
   });
 
   factory FaunaLensTheme.of(BuildContext context) {
@@ -66,6 +75,16 @@ class FaunaLensTheme {
         outlineFill: AppColors.darkSurface,
         outlineBorder: const Color(0xFF475569),
         outlineText: Colors.white,
+        // Darkened versions of the pastel chip and notice colours.
+        chipLocation: const Color(0xFF16301C),
+        chipLocationText: const Color(0xFFC8EBCB),
+        chipCheck: const Color(0xFF6CCF77),
+        chipGallery: const Color(0xFF3D3410),
+        chipGalleryText: const Color(0xFFFFE08A),
+        chipGalleryIcon: const Color(0xFFFFE08A),
+        notice: const Color(0xFF33290F),
+        noticeBorder: const Color(0xFF6B5420),
+        noticeText: const Color(0xFFF5D58A),
       );
     }
     return FaunaLensTheme._(
@@ -107,6 +126,16 @@ class FaunaLensTheme {
       outlineFill: Colors.white,
       outlineBorder: AppColors.faunaLensInk,
       outlineText: AppColors.faunaLensInk,
+      chipLocation: AppColors.faunaLensChipLocation,
+      chipLocationText: AppColors.faunaLensChipText,
+      chipCheck: AppColors.faunaLensChipCheck,
+      chipGallery: AppColors.faunaLensChipGallery,
+      chipGalleryText: AppColors.faunaLensChipText,
+      chipGalleryIcon: AppColors.faunaLensNoticeText,
+      notice: AppColors.faunaLensNotice,
+      // No visible border in light mode.
+      noticeBorder: AppColors.faunaLensNotice,
+      noticeText: AppColors.faunaLensNoticeText,
     );
   }
 
@@ -151,6 +180,20 @@ class FaunaLensTheme {
   final Color outlineFill;
   final Color outlineBorder;
   final Color outlineText;
+
+  /// The status chip on "Use this photo?": "Location captured" (and the other
+  /// location states) or "From your gallery".
+  final Color chipLocation;
+  final Color chipLocationText;
+  final Color chipCheck;
+  final Color chipGallery;
+  final Color chipGalleryText;
+  final Color chipGalleryIcon;
+
+  /// The "No location was found" notice on "Use this photo?".
+  final Color notice;
+  final Color noticeBorder;
+  final Color noticeText;
 
   /// Status bar icons that stay readable on [page].
   SystemUiOverlayStyle get statusBar =>

@@ -1,4 +1,5 @@
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
@@ -73,4 +74,94 @@ void main() {
       expect(background(tester).computeLuminance(), greaterThan(0.5));
     });
   }
+
+  group('"Use this photo?" chip and notice (QA-030)', () {
+    final pastels = {
+      AppColors.faunaLensChipLocation,
+      AppColors.faunaLensChipGallery,
+      AppColors.faunaLensNotice,
+    };
+
+    Set<Color> fills(WidgetTester tester) => {
+      for (final box in tester.widgetList<Container>(find.byType(Container)))
+        if (box.decoration case BoxDecoration(:final Color color)) color,
+    };
+
+    double contrast(Color a, Color b) {
+      final first = a.computeLuminance();
+      final second = b.computeLuminance();
+      return first > second
+          ? (first + 0.05) / (second + 0.05)
+          : (second + 0.05) / (first + 0.05);
+    }
+
+    Widget review(FaunaLensPhoto photo) => FaunaLensReviewScreen(
+      photo: photo,
+      onBack: () {},
+      onAskAi: () {},
+      onChangePhoto: () {},
+      onSkipAi: () {},
+    );
+
+    const captured = FaunaLensPhoto(
+      path: 'missing.jpg',
+      source: FaunaLensPhotoSource.camera,
+      locationStatus: FaunaLensLocationStatus.found,
+    );
+
+    testWidgets('use dark tints in dark mode, with readable text', (
+      tester,
+    ) async {
+      for (final photo in [_photo, captured]) {
+        await pump(tester, review(photo), theme: AppTheme.darkTheme);
+        final colors = FaunaLensTheme.of(tester.element(find.byType(Scaffold)));
+        expect(fills(tester).intersection(pastels), isEmpty);
+        expect(
+          fills(tester),
+          contains(photo == _photo ? colors.chipGallery : colors.chipLocation),
+        );
+        for (final (text, fill) in [
+          (colors.chipLocationText, colors.chipLocation),
+          (colors.chipCheck, colors.chipLocation),
+          (colors.chipGalleryText, colors.chipGallery),
+          (colors.noticeText, colors.notice),
+        ]) {
+          expect(contrast(text, fill), greaterThanOrEqualTo(4.5));
+        }
+      }
+      // The gallery photo has no location, so the notice shows too.
+      await pump(tester, review(_photo), theme: AppTheme.darkTheme);
+      expect(
+        fills(tester),
+        contains(
+          FaunaLensTheme.of(tester.element(find.byType(Scaffold))).notice,
+        ),
+      );
+    });
+
+    testWidgets('keep the original pastels in light mode', (tester) async {
+      await pump(tester, review(_photo), theme: AppTheme.lightTheme);
+      expect(
+        fills(tester),
+        containsAll([
+          AppColors.faunaLensChipGallery,
+          AppColors.faunaLensNotice,
+        ]),
+      );
+      await pump(tester, review(captured), theme: AppTheme.lightTheme);
+      expect(fills(tester), contains(AppColors.faunaLensChipLocation));
+    });
+
+    testWidgets('use DM Sans, not Inter', (tester) async {
+      await pump(tester, review(_photo), theme: AppTheme.lightTheme);
+      final families = {
+        for (final text in tester.widgetList<Text>(find.byType(Text)))
+          text.style?.fontFamily,
+      }..remove(null);
+      expect(families, isNotEmpty);
+      for (final family in families) {
+        expect(family, startsWith('DMSans'));
+      }
+    });
+  });
 }
