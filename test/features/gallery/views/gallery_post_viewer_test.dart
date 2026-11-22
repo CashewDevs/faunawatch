@@ -18,6 +18,7 @@ import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 import '../../feed/fake_feed_service.dart';
 import '../fake_gallery_service.dart';
+import '../../feed/post_title_finder.dart';
 
 void main() {
   late FakeGalleryService gallery;
@@ -105,7 +106,7 @@ void main() {
       await tester.tap(card);
       await tester.pumpAndSettle();
       expect(find.byType(GalleryPostViewer), findsOneWidget);
-      expect(find.text('My post 1'), findsOneWidget);
+      expect(findPostTitle('My post 1'), findsOneWidget);
       expect(find.text('My posts'), findsOneWidget);
       staysInProfile();
       expect(service.pageRequests, isEmpty);
@@ -117,7 +118,7 @@ void main() {
         1000,
       );
       await tester.pumpAndSettle();
-      expect(find.text('My post 2'), findsOneWidget);
+      expect(findPostTitle('My post 2'), findsOneWidget);
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
       expect(find.byType(GalleryPostViewer), findsNothing);
@@ -200,7 +201,7 @@ void main() {
       expect(find.byType(GalleryPostViewer), findsOneWidget);
       expect(find.text('My posts'), findsOneWidget);
       expect(find.byType(FeedPostCard), findsOneWidget);
-      expect(find.text('My pending post'), findsOneWidget);
+      expect(findPostTitle('My pending post'), findsOneWidget);
       // The owner's own name, not the report's placeholder author.
       expect(find.textContaining('Me · ', findRichText: true), findsOneWidget);
       expect(find.byType(PostStatusBadge), findsOneWidget);
@@ -234,7 +235,7 @@ void main() {
         1000,
       );
       await tester.pumpAndSettle();
-      expect(find.text('My post 2'), findsOneWidget);
+      expect(findPostTitle('My post 2'), findsOneWidget);
       expect(find.byType(PostStatusBadge), findsNothing);
       staysInProfile();
     },
@@ -253,7 +254,7 @@ void main() {
       await pumpGallery(tester);
       expect(find.text('Declined'), findsWidgets);
       await openPost(tester, 'p1');
-      expect(find.text('My declined post'), findsOneWidget);
+      expect(findPostTitle('My declined post'), findsOneWidget);
       final badge = tester.widget<PostStatusBadge>(
         find.byType(PostStatusBadge),
       );

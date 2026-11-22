@@ -463,7 +463,11 @@ The author picture, like, comment and (when the post has one) "AI" analysis
 buttons (`PostActionRail`) float over the lower right of the photo, like a
 short-video feed, and the caption below uses the full width
 (`FeedPostCard.photoTopGap` / `railBottomGap`). The caption's first line is
-author · age · place name (no pin icon; the place name still opens the map). Private photo URLs and
+author · age · place name (no pin icon; the place name still opens the map).
+The category, severity and invasive tags follow the title's last word in the
+same rich text (`WidgetSpan`s), above the description, so widget tests find a
+title with `findPostTitle` (test/features/feed/post_title_finder.dart) instead
+of `find.text`. Private photo URLs and
 uploaded avatars are signed for one hour (they refresh with the page).
 
 My Gallery (`lib/features/gallery/`) appears directly below Profile's banner,

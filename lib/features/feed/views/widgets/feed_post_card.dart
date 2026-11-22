@@ -93,7 +93,7 @@ class FeedPostCard extends StatelessWidget {
   }
 
   /// Space between the top bar and the photo.
-  static const photoTopGap = 24.0;
+  static const photoTopGap = 36.0;
 
   /// Space between the bottom of the photo area and the action rail.
   static const railBottomGap = 16.0;
