@@ -31,6 +31,17 @@ enum AnimalBoxColor {
   }
 }
 
+/// A corner of an [AnimalBox], dragged to resize the box.
+enum BoxCorner {
+  topLeft,
+  topRight,
+  bottomLeft,
+  bottomRight;
+
+  bool get isLeft => this == topLeft || this == bottomLeft;
+  bool get isTop => this == topLeft || this == topRight;
+}
+
 /// A box around one animal on a FaunaLens photo, found by the AI or drawn by
 /// the user. Edges are fractions of the photo's width and height, from 0 at
 /// the top-left to 1 at the bottom-right, so they fit the photo at any size.
@@ -81,6 +92,65 @@ class AnimalBox {
 
   bool contains(double x, double y) =>
       x >= left && x <= right && y >= top && y <= bottom;
+
+  /// Where [corner] is, as fractions of the photo.
+  ({double x, double y}) cornerAt(BoxCorner corner) =>
+      (x: corner.isLeft ? left : right, y: corner.isTop ? top : bottom);
+
+  /// This box with [corner] dragged to ([x], [y]), as fractions of the photo.
+  /// The opposite corner stays put. The dragged corner stays inside the photo
+  /// and at least [minSize] from the opposite edges, so the box never flips
+  /// over or shrinks to nothing. The colour and name are kept.
+  AnimalBox resized(BoxCorner corner, double x, double y) {
+    double between(double value, double low, double high) =>
+        value.clamp(low, math.max(low, high));
+    return _withEdges(
+      left: corner.isLeft ? between(x, 0, right - minSize) : left,
+      right: corner.isLeft ? right : between(x, left + minSize, 1),
+      top: corner.isTop ? between(y, 0, bottom - minSize) : top,
+      bottom: corner.isTop ? bottom : between(y, top + minSize, 1),
+    );
+  }
+
+  /// This box shifted by ([dx], [dy]) fractions of the photo, stopping at the
+  /// photo's edges. Its size, colour and name are kept.
+  AnimalBox moved(double dx, double dy) {
+    final shiftX = dx.clamp(-left, 1 - right);
+    final shiftY = dy.clamp(-top, 1 - bottom);
+    return _withEdges(
+      left: left + shiftX,
+      top: top + shiftY,
+      right: right + shiftX,
+      bottom: bottom + shiftY,
+    );
+  }
+
+  /// Whether the box is inside the photo and at least [minSize] each way.
+  bool get isValid =>
+      left >= 0 &&
+      top >= 0 &&
+      right <= 1 &&
+      bottom <= 1 &&
+      width >= minSize - _tolerance &&
+      height >= minSize - _tolerance;
+
+  // Room for rounding when a box was resized to exactly the smallest size.
+  static const _tolerance = 1e-9;
+
+  AnimalBox _withEdges({
+    required double left,
+    required double top,
+    required double right,
+    required double bottom,
+  }) => AnimalBox(
+    left: left,
+    top: top,
+    right: right,
+    bottom: bottom,
+    color: color,
+    name: name,
+    drawnByUser: drawnByUser,
+  );
 
   /// Where the box is, in words the AI can follow, e.g. "from 10% to 40%
   /// across and 20% to 70% down the photo".

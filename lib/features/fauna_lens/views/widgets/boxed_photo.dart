@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/core/widgets/local_image.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// A FaunaLens photo with its animal boxes drawn over it, at the photo's own
@@ -9,6 +12,11 @@ import 'package:flutter/material.dart';
 /// Tapping a box calls [onTapBox]. While [isDrawing], dragging across the
 /// photo draws a new box and calls [onBoxDrawn] with its corners as
 /// fractions of the photo.
+///
+/// The [active] box (when given and not drawing) shows a handle on each
+/// corner and a delete button. Dragging a handle resizes it and dragging
+/// inside it moves it; each change is sent to [onBoxChanged]. The delete
+/// button calls [onDeleteBox].
 class BoxedPhoto extends StatefulWidget {
   const BoxedPhoto({
     super.key,
@@ -19,6 +27,9 @@ class BoxedPhoto extends StatefulWidget {
     this.isDrawing = false,
     this.drawingColor,
     this.onBoxDrawn,
+    this.active,
+    this.onBoxChanged,
+    this.onDeleteBox,
     this.showLabels = true,
     this.semanticLabel = 'Your photo',
   });
@@ -33,6 +44,11 @@ class BoxedPhoto extends StatefulWidget {
   final AnimalBoxColor? drawingColor;
   final void Function(double x1, double y1, double x2, double y2)? onBoxDrawn;
 
+  /// The colour of the box being edited.
+  final AnimalBoxColor? active;
+  final ValueChanged<AnimalBox>? onBoxChanged;
+  final ValueChanged<AnimalBox>? onDeleteBox;
+
   /// Names on the boxes; off for small thumbnails.
   final bool showLabels;
   final String semanticLabel;
@@ -40,6 +56,14 @@ class BoxedPhoto extends StatefulWidget {
   @override
   State<BoxedPhoto> createState() => _BoxedPhotoState();
 }
+
+/// How far from a corner a finger may land and still grab its handle: half
+/// the recommended 48 dp touch size.
+const _handleReach = 24.0;
+
+/// The delete button's touch size, and how far its centre sits from the box.
+const _deleteTouchSize = 48.0;
+const _deleteOffset = 34.0;
 
 class _BoxedPhotoState extends State<BoxedPhoto> {
   /// Used until the photo's real shape is known.
@@ -62,6 +86,12 @@ class _BoxedPhotoState extends State<BoxedPhoto> {
   Offset? _dragStart;
   Offset? _dragEnd;
 
+  // The active box as it was when a resize or move began, the corner being
+  // dragged (null while moving), and where the finger started.
+  AnimalBox? _editStart;
+  BoxCorner? _editCorner;
+  Offset? _editFrom;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -76,6 +106,7 @@ class _BoxedPhotoState extends State<BoxedPhoto> {
       _resolve();
     }
     if (!widget.isDrawing) _dragStart = _dragEnd = null;
+    if (widget.active != oldWidget.active) _endEdit();
   }
 
   void _resolve() {
@@ -93,16 +124,79 @@ class _BoxedPhotoState extends State<BoxedPhoto> {
     super.dispose();
   }
 
+  /// The box that can be resized, moved and deleted right now.
+  AnimalBox? get _editable {
+    if (widget.isDrawing || widget.active == null) return null;
+    for (final box in widget.boxes) {
+      if (box.color == widget.active) return box;
+    }
+    return null;
+  }
+
   Offset _fraction(Offset local, Size size) => Offset(
     (local.dx / size.width).clamp(0.0, 1.0),
     (local.dy / size.height).clamp(0.0, 1.0),
   );
+
+  static Rect _rectOf(AnimalBox box, Size size) => Rect.fromLTRB(
+    box.left * size.width,
+    box.top * size.height,
+    box.right * size.width,
+    box.bottom * size.height,
+  );
+
+  /// Starts resizing when the finger landed on a corner handle of the
+  /// active box, or moving when it landed inside it.
+  void _startEdit(Offset local, Size size) {
+    final box = _editable;
+    if (box == null || widget.onBoxChanged == null) return;
+    BoxCorner? nearest;
+    var nearestDistance = double.infinity;
+    for (final corner in BoxCorner.values) {
+      final at = box.cornerAt(corner);
+      final distance =
+          (Offset(at.x * size.width, at.y * size.height) - local).distance;
+      if (distance <= _handleReach && distance < nearestDistance) {
+        nearest = corner;
+        nearestDistance = distance;
+      }
+    }
+    if (nearest == null && !_rectOf(box, size).contains(local)) return;
+    _editStart = box;
+    _editCorner = nearest;
+    _editFrom = Offset(local.dx / size.width, local.dy / size.height);
+  }
+
+  void _updateEdit(Offset local, Size size) {
+    final start = _editStart;
+    final from = _editFrom;
+    if (start == null || from == null) return;
+    final point = Offset(local.dx / size.width, local.dy / size.height);
+    final corner = _editCorner;
+    final cornerAt = corner == null ? null : start.cornerAt(corner);
+    widget.onBoxChanged!(
+      corner == null
+          ? start.moved(point.dx - from.dx, point.dy - from.dy)
+          // The corner keeps its distance from the finger, so it does not
+          // jump to where the finger landed.
+          : start.resized(
+              corner,
+              cornerAt!.x + point.dx - from.dx,
+              cornerAt.y + point.dy - from.dy,
+            ),
+    );
+  }
+
+  void _endEdit() => _editStart = _editCorner = _editFrom = null;
 
   @override
   Widget build(BuildContext context) {
     final drawing = _dragStart != null && _dragEnd != null
         ? Rect.fromPoints(_dragStart!, _dragEnd!)
         : null;
+    final editable = _editable;
+    final canDrag =
+        widget.isDrawing || (editable != null && widget.onBoxChanged != null);
     return AspectRatio(
       aspectRatio: _aspect ?? _defaultAspect,
       child: LayoutBuilder(
@@ -110,6 +204,8 @@ class _BoxedPhotoState extends State<BoxedPhoto> {
           final size = constraints.biggest;
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
+            // Handles are found from where the finger first touched.
+            dragStartBehavior: DragStartBehavior.down,
             onTapUp: widget.onTapBox == null || widget.isDrawing
                 ? null
                 : (details) {
@@ -117,21 +213,39 @@ class _BoxedPhotoState extends State<BoxedPhoto> {
                     final box = AnimalBox.at(widget.boxes, point.dx, point.dy);
                     if (box != null) widget.onTapBox!(box);
                   },
-            onPanStart: widget.isDrawing
-                ? (details) => setState(() {
-                    _dragStart = _dragEnd = _fraction(
-                      details.localPosition,
-                      size,
-                    );
-                  })
-                : null,
-            onPanUpdate: widget.isDrawing
-                ? (details) => setState(() {
-                    _dragEnd = _fraction(details.localPosition, size);
-                  })
-                : null,
-            onPanEnd: widget.isDrawing
-                ? (_) {
+            onPanStart: !canDrag
+                ? null
+                : (details) {
+                    if (!widget.isDrawing) {
+                      _startEdit(details.localPosition, size);
+                      return;
+                    }
+                    setState(() {
+                      _dragStart = _dragEnd = _fraction(
+                        details.localPosition,
+                        size,
+                      );
+                    });
+                  },
+            onPanUpdate: !canDrag
+                ? null
+                : (details) {
+                    if (!widget.isDrawing) {
+                      _updateEdit(details.localPosition, size);
+                      return;
+                    }
+                    setState(() {
+                      _dragEnd = _fraction(details.localPosition, size);
+                    });
+                  },
+            onPanCancel: _endEdit,
+            onPanEnd: !canDrag
+                ? null
+                : (_) {
+                    if (!widget.isDrawing) {
+                      _endEdit();
+                      return;
+                    }
                     final start = _dragStart;
                     final end = _dragEnd;
                     setState(() => _dragStart = _dragEnd = null);
@@ -143,8 +257,7 @@ class _BoxedPhotoState extends State<BoxedPhoto> {
                         end.dy,
                       );
                     }
-                  }
-                : null,
+                  },
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -159,15 +272,72 @@ class _BoxedPhotoState extends State<BoxedPhoto> {
                   painter: _BoxPainter(
                     boxes: widget.boxes,
                     chosen: widget.chosen,
+                    active: editable?.color,
                     drawing: drawing,
                     drawingColor: widget.drawingColor,
                     showLabels: widget.showLabels,
                   ),
                 ),
+                if (editable != null && widget.onDeleteBox != null)
+                  _deleteButton(editable, size),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// The ✕ that deletes [box]: above its top-right corner, below its
+  /// bottom-right corner when there is no room above, or just inside it when
+  /// the box fills the photo's height. Always inside the photo.
+  Widget _deleteButton(AnimalBox box, Size size) {
+    const half = _deleteTouchSize / 2;
+    final rect = _rectOf(box, size);
+    var center = Offset(rect.right, rect.top - _deleteOffset);
+    if (center.dy - half < 0) {
+      center = Offset(rect.right, rect.bottom + _deleteOffset);
+      if (center.dy + half > size.height) {
+        center = Offset(rect.right - _deleteOffset, rect.top + _deleteOffset);
+      }
+    }
+    center = Offset(
+      center.dx.clamp(half, math.max(half, size.width - half)),
+      center.dy.clamp(half, math.max(half, size.height - half)),
+    );
+    final color = Color(box.color.argb);
+    final onColor = color.computeLuminance() > 0.5
+        ? Colors.black
+        : Colors.white;
+    return Positioned(
+      key: ValueKey('delete_box_${box.color.value}'),
+      left: center.dx - half,
+      top: center.dy - half,
+      width: _deleteTouchSize,
+      height: _deleteTouchSize,
+      child: Semantics(
+        button: true,
+        label: 'Delete ${box.label}, ${box.color.value} box',
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => widget.onDeleteBox!(box),
+          child: Center(
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black38, blurRadius: 4),
+                ],
+              ),
+              child: Icon(Icons.close_rounded, size: 18, color: onColor),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -177,6 +347,7 @@ class _BoxPainter extends CustomPainter {
   _BoxPainter({
     required this.boxes,
     required this.chosen,
+    required this.active,
     required this.drawing,
     required this.drawingColor,
     required this.showLabels,
@@ -184,6 +355,7 @@ class _BoxPainter extends CustomPainter {
 
   final List<AnimalBox> boxes;
   final Set<AnimalBoxColor> chosen;
+  final AnimalBoxColor? active;
   final Rect? drawing;
   final AnimalBoxColor? drawingColor;
   final bool showLabels;
@@ -216,6 +388,29 @@ class _BoxPainter extends CustomPainter {
           ..color = isChosen ? color : color.withValues(alpha: 0.75),
       );
       if (showLabels) _paintLabel(canvas, rect, box, color, isChosen);
+    }
+
+    // The box being edited gets a round handle on each corner, drawn last so
+    // other boxes never cover them.
+    for (final box in boxes) {
+      if (box.color != active) continue;
+      final rect = scaled(
+        Rect.fromLTRB(box.left, box.top, box.right, box.bottom),
+      );
+      final fill = Paint()..color = Colors.white;
+      final ring = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = Color(box.color.argb);
+      for (final corner in [
+        rect.topLeft,
+        rect.topRight,
+        rect.bottomLeft,
+        rect.bottomRight,
+      ]) {
+        canvas.drawCircle(corner, 8, fill);
+        canvas.drawCircle(corner, 8, ring);
+      }
     }
 
     if (drawing != null) {
@@ -267,6 +462,7 @@ class _BoxPainter extends CustomPainter {
   bool shouldRepaint(_BoxPainter old) =>
       old.boxes != boxes ||
       old.chosen != chosen ||
+      old.active != active ||
       old.drawing != drawing ||
       old.drawingColor != drawingColor ||
       old.showLabels != showLabels;
