@@ -6,6 +6,7 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
+import 'package:faunawatch/features/settings/views/about_ai_reports_view.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 
 /// The Settings screen featuring account security (Change password), privacy,
@@ -23,6 +24,12 @@ class SettingsView extends ConsumerWidget {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const AiIntegrationView()));
+  }
+
+  void _openAboutAiReports(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AboutAiReportsView()));
   }
 
   @override
@@ -365,37 +372,123 @@ class SettingsView extends ConsumerWidget {
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(18),
                         clipBehavior: Clip.antiAlias,
-                        child: ListTile(
-                          onTap: () => _openAiKeys(context),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 4,
-                          ),
-                          title: Text(
-                            'AI Integration',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF1E293B),
+                        child: Column(
+                          children: [
+                            ListTile(
+                              onTap: () => _openAiKeys(context),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
+                              title: Text(
+                                'AI Integration',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1E293B),
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Provider, model, API keys and connection test',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? const Color(0xFF94A3B8)
+                                      : const Color(0xFF64748B),
+                                ),
+                              ),
+                              trailing: savedKeyCount == null
+                                  ? const Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: Color(0xFF94A3B8),
+                                    )
+                                  : _AiKeyStatusChip(
+                                      savedKeyCount: savedKeyCount,
+                                    ),
                             ),
-                          ),
-                          subtitle: Text(
-                            'Provider, model, API keys and connection test',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 12,
+                            Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
                               color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFE2E8F0),
                             ),
-                          ),
-                          trailing: savedKeyCount == null
-                              ? const Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: Color(0xFF94A3B8),
-                                )
-                              : _AiKeyStatusChip(savedKeyCount: savedKeyCount),
+                            InkWell(
+                              onTap: () => _openAboutAiReports(context),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? const Color(
+                                                0xFF6D28D9,
+                                              ).withValues(alpha: 0.22)
+                                            : const Color(0xFFEDE7FB),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        Icons.auto_awesome_outlined,
+                                        color: isDark
+                                            ? const Color(0xFFC4B5FD)
+                                            : const Color(0xFF5B21B6),
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'About AI results',
+                                            style: GoogleFonts.dmSans(
+                                              fontSize: 15.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF1E293B),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Preliminary guesses only, not veterinary or wildlife-authority advice',
+                                            style: GoogleFonts.dmSans(
+                                              fontSize: 12.5,
+                                              height: 1.3,
+                                              color: isDark
+                                                  ? const Color(0xFF94A3B8)
+                                                  : const Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: isDark
+                                          ? const Color(0xFF64748B)
+                                          : const Color(0xFF94A3B8),
+                                      size: 24,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

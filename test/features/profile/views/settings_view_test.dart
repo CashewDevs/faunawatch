@@ -10,6 +10,7 @@ import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
+import 'package:faunawatch/features/settings/views/about_ai_reports_view.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 import 'package:faunawatch/features/profile/views/settings_view.dart';
 
@@ -144,6 +145,49 @@ void main() {
       expect(find.byType(AiIntegrationView), findsOneWidget);
       expect(find.text('AI provider'), findsOneWidget);
       expect(find.text('Test API'), findsOneWidget);
+    });
+
+    testWidgets('tapping About AI results opens AboutAiReportsView', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildWithKeys(_FakeKeyStorage()));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -350));
+      await tester.pumpAndSettle();
+      expect(find.text('About AI results'), findsOneWidget);
+      expect(
+        find.text(
+          'Preliminary guesses only, not veterinary or wildlife-authority advice',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('About AI results'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AboutAiReportsView), findsOneWidget);
+      expect(find.text('About AI Reports'), findsOneWidget);
+      expect(
+        find.text('AI gives a first guess, not an answer'),
+        findsOneWidget,
+      );
+      expect(find.text('What the AI looks at'), findsOneWidget);
+      expect(find.text('What the labels mean'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -350));
+      await tester.pumpAndSettle();
+      expect(find.text('High'), findsOneWidget);
+      expect(find.text('Moderate'), findsOneWidget);
+      expect(find.text('Low'), findsOneWidget);
+      expect(find.text('Medium'), findsNothing);
+      expect(find.text('Uncertain'), findsNothing);
+      expect(find.text('What AI cannot do'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -350));
+      await tester.pumpAndSettle();
+      expect(find.text('If AI is not available'), findsOneWidget);
+      expect(find.text('Your photos and AI'), findsOneWidget);
     });
   });
 }
