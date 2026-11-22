@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:faunawatch/core/theme/tag_colors.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/ai_result_cards.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/confidence_tone.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/severity_tone.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,5 +78,50 @@ void main() {
       expect(SeverityLevel.critical.tagTone, TagTone.critical);
       expect(SeverityLevel.uncertain.tagTone, TagTone.neutral);
     });
+  });
+
+  group('ConfidenceTagTone', () {
+    test('high green, medium yellow, low blue, uncertain grey', () {
+      expect(SpeciesConfidence.high.tagTone, TagTone.low);
+      expect(SpeciesConfidence.medium.tagTone, TagTone.moderate);
+      expect(SpeciesConfidence.low.tagTone, TagTone.info);
+      expect(SpeciesConfidence.uncertain.tagTone, TagTone.neutral);
+    });
+  });
+
+  testWidgets('AI result chips use the dark colours in dark mode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: const Scaffold(
+          body: Column(
+            children: [
+              ConfidenceChip(confidence: SpeciesConfidence.low),
+              SeverityChip(severity: SeverityLevel.critical),
+            ],
+          ),
+        ),
+      ),
+    );
+    Color? fill(Type chip) {
+      final box = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(chip),
+          matching: find.byType(Container),
+        ),
+      );
+      return (box.decoration as BoxDecoration).color;
+    }
+
+    expect(
+      fill(ConfidenceChip),
+      TagColors.forTone(TagTone.info, Brightness.dark).background,
+    );
+    expect(
+      fill(SeverityChip),
+      TagColors.forTone(TagTone.critical, Brightness.dark).background,
+    );
   });
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// How urgent a small label (tag or chip) looks, from calm to urgent.
+/// How a small label (tag or chip) looks: grey [neutral], blue [info], then
+/// from calm to urgent green [low], yellow [moderate], orange [high], red
+/// [critical], and red-orange [invasive].
 ///
 /// Features choose a tone for their own values (for example a severity level)
 /// and [TagColors] turns it into colours for light or dark mode.
-enum TagTone { neutral, low, moderate, high, critical, invasive }
+enum TagTone { neutral, info, low, moderate, high, critical, invasive }
 
 /// The background and text colour of a coloured tag.
 ///
@@ -28,6 +30,10 @@ class TagColors {
     TagTone.neutral: TagColors(
       background: Color(0xFFEEF1F6),
       foreground: Color(0xFF5B6B82),
+    ),
+    TagTone.info: TagColors(
+      background: Color(0xFFE8F0FE),
+      foreground: Color(0xFF1A5DC9),
     ),
     TagTone.low: TagColors(
       background: Color(0xFFDDF5E3),
@@ -55,6 +61,10 @@ class TagColors {
     TagTone.neutral: TagColors(
       background: Color(0xFF334155),
       foreground: Color(0xFFCBD5E1),
+    ),
+    TagTone.info: TagColors(
+      background: Color(0xFF172A46),
+      foreground: Color(0xFF9CC3FF),
     ),
     TagTone.low: TagColors(
       background: Color(0xFF16301C),
