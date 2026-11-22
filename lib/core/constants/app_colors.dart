@@ -6,6 +6,11 @@ abstract final class AppColors {
   static const Color primarySeed = Color(0xFF1B5E20);
   static const Color welcomeBackgroundTone = Color(0xFF1B63D8);
 
+  // Splash: the app icon's blue fade, top to bottom. The phone's own loading
+  // screen (assets/splash/splash_background.png) uses the same two colours.
+  static const Color splashFadeTop = Color(0xFF4177CC);
+  static const Color splashFadeBottom = Color(0xFF0B4197);
+
   // Welcome Screen Neo-brutalist / Pop Palette
   static const Color welcomeLoginButton = Color(0xFFA5D8F9);
   static const Color welcomeSignUpButton = Color(0xFFFED965);

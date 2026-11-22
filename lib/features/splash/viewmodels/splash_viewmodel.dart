@@ -11,23 +11,33 @@ class SplashViewModel extends Notifier<SplashState> {
     return SplashState.initializing;
   }
 
-  /// Initiates splash screen timer and marks initialization complete.
-  Future<void> initializeApp({
-    Duration delay = const Duration(milliseconds: 1500),
-  }) async {
+  /// Checks whether someone is signed in while the splash animation plays.
+  ///
+  /// The check starts at once; the result is published only when the check
+  /// AND [introFinished] (the end of the splash animation) are both done, so
+  /// the screen never leaves halfway through the animation and never waits
+  /// longer than the slower of the two. Without [introFinished] (e.g. Retry,
+  /// after the animation already ran) only the check is awaited.
+  Future<void> initializeApp({Future<void>? introFinished}) async {
     if (state == SplashState.failed) state = SplashState.initializing;
-    await Future<void>.delayed(delay);
+    final destination = _resolveDestination();
+    if (introFinished != null) await introFinished;
+    state = await destination;
+  }
+
+  /// Where to go next; a failure becomes [SplashState.failed], never an error.
+  Future<SplashState> _resolveDestination() async {
     try {
       final profile = await ref
           .read(googleAuthServiceProvider)
           .loadSessionProfile();
-      state = profile == null
+      return profile == null
           ? SplashState.complete
           : profile.hasDisplayName
           ? SplashState.home
           : SplashState.profileSetup;
     } catch (_) {
-      state = SplashState.failed;
+      return SplashState.failed;
     }
   }
 }

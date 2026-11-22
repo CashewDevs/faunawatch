@@ -9,6 +9,9 @@ class FakeGoogleAuthService implements GoogleAuthService {
   Object? launchError;
   Object? resolveError;
   int launches = 0;
+
+  /// How many times [loadSessionProfile] was called.
+  int resolutions = 0;
   AuthDestination destination = AuthDestination.signedOut;
   Completer<AuthDestination>? pendingResolution;
 
@@ -24,6 +27,7 @@ class FakeGoogleAuthService implements GoogleAuthService {
 
   @override
   Future<AuthSessionProfile?> loadSessionProfile() async {
+    resolutions++;
     if (resolveError != null) throw resolveError!;
     final target = pendingResolution == null
         ? destination

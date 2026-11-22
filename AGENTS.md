@@ -314,7 +314,16 @@ share `GoogleAuthAction`; it waits for a signed-in event before navigating.
 `SupabaseGoogleAuthService` owns browser launch and loads the active session's
 profile data. ViewModels choose navigation from that data. Startup restores
 sessions through the splash ViewModel. Missing display names route to profile setup; named profiles route
-to the shell. Android and iOS register `com.faunawatch.app://login-callback/`
+to the shell. `SplashView` starts exactly like the phone's loading screen (the
+icon's blue fade, `AppColors.splashFadeTop`/`splashFadeBottom`, with
+`AppAssets.splashFox` centred at 144 points) and plays a 1.5 s intro built with
+Flutter's own animation classes (no package): the fox pops, wiggles its head
+twice, and "FaunaWatch" slides up. `SplashViewModel.initializeApp(introFinished:)`
+starts the sign-in check at once and publishes the result only when the check
+and the intro are both done, so startup takes the slower of the two (there is
+no fixed delay). While the check is still running the fox breathes; a spinner
+appears only after 3 s. A failed restore shows a white message and Retry. When
+the device asks for less motion the final frame shows at once. Android and iOS register `com.faunawatch.app://login-callback/`
 and disable Flutter's default deep-link handler so Supabase's app_links can
 process the PKCE callback. Enable Google in Supabase, configure a Google web
 OAuth client, and allowlist that exact app redirect URL as described in README.
