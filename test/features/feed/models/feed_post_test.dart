@@ -282,4 +282,20 @@ void main() {
     expect(formatPostAge(now.subtract(const Duration(days: 3)), now), '3d');
     expect(formatPostAge(now.subtract(const Duration(days: 15)), now), '2w');
   });
+
+  test('formatPostDate and formatPostWhen', () {
+    final now = DateTime(2026, 11, 22, 12);
+    expect(formatPostDate(DateTime(2026, 11, 21, 8), now), 'Nov 21');
+    expect(formatPostDate(DateTime(2026, 1, 5), now), 'Jan 5');
+    // Another year shows the year.
+    expect(formatPostDate(DateTime(2025, 12, 31), now), 'Dec 31, 2025');
+    // Times from the database are UTC; the day is the phone's own.
+    final utc = DateTime.utc(2026, 11, 21, 23);
+    final local = utc.toLocal();
+    expect(
+      formatPostDate(utc, now),
+      startsWith(local.month == 11 ? 'Nov ${local.day}' : 'Dec ${local.day}'),
+    );
+    expect(formatPostWhen(DateTime(2026, 11, 20, 12), now), '2d · Nov 20');
+  });
 }

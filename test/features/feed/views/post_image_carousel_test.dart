@@ -97,10 +97,14 @@ void main() {
       expect(find.text('1 / 2'), findsOneWidget);
       expect(
         tester.widget<Image>(find.byType(Image)).image,
-        isA<NetworkImage>().having(
-          (image) => image.url,
-          'url',
-          'https://photos.invalid/a.webp',
+        isA<ResizeImage>().having(
+          (image) => image.imageProvider,
+          'source',
+          isA<NetworkImage>().having(
+            (image) => image.url,
+            'url',
+            'https://photos.invalid/a.webp',
+          ),
         ),
       );
       await tester.drag(find.byType(PageView), const Offset(-300, 0));
@@ -130,5 +134,34 @@ void main() {
       expect(find.byIcon(Icons.image_outlined), findsOneWidget);
       expect(find.byType(PageView), findsNothing);
     });
+  });
+
+  testWidgets('tapping a photo reports which one', (tester) async {
+    final opened = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              height: 300,
+              child: PostImageCarousel(
+                imageAssets: const [
+                  AppAssets.avatarGarfield,
+                  AppAssets.avatarPanda,
+                ],
+                onOpen: opened.add,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PageView));
+    await tester.drag(find.byType(PageView), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PageView));
+    expect(opened, [0, 1]);
   });
 }

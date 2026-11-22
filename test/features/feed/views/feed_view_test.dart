@@ -18,6 +18,7 @@ import 'package:faunawatch/features/feed/models/feed_state.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
+import 'package:faunawatch/features/feed/views/screens/post_photo_viewer.dart';
 import 'package:faunawatch/features/feed/views/widgets/animated_heart.dart';
 import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
@@ -194,6 +195,59 @@ void main() {
       expect(tester.getSize(find.text(text)).height, collapsed);
     });
 
+    testWidgets('an expanded caption hands the swipe on to the next post', (
+      tester,
+    ) async {
+      // Taller than the caption's room, so the expanded caption scrolls.
+      final text = List.filled(16, 'The bird stayed near the trees.').join(' ');
+      service.posts = [
+        testPost('p0', title: 'First post', description: text),
+        testPost('p1', title: 'Second post', index: 1),
+      ];
+      await pumpFeed(tester);
+      await tester.tap(find.text('more'));
+      await tester.pump();
+      // Past the end of the caption, the drag moves the feed instead.
+      // The expanded text runs off screen, so the drag starts on the title,
+      // which is part of the same scrolling caption.
+      await tester.dragFrom(
+        tester.getCenter(find.text('First post')),
+        const Offset(0, -2000),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Second post').hitTestable(), findsOneWidget);
+      expect(find.text('First post').hitTestable(), findsNothing);
+    });
+
+    testWidgets('tapping a photo opens the photos full screen', (tester) async {
+      service.posts = [
+        testPost(
+          'p0',
+          photoUrls: const [
+            'https://photos.invalid/a.webp',
+            'https://photos.invalid/b.webp',
+          ],
+        ),
+      ];
+      await pumpFeed(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FeedPostCard),
+          matching: find.byType(Image),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final viewer = find.byType(PostPhotoViewer);
+      expect(viewer, findsOneWidget);
+      expect(
+        find.descendant(of: viewer, matching: find.text('1 / 2')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(viewer, findsNothing);
+    });
+
     testWidgets('a short description has no more button', (tester) async {
       await pumpFeed(tester);
       expect(find.text('more'), findsNothing);
@@ -220,8 +274,15 @@ void main() {
           matching: find.byType(Image),
         ),
       );
-      expect(image.image, isA<NetworkImage>());
-      expect(image.fit, BoxFit.fitWidth);
+      // Decoded at the width shown, not the full upload.
+      expect(
+        image.image,
+        isA<ResizeImage>()
+            .having((r) => r.imageProvider, 'source', isA<NetworkImage>())
+            .having((r) => r.width, 'width', isNotNull),
+      );
+      // The whole photo is shown; portrait photos are not cropped.
+      expect(image.fit, BoxFit.contain);
       expect(find.text('1 / 2'), findsOneWidget);
     });
 

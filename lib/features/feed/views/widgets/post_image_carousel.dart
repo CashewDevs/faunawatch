@@ -11,6 +11,7 @@ class PostImageCarousel extends StatefulWidget {
     this.counterOnRight = false,
     this.fit = BoxFit.contain,
     this.backgroundColor = Colors.black,
+    this.onOpen,
   }) : images = imageAssets,
        isNetwork = false;
 
@@ -20,6 +21,7 @@ class PostImageCarousel extends StatefulWidget {
     this.counterOnRight = false,
     this.fit = BoxFit.contain,
     this.backgroundColor = Colors.black,
+    this.onOpen,
   }) : images = imageUrls,
        isNetwork = true;
 
@@ -32,6 +34,10 @@ class PostImageCarousel extends StatefulWidget {
   final BoxFit fit;
   final Color backgroundColor;
 
+  /// Called with the photo's index when it is tapped, e.g. to show it full
+  /// screen. Null leaves the photos untappable.
+  final ValueChanged<int>? onOpen;
+
   @override
   State<PostImageCarousel> createState() => _PostImageCarouselState();
 }
@@ -43,6 +49,28 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   void didUpdateWidget(covariant PostImageCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!listEquals(oldWidget.images, widget.images)) _page = 0;
+  }
+
+  Widget _tappable(int index, Widget photo) {
+    final onOpen = widget.onOpen;
+    if (onOpen == null) return photo;
+    return Semantics(
+      button: true,
+      hint: 'Open full screen',
+      child: GestureDetector(
+        onTap: () => onOpen(index),
+        behavior: HitTestBehavior.opaque,
+        child: photo,
+      ),
+    );
+  }
+
+  /// The photo's on-screen width in pixels, or null when it is unbounded.
+  static int? _decodeWidth(BuildContext context, BoxConstraints constraints) {
+    if (!constraints.hasBoundedWidth) return null;
+    final pixels =
+        constraints.maxWidth * MediaQuery.devicePixelRatioOf(context);
+    return pixels <= 0 ? null : pixels.round();
   }
 
   @override
@@ -74,40 +102,51 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
                     padding: EdgeInsets.only(
                       bottom: images.length > 1 ? 32 : 0,
                     ),
-                    child: widget.isNetwork
-                        ? Image.network(
-                            images[index],
-                            fit: widget.fit,
-                            semanticLabel:
-                                'Post photo ${index + 1} of ${images.length}',
-                            // Spinner until the first frame is decoded.
-                            frameBuilder:
-                                (context, child, frame, loadedSynchronously) =>
-                                    frame == null && !loadedSynchronously
+                    child: _tappable(
+                      index,
+                      widget.isNetwork
+                          ? LayoutBuilder(
+                              builder: (context, constraints) => Image.network(
+                                images[index],
+                                // Decode at the width shown, not the full upload.
+                                cacheWidth: _decodeWidth(context, constraints),
+                                fit: widget.fit,
+                                semanticLabel:
+                                    'Post photo ${index + 1} of ${images.length}',
+                                // Spinner until the first frame is decoded.
+                                frameBuilder:
+                                    (
+                                      context,
+                                      child,
+                                      frame,
+                                      loadedSynchronously,
+                                    ) => frame == null && !loadedSynchronously
                                     ? Center(
                                         child: CircularProgressIndicator(
                                           color: indicatorColor,
                                         ),
                                       )
                                     : child,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Center(
-                                  child: Icon(
-                                    Icons.broken_image_outlined,
-                                    color: indicatorColor.withValues(
-                                      alpha: 0.54,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Center(
+                                      child: Icon(
+                                        Icons.broken_image_outlined,
+                                        color: indicatorColor.withValues(
+                                          alpha: 0.54,
+                                        ),
+                                        size: 48,
+                                        semanticLabel: 'Photo unavailable',
+                                      ),
                                     ),
-                                    size: 48,
-                                    semanticLabel: 'Photo unavailable',
-                                  ),
-                                ),
-                          )
-                        : Image.asset(
-                            images[index],
-                            fit: widget.fit,
-                            semanticLabel:
-                                'Post photo ${index + 1} of ${images.length}',
-                          ),
+                              ),
+                            )
+                          : Image.asset(
+                              images[index],
+                              fit: widget.fit,
+                              semanticLabel:
+                                  'Post photo ${index + 1} of ${images.length}',
+                            ),
+                    ),
                   ),
                 ),
                 if (images.length > 1) ...[

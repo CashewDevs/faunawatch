@@ -229,3 +229,30 @@ String formatPostAge(DateTime time, DateTime now) {
   if (age.inDays < 7) return '${age.inDays}d';
   return '${age.inDays ~/ 7}w';
 }
+
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// The calendar day on the phone's clock, e.g. `Nov 21`, with the year
+/// (`Nov 21, 2025`) when it is not [now]'s year.
+String formatPostDate(DateTime time, DateTime now) {
+  final local = time.toLocal();
+  final day = '${_months[local.month - 1]} ${local.day}';
+  return local.year == now.toLocal().year ? day : '$day, ${local.year}';
+}
+
+/// The age and the day together, e.g. `2d · Nov 21`.
+String formatPostWhen(DateTime time, DateTime now) =>
+    '${formatPostAge(time, now)} · ${formatPostDate(time, now)}';
