@@ -2,7 +2,7 @@ import 'package:faunawatch/features/feed/models/feed_post.dart';
 
 /// A post's spot to show on the community map.
 ///
-/// For other people's posts the point is rounded to about 1 km (see
+/// For other people's posts the point is rounded to about 100 m (see
 /// [FeedPost.approxLatitude]), where their public pin is. For the owner's own
 /// post it is the exact point ([isExact]), read through owner access. The
 /// owner's exact point, and any post that is not public (pending or declined),

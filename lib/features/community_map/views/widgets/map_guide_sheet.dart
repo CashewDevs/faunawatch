@@ -45,6 +45,7 @@ class MapGuideSheet extends StatelessWidget {
               title: 'Find reported encounters',
               description:
                   "Approved reports appear as pins with the post's photo (or the FaunaWatch logo) at approximate locations. "
+                  'Zoom in to see the circle around each pin: the post was made somewhere inside it, within about 100 m. '
                   'A number on a pin means several posts share that spot; tap it to see them all. '
                   'The map loads newly approved posts when you open it, or tap Refresh. New submissions remain pending until reviewed.',
             ),

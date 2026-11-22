@@ -31,7 +31,7 @@ class MapSpotSheet extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
           child: Text(
-            'Locations are rounded to about 1 km, so nearby posts share a pin.',
+            'Locations are rounded to about 100 m, so nearby posts share a pin.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

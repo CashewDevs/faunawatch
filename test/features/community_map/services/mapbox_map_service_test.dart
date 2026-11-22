@@ -4,6 +4,8 @@ import 'dart:typed_data';
 // ignore_for_file: depend_on_referenced_packages, invalid_use_of_internal_member
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
+import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:flutter/material.dart' show Brightness;
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/create_post/models/post_location.dart';
@@ -320,8 +322,8 @@ void main() {
       );
       await service.showReports([]);
       expect(platform.style.data['community-reports']['features'], isEmpty);
-      // The pins and their count badges.
-      expect(platform.style.layers, hasLength(2));
+      // The 100 m circles (fill and outline), the pins and their count badges.
+      expect(platform.style.layers, hasLength(4));
       expect(platform.style.imageAddCount, 1);
     },
   );
@@ -384,14 +386,78 @@ void main() {
     platform.style.layers.clear();
     platform.style.images.clear();
     await service.showReports([]);
-    expect(platform.style.sources, {'community-reports'});
+    expect(platform.style.sources, {
+      'community-reports',
+      'community-report-areas',
+    });
     expect(platform.style.layers.keys, [
+      'community-report-areas',
+      'community-report-area-outlines',
       'community-report-pins',
       'community-report-counts',
     ]);
     expect(platform.style.images, {'community-report-logo-pin'});
     expect(platform.style.imageAddCount, 2);
   });
+
+  test(
+    'draws a 100 m circle around each pin once zoomed in, and opens a post close enough to see it',
+    () async {
+      CommunityReport at(String id, double lat) => CommunityReport(
+        id: id,
+        category: 'animal_in_need',
+        latitude: lat,
+        longitude: 121,
+        description: id,
+      );
+      await service.showReports([at('a', 14.6), at('b', 14.6), at('c', 14.7)]);
+      final areas =
+          platform.style.data['community-report-areas']['features'] as List;
+      // One circle per pin, not per post.
+      expect(areas, hasLength(2));
+      final ring =
+          (areas.first['geometry']['coordinates'] as List).single as List;
+      expect(ring.first, ring.last);
+      // The first point is due north of the pin, 100 m away.
+      final north = ring.first as List;
+      expect(north[0], closeTo(121, 1e-9));
+      expect(
+        (north[1] as num) - 14.6,
+        closeTo(spotAreaRadius / 6371008.8 * 180 / math.pi, 1e-9),
+      );
+
+      final fill = platform.style.layers['community-report-areas']!;
+      expect(fill['type'], 'fill');
+      expect(fill['slot'], 'middle');
+      expect(fill['minzoom'], 14.5);
+      expect(fill['paint']['fill-opacity'], [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        14.5,
+        0,
+        15.5,
+        0.14,
+      ]);
+      final outline = platform.style.layers['community-report-area-outlines']!;
+      expect(outline['type'], 'line');
+      expect(outline['source'], 'community-report-areas');
+
+      await service.showReports([]);
+      expect(platform.style.data['community-report-areas']['features'], []);
+
+      await service.showFocus(
+        const MapFocus(
+          postId: 'c',
+          latitude: 14.7,
+          longitude: 121,
+          isPublic: true,
+        ),
+      );
+      expect(platform.cameras.last.zoom, focusZoom);
+      expect(focusZoom, 16.5);
+    },
+  );
 
   test(
     'posts on one rounded point share a pin with the newest photo and a count badge',

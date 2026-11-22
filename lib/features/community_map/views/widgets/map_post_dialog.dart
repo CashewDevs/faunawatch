@@ -5,7 +5,7 @@ import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Details for an approved report, with its poster and a link to its full
-/// feed post. The location stays rounded to about 1 km.
+/// feed post. The location stays rounded to about 100 m.
 class MapPostDialog extends ConsumerWidget {
   const MapPostDialog({
     super.key,

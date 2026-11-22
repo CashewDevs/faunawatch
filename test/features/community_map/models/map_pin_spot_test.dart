@@ -52,7 +52,9 @@ void main() {
       'created_at': '2026-11-20T08:30:00+00:00',
     });
     expect(report.createdAt, DateTime.utc(2026, 11, 20, 8, 30));
-    expect(report.spotKey, '10.10,-0.50');
+    expect(report.spotKey, '10.100,-0.500');
+    // About 100 m apart: separate pins.
+    expect(_at('a', 10.1234, 1).spotKey, isNot(_at('b', 10.1244, 1).spotKey));
     expect(
       CommunityReport.fromJson({
         'id': 'r2',

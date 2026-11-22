@@ -339,7 +339,7 @@ class _PrivateFocusBanner extends StatelessWidget {
   String get _detail {
     final spot = focus.isExact ? 'exact' : 'approximate';
     return focus.isPublic
-        ? "Your post's $spot spot. Others see its pin within about 1 km."
+        ? "Your post's $spot spot. Others see its pin within about 100 m."
         : "Your post's $spot spot. It isn't on the public map.";
   }
 

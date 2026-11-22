@@ -9,7 +9,7 @@ export 'package:faunawatch/features/feed/models/post_ai_analysis.dart';
 ///
 /// The row never has exact coordinates, `user_notes` or admin fields, so none
 /// exist here: [approxLatitude] and [approxLongitude] are always rounded to
-/// about 1 km, the same as the community map. Photos and the author's picture live in private Storage buckets;
+/// about 100 m, the same as the community map. Photos and the author's picture live in private Storage buckets;
 /// the service fills in their signed URLs.
 class FeedPost {
   const FeedPost({
@@ -72,7 +72,7 @@ class FeedPost {
   /// `reports.place_name` exactly as stored, e.g. "Lusod, Kabayan, Benguet".
   final String? placeName;
 
-  /// The report's point rounded to 2 decimals (about 1 km), or null when the
+  /// The report's point rounded to 3 decimals (about 100 m), or null when the
   /// row has no location.
   final double? approxLatitude, approxLongitude;
 
@@ -186,11 +186,11 @@ class FeedPost {
     return text == null || text.isEmpty ? null : text;
   }
 
-  /// Rounds a coordinate to 2 decimals (about 1 km), so an exact point given
-  /// by the owner's own report is never kept.
+  /// Rounds a coordinate to 3 decimals (within about 100 m), so an exact point
+  /// given by the owner's own report is never kept.
   static double? _approximate(Object? value) {
     if (value is! num || !value.isFinite) return null;
-    return (value * 100).round() / 100;
+    return (value * 1000).round() / 1000;
   }
 
   static ReportCategory? _category(Object? value) {

@@ -2,7 +2,7 @@ import 'community_report.dart';
 
 /// The approved reports that share one rounded map point, and so one pin.
 ///
-/// Rounding to about 1 km puts nearby posts on exactly the same point, where
+/// Rounding to about 100 m puts nearby posts on exactly the same point, where
 /// their pins would hide each other. The map draws one pin per spot, showing
 /// the newest post's photo, with a number badge when it holds more than one.
 class MapPinSpot {
