@@ -39,6 +39,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 
 import '../fake_feed_service.dart';
+import '../post_title_finder.dart';
 import '../../notifications/fake_notifications_service.dart';
 
 /// The fill colour of the post tag shown with [tone].
@@ -105,13 +106,13 @@ void main() {
     ) async {
       await pumpFeed(tester);
       expect(find.byType(FeedPostCard), findsOneWidget);
-      expect(find.text('Philippine Eagle'), findsOneWidget);
+      expect(findPostTitle('Philippine Eagle'), findsOneWidget);
       expect(find.textContaining('spotter_one'), findsOneWidget);
       expect(find.text('Bird on the trail.'), findsOneWidget);
       expect(find.text('Lusod, Kabayan, Benguet'), findsOneWidget);
       expect(find.text('No posts yet.'), findsNothing);
       // The old sample's wording is gone.
-      expect(find.text('Sample post'), findsNothing);
+      expect(findPostTitle('Sample post'), findsNothing);
       expect(find.textContaining('Demo only'), findsNothing);
       expect(find.textContaining('Preliminary AI'), findsNothing);
     });
@@ -138,6 +139,11 @@ void main() {
       expect(find.text('Severity: High'), findsOneWidget);
       expect(find.text('Possible invasive species'), findsOneWidget);
       expect(find.text(FeedPost.aiNote), findsNothing);
+      // The tags follow a short title on the same line.
+      expect(
+        tester.getCenter(find.text('Severity: High')).dy,
+        closeTo(tester.getCenter(findPostTitle('Tarsier')).dy, 4),
+      );
       expect(
         tagBackground(tester, TagTone.high),
         TagColors.forTone(TagTone.high, Brightness.light).background,
@@ -244,12 +250,12 @@ void main() {
       // The expanded text runs off screen, so the drag starts on the title,
       // which is part of the same scrolling caption.
       await tester.dragFrom(
-        tester.getCenter(find.text('First post')),
+        tester.getCenter(findPostTitle('First post')),
         const Offset(0, -2000),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Second post').hitTestable(), findsOneWidget);
-      expect(find.text('First post').hitTestable(), findsNothing);
+      expect(findPostTitle('Second post').hitTestable(), findsOneWidget);
+      expect(findPostTitle('First post').hitTestable(), findsNothing);
     });
 
     testWidgets('tapping a photo opens the photos full screen', (tester) async {
@@ -472,7 +478,7 @@ void main() {
         1000,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Fresh post'), findsOneWidget);
+      expect(findPostTitle('Fresh post'), findsOneWidget);
     });
 
     testWidgets('centres the empty feed above the nav bar inset', (
@@ -531,7 +537,7 @@ void main() {
       'swipes up to the next post and loads older ones near the end',
       (tester) async {
         final container = await pumpFeed(tester);
-        expect(find.text('Post 0'), findsOneWidget);
+        expect(findPostTitle('Post 0'), findsOneWidget);
         expect(service.pageRequests, hasLength(1));
 
         Future<void> next() async {
@@ -544,13 +550,13 @@ void main() {
         }
 
         await next();
-        expect(find.text('Post 1'), findsOneWidget);
-        expect(find.text('Post 0'), findsNothing);
+        expect(findPostTitle('Post 1'), findsOneWidget);
+        expect(findPostTitle('Post 0'), findsNothing);
         for (var i = 0; i < 6; i++) {
           await next();
         }
         // Page 7 of 10: three posts are left, so the next page is requested.
-        expect(find.text('Post 7'), findsOneWidget);
+        expect(findPostTitle('Post 7'), findsOneWidget);
         expect(service.pageRequests, hasLength(2));
         expect(service.pageRequests.last!.id, 'p9');
         expect(readState(container).posts, hasLength(14));
@@ -563,7 +569,7 @@ void main() {
       await tester.fling(find.byType(FeedPostCard), const Offset(0, 500), 1000);
       await tester.pumpAndSettle();
       expect(service.pageRequests, hasLength(2));
-      expect(find.text('Brand new'), findsOneWidget);
+      expect(findPostTitle('Brand new'), findsOneWidget);
     });
   });
 
@@ -827,8 +833,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(container.read(shellViewModelProvider), ShellDestination.feed);
-      expect(find.text('Third post'), findsOneWidget);
-      expect(find.text('First'), findsNothing);
+      expect(findPostTitle('Third post'), findsOneWidget);
+      expect(findPostTitle('First'), findsNothing);
       expect(find.text('See more in feed'), findsNothing);
       // Back returns to the map.
       container.read(shellViewModelProvider.notifier).back();

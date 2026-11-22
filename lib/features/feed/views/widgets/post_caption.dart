@@ -149,8 +149,39 @@ class _PostCaptionState extends State<PostCaption> {
                   ),
                 ),
               ),
-              Text(
-                post.title,
+              // The tags follow the title's last word, so a short title or a
+              // short last line does not leave a whole row for the tags.
+              Text.rich(
+                TextSpan(
+                  text: post.title,
+                  children: [
+                    for (final tag in [
+                      _Tag(label: post.categoryLabel),
+                      if (post.severity != null)
+                        _Tag(
+                          label: 'Severity: ${post.severity!.label}',
+                          tone: post.severity!.tagTone,
+                        ),
+                      if (post.possibleInvasive)
+                        const _Tag(
+                          label: 'Possible invasive species',
+                          icon: Icons.warning_amber_rounded,
+                          tone: TagTone.invasive,
+                        ),
+                    ])
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: 6,
+                            top: 2,
+                            bottom: 2,
+                          ),
+                          child: tag,
+                        ),
+                      ),
+                  ],
+                ),
                 style: textTheme.titleLarge?.copyWith(
                   fontSize: 20,
                   height: 1.25,
@@ -206,25 +237,6 @@ class _PostCaptionState extends State<PostCaption> {
                   },
                 ),
               ],
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  _Tag(label: post.categoryLabel),
-                  if (post.severity != null)
-                    _Tag(
-                      label: 'Severity: ${post.severity!.label}',
-                      tone: post.severity!.tagTone,
-                    ),
-                  if (post.possibleInvasive)
-                    const _Tag(
-                      label: 'Possible invasive species',
-                      icon: Icons.warning_amber_rounded,
-                      tone: TagTone.invasive,
-                    ),
-                ],
-              ),
             ],
           ),
         ),
