@@ -5,21 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/change_password_view.dart';
-import 'package:faunawatch/features/profile/views/widgets/sign_out_dialog.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 
-/// The Settings screen featuring account security (Change password), AI
-/// provider keys, application preferences, and the docked Sign Out button.
+/// The Settings screen featuring account security (Change password), privacy,
+/// preferences, and AI provider keys.
 class SettingsView extends ConsumerWidget {
   const SettingsView({super.key});
-
-  void _showSignOutDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => const SignOutConfirmationDialog(),
-    );
-  }
 
   void _openChangePassword(BuildContext context) {
     Navigator.of(
@@ -457,28 +449,6 @@ class SettingsView extends ConsumerWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-      // Docked full-width Sign Out button matching image specification
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: InkWell(
-          onTap: () => _showSignOutDialog(context),
-          child: Container(
-            width: double.infinity,
-            height: 56,
-            color: AppColors.signOutButtonRed,
-            alignment: Alignment.center,
-            child: Text(
-              'Sign Out',
-              style: GoogleFonts.dmSans(
-                color: AppColors.signOutTextYellow,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-              ),
-            ),
           ),
         ),
       ),

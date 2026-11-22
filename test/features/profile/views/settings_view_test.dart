@@ -12,7 +12,6 @@ import 'package:faunawatch/features/settings/services/ai_api_key_storage_service
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 import 'package:faunawatch/features/profile/views/settings_view.dart';
-import 'package:faunawatch/features/welcome/views/welcome_view.dart';
 
 void main() {
   Widget buildTestSettings() {
@@ -20,31 +19,30 @@ void main() {
   }
 
   group('SettingsView', () {
-    testWidgets(
-      'renders Account, Privacy below Account, preferences, and docked sign out',
-      (tester) async {
-        await tester.pumpWidget(buildTestSettings());
+    testWidgets('renders Account, Privacy below Account, and preferences', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestSettings());
 
-        expect(find.text('Settings'), findsOneWidget);
-        expect(find.text('ACCOUNT'), findsOneWidget);
-        expect(find.text('Change password'), findsOneWidget);
-        expect(find.text('Update your sign-in password'), findsOneWidget);
-        expect(find.text('PRIVACY'), findsOneWidget);
-        expect(find.text('Show approximate location'), findsOneWidget);
-        expect(
-          find.text('Other users see a nearby area, not your exact spot'),
-          findsOneWidget,
-        );
-        expect(find.text('Hide my name on reports'), findsOneWidget);
-        expect(find.text('Post as "Anonymous spotter"'), findsOneWidget);
-        expect(
-          tester.getTopLeft(find.text('PRIVACY')).dy,
-          greaterThan(tester.getBottomLeft(find.text('Change password')).dy),
-        );
-        expect(find.text('Theme Mode'), findsNothing);
-        expect(find.text('Sign Out'), findsOneWidget);
-      },
-    );
+      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('ACCOUNT'), findsOneWidget);
+      expect(find.text('Change password'), findsOneWidget);
+      expect(find.text('Update your sign-in password'), findsOneWidget);
+      expect(find.text('PRIVACY'), findsOneWidget);
+      expect(find.text('Show approximate location'), findsOneWidget);
+      expect(
+        find.text('Other users see a nearby area, not your exact spot'),
+        findsOneWidget,
+      );
+      expect(find.text('Hide my name on reports'), findsOneWidget);
+      expect(find.text('Post as "Anonymous spotter"'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('PRIVACY')).dy,
+        greaterThan(tester.getBottomLeft(find.text('Change password')).dy),
+      );
+      expect(find.text('Theme Mode'), findsNothing);
+      expect(find.text('Sign Out'), findsNothing);
+    });
 
     testWidgets('toggling Privacy switches updates SettingsViewModel', (
       tester,
@@ -95,34 +93,6 @@ void main() {
       expect(find.text('Change Password'), findsOneWidget);
       expect(find.text('Update password'), findsOneWidget);
     });
-
-    testWidgets(
-      'tapping docked Sign Out shows confirmation modal and redirects on confirm',
-      (tester) async {
-        await tester.pumpWidget(buildTestSettings());
-
-        // Tap docked Sign Out
-        await tester.tap(find.text('Sign Out'));
-        await tester.pumpAndSettle();
-
-        expect(
-          find.text(
-            'Are you sure you want to sign out? You will need to log back in to access your reports and messages.',
-          ),
-          findsOneWidget,
-        );
-
-        // Tap confirm Sign Out in modal
-        final confirmButtons = find.widgetWithText(ElevatedButton, 'Sign Out');
-        expect(confirmButtons, findsOneWidget);
-
-        await tester.tap(confirmButtons);
-        await tester.pumpAndSettle();
-
-        // Redirects to WelcomeView (the very first screen)
-        expect(find.byType(WelcomeView), findsOneWidget);
-      },
-    );
   });
 
   group('SettingsView AI keys', () {

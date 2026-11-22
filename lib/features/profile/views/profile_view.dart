@@ -7,6 +7,7 @@ import 'package:faunawatch/features/profile/views/edit_profile_view.dart';
 import 'package:faunawatch/features/profile/views/settings_view.dart';
 import 'package:faunawatch/features/profile/views/widgets/profile_header_card.dart';
 import 'package:faunawatch/features/profile/views/widgets/profile_preferences_drawer.dart';
+import 'package:faunawatch/features/profile/views/widgets/sign_out_dialog.dart';
 import 'package:faunawatch/features/profile/views/widgets/theme_picker_sheet.dart';
 
 /// Profile content and gallery, with preferences behind a hamburger menu.
@@ -32,6 +33,47 @@ class ProfileView extends ConsumerWidget {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const SettingsView()));
+  }
+
+  void _showSignOutDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => const SignOutConfirmationDialog(),
+    );
+  }
+
+  /// Opens the profile sidebar on the root navigator so it layers above the
+  /// shell's bottom navigation bar.
+  void _openProfileMenu(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    showGeneralDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 240),
+      pageBuilder: (dialogContext, _, _) => Align(
+        alignment: Alignment.centerRight,
+        child: ProfilePreferencesDrawer(
+          onClose: () => Navigator.of(dialogContext).pop(),
+          onEditProfile: () => _openEditProfile(context),
+          onChangeTheme: () => _openThemePicker(context),
+          onSettings: () => _openSettings(context),
+          onSignOut: () => _showSignOutDialog(context),
+        ),
+      ),
+      transitionBuilder: (_, animation, _, child) {
+        if (reduceMotion) return child;
+        final slide = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+            .animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            );
+        return SlideTransition(position: slide, child: child);
+      },
+    );
   }
 
   @override
@@ -67,39 +109,29 @@ class ProfileView extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      endDrawer: ProfilePreferencesDrawer(
-        onEditProfile: () => _openEditProfile(context),
-        onChangeTheme: () => _openThemePicker(context),
-        onSettings: () => _openSettings(context),
-      ),
-      body: Builder(
-        // Capture this Scaffold, rather than the gallery's nested Scaffold.
-        builder: (menuContext) => Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              stops: const [0.3, 1.0],
-              colors: isDark
-                  ? [
-                      AppPaletteColors.of(context).darkProfileGradientStart,
-                      AppPaletteColors.of(context).darkProfileGradientEnd,
-                    ]
-                  : [
-                      AppPaletteColors.of(
-                        context,
-                      ).profileBackgroundGradientStart,
-                      AppPaletteColors.of(context).profileBackgroundGradientEnd,
-                    ],
-            ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: const [0.3, 1.0],
+            colors: isDark
+                ? [
+                    AppPaletteColors.of(context).darkProfileGradientStart,
+                    AppPaletteColors.of(context).darkProfileGradientEnd,
+                  ]
+                : [
+                    AppPaletteColors.of(context).profileBackgroundGradientStart,
+                    AppPaletteColors.of(context).profileBackgroundGradientEnd,
+                  ],
           ),
-          child: GalleryView(
-            header: ProfileHeaderCard(
-              profile: profile,
-              onOpenMenu: () => Scaffold.of(menuContext).openEndDrawer(),
-            ),
+        ),
+        child: GalleryView(
+          header: ProfileHeaderCard(
+            profile: profile,
+            onOpenMenu: () => _openProfileMenu(context),
           ),
         ),
       ),
