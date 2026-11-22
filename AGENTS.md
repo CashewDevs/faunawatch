@@ -585,8 +585,10 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   and shows "Approximate location" when it is null. It never returns exact
   coordinates, and `user_notes` and the admin fields stay private. Since
   `20261121090000_add_ai_and_location_to_community_feed.sql` it also returns
-  `latitude`/`longitude` rounded to 2 decimals (about 1 km), exactly like
-  `community_reports()`, for the post's map link.
+  `latitude`/`longitude` rounded, exactly like `community_reports()`, for the
+  post's map link: 2 decimals (about 1 km) until
+  `20261122110000_round_community_locations_to_100m.sql`, then 3 decimals
+  (within about 100 m; see "Public location precision" below).
 - **AI analysis:** every post with an AI result has an "AI analysis" button under
   its caption that opens `PostAiAnalysisSheet` (possible species with confidence,
   severity, condition, possible invasive with the matched species, summary,
@@ -606,9 +608,10 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   (any status) opens at its exact point, read on demand through owner RLS by
   `ReportDetailService.fetchOwnLocation` (`MapFocus.isExact`); it is held only in
   map state, drawn on the owner's device, and cleared on account changes.
-  Everyone else's post opens at its rounded point (about 1 km), where its public
+  Everyone else's post opens at its rounded point (about 100 m), where its public
   pin is; public pins stay rounded for everyone. A failed exact lookup falls back
-  to the rounded point. The camera moves there (zoom 14), waiting for the map's
+  to the rounded point. The camera moves there (`focusZoom`, 16.5, close enough
+  to see the pin's 100 m circle), waiting for the map's
   style if needed; an approved post's pin is refreshed in if missing, and the pin
   dialog is not opened automatically. The owner's exact point and their pending
   or declined posts get an orange marker (`MapboxMapService.showFocus`) and a
@@ -649,7 +652,21 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   refresh; everything is forgotten on account changes. The layer picks each
   feature's picture from its `icon` property (`report-photo-<id>` or the logo). There
   are no sample pins, simulated positions, or demo warning zones.
-  **Shared pins:** posts whose rounded points are equal (2 decimals,
+  **Public location precision (decided 2026-11-22):** public points are
+  rounded to 3 decimals, which keeps them within about 80 m of the real spot.
+  Migration `20261122110000_round_community_locations_to_100m.sql` (applied by
+  hand) replaces `community_reports()` and `community_feed()` in place with
+  `round(..., 3)` (pre-filter widened by 0.0005); nothing else in them changes,
+  and `place_name` stays exactly as stored. The app rounds to 3 decimals too
+  (`FeedPost._approximate`, `CommunityReport.spotKey`), so it works before and
+  after the migration. Exact points are still only for the owner and admins.
+  **Pin circles:** each pin has a 100 m circle on the ground (`spotAreaRadius`,
+  `circlePoints` from FaunaGuard's ring code), source `community-report-areas`
+  with a fill layer of the same id and a line layer
+  `community-report-area-outlines`, both in the `middle` slot under the pins.
+  They are hidden below zoom 14.5 and fade in until 15.5, because a 100 m
+  circle is smaller than the pin when zoomed out.
+  **Shared pins:** posts whose rounded points are equal (3 decimals,
   `CommunityReport.spotKey`) would sit exactly on top of each other, so
   `groupReportsBySpot` (`models/map_pin_spot.dart`) makes one `MapPinSpot` per
   point, newest first by `created_at`. Only exact matches are grouped (decided
@@ -689,7 +706,7 @@ device location with a blue marker while enabled. All approved reports from
 the existing `community_reports()` RPC are watched, using approximate public
 coordinates only: Getting closer at 1 km and Nearby at 500 m. Each report
 alerts once per band per enabled session; simultaneous crossings are grouped.
-Locations are approximate (~1 km precision); these are awareness estimates,
+Locations are approximate (~100 m precision); these are awareness estimates,
 not exact wildlife positions. Device coordinates stay in memory and are not
 uploaded or persisted by this feature. Reports refresh every minute while
 enabled; failed refreshes and GPS/notification errors stop the session.

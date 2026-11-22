@@ -6,7 +6,8 @@ import '../models/map_pin_spot.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_proximity.dart';
-import 'package:faunawatch/features/fauna_guard/models/guard_radius.dart';
+import 'package:faunawatch/features/fauna_guard/models/guard_radius.dart'
+    show circlePoints, guardRadiusRings;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +50,15 @@ abstract interface class MapboxMapService {
 /// A map area in degrees.
 typedef MapBounds = ({double south, double west, double north, double east});
 
+/// How far from its pin a post can really be: public points are rounded to 3
+/// decimals, which keeps them within about 80 m, so a 100 m circle always
+/// holds the real spot.
+const double spotAreaRadius = 100;
+
+/// How close the map zooms when it opens a post's location, so the 100 m
+/// circle around the pin is clearly visible.
+const double focusZoom = 16.5;
+
 /// Mapbox implementation using the Standard style's light and 3D settings.
 class MapboxCommunityMapService implements MapboxMapService {
   MapboxMap? _mapboxMap;
@@ -64,6 +74,17 @@ class MapboxCommunityMapService implements MapboxMapService {
   final _photoIds = <String>{};
 
   static String _photoImage(String reportId) => 'report-photo-$reportId';
+
+  /// The circles around the pins (source and fill layer) and their outline.
+  static const _areasSource = 'community-report-areas',
+      _areasOutline = 'community-report-area-outlines';
+
+  /// The circles fade in between these zoom levels; below [_areasFrom] a
+  /// 100 m circle is smaller than the pin.
+  static const double _areasFrom = 14.5, _areasFull = 15.5;
+
+  /// The pins' blue.
+  static final _pinBlue = const Color(0xFF2563EB).toARGB32();
 
   /// The badge layer: how many posts share a pin, only where more than one do.
   static const _countsLayer = 'community-report-counts';
@@ -178,7 +199,7 @@ class MapboxCommunityMapService implements MapboxMapService {
     await map.setCamera(
       CameraOptions(
         center: Point(coordinates: Position(focus.longitude, focus.latitude)),
-        zoom: 14,
+        zoom: focusZoom,
         pitch: _pitch,
       ),
     );
@@ -247,6 +268,7 @@ class MapboxCommunityMapService implements MapboxMapService {
       if (!await map.hasStyleImage(_photoImage(id))) _photoIds.remove(id);
     }
     await _setReportsData(map);
+    await _showAreas(map);
     if (!await map.hasStyleImage(_pinImage)) {
       await map.addImage(_pinImage, 2, await createMapPinImage());
     }
@@ -302,6 +324,76 @@ class MapboxCommunityMapService implements MapboxMapService {
       // A GPS fix may have taken over the camera while the fit was pending.
       if (_mapboxMap != map || _guardHasCentered) return;
       await map.setCamera(camera);
+    }
+  }
+
+  /// Draws a [spotAreaRadius] circle on the ground around each pin, showing
+  /// that the post is somewhere inside it, not at the pin's exact point.
+  /// Hidden when zoomed out, where it would be smaller than the pin, and
+  /// faded in from [_areasFrom] to [_areasFull].
+  Future<void> _showAreas(MapboxMap map) async {
+    final data = jsonEncode({
+      'type': 'FeatureCollection',
+      'features': [
+        for (final spot in groupReportsBySpot(_reports))
+          if (spot.top.latitude.abs() <= 90 && spot.top.longitude.abs() <= 180)
+            {
+              'type': 'Feature',
+              'properties': <String, Object>{},
+              'geometry': {
+                'type': 'Polygon',
+                'coordinates': [
+                  circlePoints(
+                    spot.top.latitude,
+                    spot.top.longitude,
+                    spotAreaRadius,
+                  ),
+                ],
+              },
+            },
+      ],
+    });
+    if (await map.styleSourceExists(_areasSource)) {
+      await map.setStyleSourceProperty(_areasSource, 'data', data);
+    } else {
+      await map.addSource(GeoJsonSource(id: _areasSource, data: data));
+    }
+    List<Object> fadeIn(double full) => [
+      'interpolate',
+      ['linear'],
+      ['zoom'],
+      _areasFrom,
+      0,
+      _areasFull,
+      full,
+    ];
+    if (!await map.styleLayerExists(_areasSource)) {
+      // Under road names and the pins, like FaunaGuard's rings.
+      await map.addLayer(
+        FillLayer(
+          id: _areasSource,
+          sourceId: _areasSource,
+          slot: 'middle',
+          minZoom: _areasFrom,
+          fillColor: _pinBlue,
+          fillOpacityExpression: fadeIn(0.14),
+          fillEmissiveStrength: 1,
+        ),
+      );
+    }
+    if (!await map.styleLayerExists(_areasOutline)) {
+      await map.addLayer(
+        LineLayer(
+          id: _areasOutline,
+          sourceId: _areasSource,
+          slot: 'middle',
+          minZoom: _areasFrom,
+          lineColor: _pinBlue,
+          lineWidth: 1.5,
+          lineOpacityExpression: fadeIn(0.7),
+          lineEmissiveStrength: 1,
+        ),
+      );
     }
   }
 

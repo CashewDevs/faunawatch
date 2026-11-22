@@ -121,8 +121,8 @@ void main() {
   test('rounds the location and reads the full AI analysis', () async {
     await signIn();
     final own = await service.fetchOwnReport('r1');
-    expect(own!.post.approxLatitude, 10.32);
-    expect(own.post.approxLongitude, 123.89);
+    expect(own!.post.approxLatitude, 10.317);
+    expect(own.post.approxLongitude, 123.891);
     final ai = own.post.aiAnalysis!;
     expect(ai.species.single.commonName, 'Cane toad');
     expect(ai.severity, SeverityLevel.low);

@@ -23,10 +23,10 @@ class CommunityReport {
   /// shows (the newest).
   final DateTime? createdAt;
 
-  /// The rounded point (2 decimals, about 1 km) this report's pin sits on.
+  /// The rounded point (3 decimals, about 100 m) this report's pin sits on.
   /// Reports with the same key share one pin.
   String get spotKey =>
-      '${latitude.toStringAsFixed(2)},${longitude.toStringAsFixed(2)}';
+      '${latitude.toStringAsFixed(3)},${longitude.toStringAsFixed(3)}';
 
   factory CommunityReport.fromJson(Map<String, dynamic> row) => CommunityReport(
     id: row['id'] as String,
@@ -54,7 +54,7 @@ class CommunityReport {
         'Wildlife report',
     author: 'Community spotter',
     location:
-        '${latitude.toStringAsFixed(2)}, ${longitude.toStringAsFixed(2)} · Approximate location',
+        '${latitude.toStringAsFixed(3)}, ${longitude.toStringAsFixed(3)} · Approximate location',
 
     body: description,
   );

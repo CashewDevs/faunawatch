@@ -206,15 +206,15 @@ void main() {
       expect(post.hasAiContent, isTrue);
     });
 
-    test('coordinates are always rounded to about 1 km', () {
+    test('coordinates are always rounded to about 100 m (3 decimals)', () {
       final post = FeedPost.fromJson(
         _row(overrides: {'latitude': 16.456789, 'longitude': 120.987654}),
       );
-      expect(post.approxLatitude, 16.46);
-      expect(post.approxLongitude, 120.99);
+      expect(post.approxLatitude, 16.457);
+      expect(post.approxLongitude, 120.988);
       expect(post.hasMapLocation, isTrue);
       final copy = post.copyWith(likeCount: 9);
-      expect(copy.approxLatitude, 16.46);
+      expect(copy.approxLatitude, 16.457);
       expect(copy.aiAnalysis, same(post.aiAnalysis));
     });
 
