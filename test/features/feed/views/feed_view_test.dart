@@ -123,7 +123,7 @@ void main() {
       expect(find.text('Approximate location'), findsOneWidget);
     });
 
-    testWidgets('AI details come with the preliminary note', (tester) async {
+    testWidgets('AI details show without the preliminary note', (tester) async {
       service.posts = [
         testPost(
           'p0',
@@ -136,7 +136,7 @@ void main() {
       await pumpFeed(tester);
       expect(find.text('Severity: High'), findsOneWidget);
       expect(find.text('Possible invasive species'), findsOneWidget);
-      expect(find.text(FeedPost.aiNote), findsOneWidget);
+      expect(find.text(FeedPost.aiNote), findsNothing);
       expect(
         tagBackground(tester, TagTone.high),
         TagColors.forTone(TagTone.high, Brightness.light).background,
@@ -171,7 +171,8 @@ void main() {
         ),
       ];
       await pumpFeed(tester);
-      expect(find.text(FeedPost.aiNote), findsOneWidget);
+      // The caption no longer shows the note; only the sheet does.
+      expect(find.text(FeedPost.aiNote), findsNothing);
       await tester.tap(find.text('AI analysis'));
       await tester.pumpAndSettle();
       final sheet = find.byType(PostAiAnalysisSheet);
@@ -184,6 +185,7 @@ void main() {
       expect(inSheet('Alert.'), findsOneWidget);
       expect(inSheet('Keep your distance.'), findsOneWidget);
       expect(inSheet('invasive species: Cane toad'), findsOneWidget);
+      expect(inSheet(FeedPost.aiNote), findsOneWidget);
       // Empty sections are left out.
       expect(inSheet('Summary'), findsNothing);
       expect(tester.takeException(), isNull);

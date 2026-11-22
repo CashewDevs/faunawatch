@@ -210,13 +210,6 @@ class _PostCaptionState extends State<PostCaption> {
                   onTap: () =>
                       PostAiAnalysisSheet.show(context, post.aiAnalysis!),
                 ),
-              if (post.hasAiContent) ...[
-                const SizedBox(height: 2),
-                Text(
-                  FeedPost.aiNote,
-                  style: detailStyle?.copyWith(fontSize: 12.5),
-                ),
-              ],
             ],
           ),
         ),
