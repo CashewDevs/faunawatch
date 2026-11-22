@@ -129,13 +129,14 @@ void main() {
       await tester.pumpWidget(buildTestShell());
       final navBar = find.byType(ShellNavBar);
 
-      for (final label in ['Feed', 'Chats', 'Notifs', 'Profile']) {
+      for (final label in ['Feed', 'Chats', 'Profile']) {
         expect(
           find.descendant(of: navBar, matching: find.text(label)),
           findsOneWidget,
         );
       }
-      for (final label in ['Gallery', 'Map']) {
+      // Notifications open from the Feed top bar's bell instead.
+      for (final label in ['Gallery', 'Map', 'Notifs', 'Notifications']) {
         expect(
           find.descendant(of: navBar, matching: find.text(label)),
           findsNothing,
@@ -162,11 +163,6 @@ void main() {
       expect(find.byType(MessagesView), findsOneWidget);
       expect(find.text('Messages'), findsOneWidget);
 
-      await tester.tap(find.text('Notifs'));
-      await tester.pumpAndSettle();
-      expect(find.byType(NotificationsView), findsOneWidget);
-      expect(find.text('Notifications'), findsOneWidget);
-
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
       expect(find.byType(ProfileView), findsOneWidget);
@@ -179,6 +175,50 @@ void main() {
       expect(find.byType(FeedView), findsOneWidget);
       expect(find.byTooltip('About this map'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'the bell opens notifications on top and Back returns to the feed',
+      (tester) async {
+        await tester.pumpWidget(buildTestShell());
+        await tester.pump();
+
+        // The bell is in the top bar on both feed tabs.
+        await tester.tap(find.text('Map'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Notifications'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Notifications'));
+        await tester.pumpAndSettle();
+        expect(find.byType(NotificationsView), findsOneWidget);
+        // A page on top: the shell's bars are hidden.
+        expect(find.byType(ShellNavBar), findsNothing);
+        expect(find.byType(ShellHeader), findsNothing);
+
+        // System Back closes the page and is not a shell step.
+        await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+          'flutter/navigation',
+          const JSONMethodCodec().encodeMethodCall(
+            const MethodCall('popRoute'),
+          ),
+          (_) {},
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(NotificationsView), findsNothing);
+        expect(find.byType(ShellNavBar), findsOneWidget);
+        expect(find.byTooltip('About this map'), findsOneWidget);
+        expect(find.text('Press back again to exit'), findsNothing);
+      },
+    );
+
+    testWidgets('the bell is not shown on the other tabs', (tester) async {
+      await tester.pumpWidget(buildTestShell());
+      await tester.tap(find.text('Chats'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Notifications'), findsNothing);
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Notifications'), findsNothing);
     });
 
     testWidgets('the header has no camera button', (tester) async {

@@ -2,7 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 
 /// Supported destinations in the application bottom navigation bar.
-enum ShellDestination { feed, chats, addPost, notifs, profile }
+///
+/// Notifications are not a tab: the bell in the Feed top bar opens them as a
+/// page on top of the shell.
+enum ShellDestination { feed, chats, addPost, profile }
 
 /// A place in the shell: the bottom tab and, inside Feed, Map or For You.
 typedef ShellPlace = ({ShellDestination destination, FeedTab feedTab});

@@ -29,12 +29,12 @@ void main() {
       }
     });
 
-    test('destinations match the navigation bar order', () {
+    test('destinations match the navigation bar order, without a '
+        'notifications tab', () {
       expect(ShellDestination.values, [
         ShellDestination.feed,
         ShellDestination.chats,
         ShellDestination.addPost,
-        ShellDestination.notifs,
         ShellDestination.profile,
       ]);
     });
@@ -117,7 +117,7 @@ void main() {
         tabs().select(FeedTab.map);
         vm().resetToHome();
         expect(here(), ShellViewModel.home);
-        vm().goTo(ShellDestination.notifs);
+        vm().goTo(ShellDestination.chats);
         vm().resetToHome();
         expect(vm().back(), ShellBackResult.confirmExit);
       });

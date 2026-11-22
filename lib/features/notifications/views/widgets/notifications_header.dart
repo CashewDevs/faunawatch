@@ -14,6 +14,11 @@ class NotificationsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark
+        ? AppPaletteColors.of(context).darkAccentBlue
+        : AppPaletteColors.of(context).messagesHeaderBlue;
+    // The list opens as a page from the Feed bell, so it offers a way back.
+    final canGoBack = Navigator.of(context).canPop();
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -35,11 +40,17 @@ class NotificationsHeader extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+          padding: EdgeInsets.fromLTRB(canGoBack ? 4 : 20, 20, 20, 18),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              if (canGoBack)
+                IconButton(
+                  tooltip: 'Back',
+                  icon: Icon(Icons.arrow_back_rounded, color: titleColor),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
               Flexible(
                 child: IntrinsicWidth(
                   child: Column(
@@ -53,9 +64,7 @@ class NotificationsHeader extends StatelessWidget {
                         style: GoogleFonts.dmSans(
                           fontSize: 32,
                           fontWeight: FontWeight.w800,
-                          color: isDark
-                              ? AppPaletteColors.of(context).darkAccentBlue
-                              : AppPaletteColors.of(context).messagesHeaderBlue,
+                          color: titleColor,
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -76,12 +85,7 @@ class NotificationsHeader extends StatelessWidget {
               if (onClearAll != null)
                 PopupMenuButton<String>(
                   tooltip: 'Notification options',
-                  icon: Icon(
-                    Icons.more_vert_rounded,
-                    color: isDark
-                        ? AppPaletteColors.of(context).darkAccentBlue
-                        : AppPaletteColors.of(context).messagesHeaderBlue,
-                  ),
+                  icon: Icon(Icons.more_vert_rounded, color: titleColor),
                   onSelected: (_) => onClearAll!(),
                   itemBuilder: (_) => const [
                     PopupMenuItem<String>(

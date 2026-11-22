@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
 import 'package:faunawatch/features/notifications/views/notification_navigation.dart';
-import 'package:faunawatch/features/notifications/views/notifications_view.dart';
 import 'package:faunawatch/features/push/viewmodels/push_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
 import 'package:faunawatch/features/settings/views/ai_key_settings_view.dart';
@@ -76,7 +75,6 @@ class _ShellViewState extends ConsumerState<ShellView> {
             const MessagesView(),
             // "+" opens FaunaLens on top instead of a tab.
             const SizedBox.shrink(),
-            const NotificationsView(),
             const ProfileView(),
             const _PlaceholderDestinationView(
               title: 'Alerts View',

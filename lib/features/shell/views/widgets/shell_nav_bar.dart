@@ -5,7 +5,6 @@ import 'package:faunawatch/core/widgets/local_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
-import 'package:faunawatch/features/notifications/viewmodels/notifications_viewmodel.dart';
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_picture_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
@@ -16,8 +15,9 @@ const double _addButtonRise = 22;
 const double _notchHalfWidth = 48;
 const double _notchDepth = 38;
 
-/// Custom bottom navigation bar with Feed, Chats, Notifs, and Profile items
-/// around a raised Add post button that sits in a notch at the top of the bar.
+/// Custom bottom navigation bar with Feed and Chats on the left and Profile on
+/// the right of a raised Add post button that sits in a notch at the top of
+/// the bar. Notifications open from the bell in the Feed top bar.
 class ShellNavBar extends ConsumerWidget {
   const ShellNavBar({
     super.key,
@@ -31,7 +31,6 @@ class ShellNavBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pictureState = ref.watch(profilePictureViewModelProvider);
-    final hasUnreadNotifications = ref.watch(hasUnreadNotificationsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
@@ -56,37 +55,45 @@ class ShellNavBar extends ConsumerWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                // Each side of the Add post button gets half of the bar, so
+                // the gap stays under the button whatever the item count.
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavItem(
-                      context: context,
-                      destination: ShellDestination.feed,
-                      label: 'Feed',
-                      unpressedAsset: AppAssets.navFeedUnpressed,
-                      pressedAsset: AppAssets.navFeedPressed,
-                      isDark: isDark,
-                    ),
-                    _buildNavItem(
-                      context: context,
-                      destination: ShellDestination.chats,
-                      label: 'Chats',
-                      unpressedAsset: AppAssets.navChatsUnpressed,
-                      pressedAsset: AppAssets.navChatsPressed,
-                      isDark: isDark,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          _buildNavItem(
+                            context: context,
+                            destination: ShellDestination.feed,
+                            label: 'Feed',
+                            unpressedAsset: AppAssets.navFeedUnpressed,
+                            pressedAsset: AppAssets.navFeedPressed,
+                            isDark: isDark,
+                          ),
+                          _buildNavItem(
+                            context: context,
+                            destination: ShellDestination.chats,
+                            label: 'Chats',
+                            unpressedAsset: AppAssets.navChatsUnpressed,
+                            pressedAsset: AppAssets.navChatsPressed,
+                            isDark: isDark,
+                          ),
+                        ],
+                      ),
                     ),
                     // Keeps the items clear of the Add post button.
                     const SizedBox(width: _notchHalfWidth * 2),
-                    _buildNavItem(
-                      context: context,
-                      destination: ShellDestination.notifs,
-                      label: 'Notifs',
-                      unpressedAsset: AppAssets.navNotifsUnpressed,
-                      pressedAsset: AppAssets.navNotifsPressed,
-                      hasBadge: hasUnreadNotifications,
-                      isDark: isDark,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          _buildProfileItem(
+                            context,
+                            pictureState,
+                            isDark: isDark,
+                          ),
+                        ],
+                      ),
                     ),
-                    _buildProfileItem(context, pictureState, isDark: isDark),
                   ],
                 ),
               ),
@@ -111,7 +118,6 @@ class ShellNavBar extends ConsumerWidget {
     required String unpressedAsset,
     required String pressedAsset,
     required bool isDark,
-    bool hasBadge = false,
   }) {
     final isSelected = currentDestination == destination;
 
@@ -128,31 +134,11 @@ class ShellNavBar extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Image.asset(
-                    isSelected ? pressedAsset : unpressedAsset,
-                    width: 24,
-                    height: 24,
-                    fit: BoxFit.contain,
-                  ),
-                  if (hasBadge)
-                    Positioned(
-                      top: -1,
-                      right: -1,
-                      child: Container(
-                        key: const Key('notifs_red_badge'),
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: AppColors.notifsBadgeRed,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                      ),
-                    ),
-                ],
+              Image.asset(
+                isSelected ? pressedAsset : unpressedAsset,
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
               ),
               const SizedBox(height: 3),
               Container(

@@ -27,6 +27,7 @@ import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
+import 'package:faunawatch/features/notifications/services/notifications_service.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +36,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 
 import '../fake_feed_service.dart';
+import '../../notifications/fake_notifications_service.dart';
 
 void main() {
   late FakeFeedService service;
@@ -858,8 +860,16 @@ void main() {
     testWidgets('the shell header shows the logo and the wordmark', (
       tester,
     ) async {
+      // The header reads the unread notifications for its bell.
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(appBar: ShellHeader())),
+        ProviderScope(
+          overrides: [
+            notificationsServiceProvider.overrideWithValue(
+              FakeNotificationsService(),
+            ),
+          ],
+          child: const MaterialApp(home: Scaffold(appBar: ShellHeader())),
+        ),
       );
       bool showsAsset(Widget widget, String asset) =>
           widget is Image &&

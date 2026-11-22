@@ -238,7 +238,7 @@ final notificationsViewModelProvider =
     );
 
 /// Reactive provider indicating whether there are any unread notifications.
-/// Used by ShellNavBar to show or hide the red circle notification badge.
+/// Used by the Feed top bar (ShellHeader) to show or hide the bell's red dot.
 final hasUnreadNotificationsProvider = Provider<bool>((ref) {
   final state = ref.watch(notificationsViewModelProvider);
   return state.hasUnread;

@@ -342,6 +342,13 @@ actor, time) instead of a new row ("<name> liked your report", then "<name> and
 N others liked your report" by the number of likes from other users). The body
 is the report's species, else its category (reports have no title column).
 
+Notifications are not a bottom-bar tab (the bar is Feed · Chats | + | Profile,
+each side half the bar so "+" stays centred). A bell to the right of the search
+box in the Feed top bar (`ShellHeader`, on both Map and For You; not on other
+tabs) shows a red dot while anything is unread (`hasUnreadNotificationsProvider`)
+and pushes `NotificationsView` as a page on top, with a back arrow; Back returns
+to Feed and is not a shell history step. Tapping a chat notification there
+closes the page before switching the shell to Chats.
 The list's header menu has "Clear all": after a confirmation dialog the service
 deletes all of the user's notification rows (including unloaded older pages; RLS
 allows deleting own rows) and the ViewModel empties the list and unread count.

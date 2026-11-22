@@ -10,9 +10,8 @@ import 'package:faunawatch/features/notifications/views/widgets/notification_act
 import 'package:faunawatch/features/notifications/views/widgets/notification_tile.dart';
 import 'package:faunawatch/features/notifications/views/widgets/notifications_filter_chips.dart';
 import 'package:faunawatch/features/notifications/views/widgets/notifications_header.dart';
-import 'package:faunawatch/features/profile_customization/viewmodels/profile_picture_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
-import 'package:faunawatch/features/shell/views/widgets/shell_nav_bar.dart';
+import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import '../fake_notifications_service.dart';
 
 void main() {
@@ -572,61 +571,109 @@ void main() {
     });
   });
 
-  group('ShellNavBar Notification Red Badge Integration', () {
-    testWidgets(
-      'red circle badge appears on Notifs nav bar icon when unread notifications exist and disappears when read or deleted',
-      (tester) async {
-        const items = [
-          NotificationItem(
-            id: 'n1',
-            title: 'Badge Alert',
-            message: 'Has unread',
-            timestamp: 'Now',
-            isUnread: true,
-          ),
-        ];
+  group('Feed top bar bell', () {
+    const badge = Key('notifications_unread_badge');
 
-        // The nav bar next to the notifications list, without the other
-        // shell tabs (which need Supabase and Mapbox). The nav bar also reads
-        // the profile picture state, so that ViewModel is faked.
+    // The Feed top bar alone, without the shell's tabs (which need Supabase
+    // and Mapbox).
+    Widget buildTopBar(List<NotificationItem> items) => ProviderScope(
+      overrides: [
+        notificationsServiceProvider.overrideWithValue(
+          FakeNotificationsService(items: items),
+        ),
+      ],
+      child: const MaterialApp(
+        home: Scaffold(appBar: ShellHeader(), body: SizedBox.expand()),
+      ),
+    );
+
+    testWidgets(
+      'shows a red dot while anything is unread and opens the list as a page '
+      'with a back arrow',
+      (tester) async {
         await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              notificationsServiceProvider.overrideWithValue(
-                FakeNotificationsService(items: items),
-              ),
-              profilePictureViewModelProvider.overrideWith(
-                _FakeProfilePictureViewModel.new,
-              ),
-            ],
-            child: MaterialApp(
-              home: Scaffold(
-                body: const NotificationsView(),
-                bottomNavigationBar: ShellNavBar(
-                  currentDestination: ShellDestination.notifs,
-                  onSelectDestination: (_) {},
-                ),
-              ),
+          buildTopBar(const [
+            NotificationItem(
+              id: 'n1',
+              title: 'Badge Alert',
+              message: 'Has unread',
+              timestamp: 'Now',
+              isUnread: true,
             ),
-          ),
+          ]),
         );
         await tester.pumpAndSettle();
+        expect(find.byKey(badge), findsOneWidget);
 
-        // Check badge exists on navbar
-        expect(find.byKey(const Key('notifs_red_badge')), findsOneWidget);
+        await tester.tap(find.byTooltip('Notifications'));
+        await tester.pumpAndSettle();
+        expect(find.byType(NotificationsView), findsOneWidget);
+        expect(find.byType(ShellHeader), findsNothing);
 
-        // Tap the notification to mark it as read
+        // Opening it marks it read.
         await tester.tap(find.text('Badge Alert'));
         await tester.pumpAndSettle();
 
-        // Badge should disappear!
-        expect(find.byKey(const Key('notifs_red_badge')), findsNothing);
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
+        expect(find.byType(NotificationsView), findsNothing);
+        expect(find.byType(ShellHeader), findsOneWidget);
+        expect(find.byKey(badge), findsNothing);
       },
     );
-  });
-}
 
-class _FakeProfilePictureViewModel extends ProfilePictureViewModel {
-  @override
-  ProfilePictureState build() => const ProfilePictureState();
+    testWidgets('shows no red dot when everything is read', (tester) async {
+      await tester.pumpWidget(
+        buildTopBar(const [
+          NotificationItem(
+            id: 'n1',
+            title: 'Old news',
+            message: 'Already read',
+            timestamp: 'Now',
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(badge), findsNothing);
+      expect(find.byTooltip('Notifications'), findsOneWidget);
+    });
+
+    testWidgets('a chat notification closes the list and switches to Chats', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildTopBar(const [
+          NotificationItem(
+            id: 'n1',
+            title: 'New message',
+            message: 'Hello',
+            timestamp: 'Now',
+            isUnread: true,
+            type: NotificationType.chat,
+            threadId: 't1',
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Notifications'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('New message'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationsView), findsNothing);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ShellHeader)),
+      );
+      expect(container.read(shellViewModelProvider), ShellDestination.chats);
+    });
+
+    testWidgets('the list shows no back arrow when it is not a page', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestNotificationsView());
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Back'), findsNothing);
+    });
+  });
 }
