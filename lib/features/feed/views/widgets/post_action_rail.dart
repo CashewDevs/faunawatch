@@ -103,7 +103,8 @@ class _RailAction extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          // 32 dp icons + 8 dp each side: the recommended 48 dp touch width.
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

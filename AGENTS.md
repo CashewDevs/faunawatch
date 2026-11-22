@@ -55,6 +55,13 @@ This repository contains the FaunaWatch mobile application.
   `onTokenRefresh` in favour of Firebase Installation IDs; the FCM HTTP v1
   sender needs registration tokens, so the deprecated calls are used (with
   `ignore` comments) in `FirebasePushMessagingService` only.
+- Fonts: `google_fonts` with DM Sans bundled in `assets/google_fonts/` (weights
+  400-900 and italic 400-600, named as `google_fonts` expects, e.g.
+  `DMSans-SemiBold.ttf`; licence `OFL.txt` registered in `main`), so text never
+  waits for a download. A new weight or family must be added there too, or it
+  is fetched at runtime (Inter, used on two FaunaLens screens, still is).
+  `test/flutter_test_config.dart` loads the bundled DM Sans before each widget
+  test file, so a font never arrives halfway through a test.
 - External links (provider key consoles and terms): `url_launcher`, already
   pulled in by `supabase_flutter`, used only through `ExternalLinkService`
   in `lib/core/services/`.

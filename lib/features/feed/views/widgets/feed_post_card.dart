@@ -3,10 +3,12 @@ import 'package:faunawatch/features/feed/views/widgets/post_action_rail.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_caption.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_image_carousel.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/feed/views/screens/post_photo_viewer.dart';
 import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
 
 /// A full-bleed post: edge-to-edge photos, a caption below them, and an action
-/// rail floating over the right edge.
+/// rail floating over the right edge. Each photo is shown whole (portrait
+/// photos are not cropped), and tapping one opens it full screen.
 class FeedPostCard extends StatelessWidget {
   const FeedPostCard({
     super.key,
@@ -42,8 +44,13 @@ class FeedPostCard extends StatelessWidget {
                 key: ValueKey(post.id),
                 imageUrls: post.photoUrls,
                 counterOnRight: true,
-                fit: BoxFit.fitWidth,
+                fit: BoxFit.contain,
                 backgroundColor: backgroundColor,
+                onOpen: (index) => PostPhotoViewer.show(
+                  context,
+                  post.photoUrls,
+                  initialIndex: index,
+                ),
               ),
             ),
             Padding(
