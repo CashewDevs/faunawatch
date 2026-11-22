@@ -63,6 +63,20 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+# App icon shown on the phone's home screen. The source pictures live in
+# assets/launcher_icon/ (build-time only, not bundled into the app).
+# After changing them, run: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/launcher_icon/app_icon.png"
+  android: "ic_launcher"
+  adaptive_icon_background: "assets/launcher_icon/app_icon_background.png"
+  adaptive_icon_foreground: "assets/launcher_icon/app_icon_foreground.png"
+  # The foreground picture already leaves room for Android's hidden border.
+  adaptive_icon_foreground_inset: 0
+  ios: true
+  remove_alpha_ios: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

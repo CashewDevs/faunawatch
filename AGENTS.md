@@ -173,6 +173,16 @@ faunawatch/
 - Place static media files in `assets/` categorized by type: `images/`,
   `icons/`, and `animations/`.
 - Register all asset directories under `flutter.assets` in `pubspec.yaml`.
+  Exception: `assets/launcher_icon/` holds the home-screen app icon sources
+  (`app_icon.png` full icon, plus `app_icon_foreground.png` /
+  `app_icon_background.png` for Android adaptive icons). They are build-time
+  only, so they are not registered or bundled. After changing them, run
+  `dart run flutter_launcher_icons` (config in `pubspec.yaml`). The tool
+  rewrites `ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json`,
+  adds unused legacy iOS sizes (50/57/72), and changes
+  `ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS` in
+  `ios/Runner.xcodeproj/project.pbxproj`; revert those and keep only the
+  regenerated PNGs.
 - Never hardcode raw asset path strings directly in Views. Define and
   reference them as typed static constants in
   `lib/core/constants/app_assets.dart`.
