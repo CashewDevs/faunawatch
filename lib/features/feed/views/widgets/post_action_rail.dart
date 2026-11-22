@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/animated_heart.dart';
+import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
 import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
 
-/// Author picture and engagement actions floating over a post's photos.
+/// Author picture, engagement actions and (when the post has one) the AI
+/// analysis button, floating over a post's photos.
 ///
 /// The rail has no background, so a contrasting glow keeps theme-colored icons
 /// readable over both the photo and the screen background.
@@ -52,8 +54,8 @@ class PostActionRail extends ConsumerWidget {
         ),
         const SizedBox(height: 6),
         _RailAction(
-          label: post.likedByMe ? 'Unlike' : 'Like',
-          count: post.likeCount,
+          label: '${post.likedByMe ? 'Unlike' : 'Like'}, ${post.likeCount}',
+          caption: formatCompactCount(post.likeCount),
           shadows: shadows,
           onTap:
               onLike ??
@@ -68,12 +70,25 @@ class PostActionRail extends ConsumerWidget {
           ),
         ),
         _RailAction(
-          label: 'Comments',
-          count: post.commentCount,
+          label: 'Comments, ${post.commentCount}',
+          caption: formatCompactCount(post.commentCount),
           shadows: shadows,
           onTap: onComments ?? () => PostCommentsSheet.show(context, post.id),
           child: Icon(Icons.sms, color: color, size: 32, shadows: shadows),
         ),
+        if (post.aiAnalysis != null)
+          _RailAction(
+            label: 'AI analysis',
+            caption: 'AI',
+            shadows: shadows,
+            onTap: () => PostAiAnalysisSheet.show(context, post.aiAnalysis!),
+            child: Icon(
+              Icons.auto_awesome,
+              color: color,
+              size: 32,
+              shadows: shadows,
+            ),
+          ),
       ],
     );
   }
@@ -82,13 +97,17 @@ class PostActionRail extends ConsumerWidget {
 class _RailAction extends StatelessWidget {
   const _RailAction({
     required this.label,
-    required this.count,
+    required this.caption,
     required this.shadows,
     required this.onTap,
     required this.child,
   });
+
+  /// What screen readers announce, e.g. "Comments, 3".
   final String label;
-  final int count;
+
+  /// The short text under the icon, e.g. a count.
+  final String caption;
   final List<Shadow> shadows;
   final VoidCallback onTap;
   final Widget child;
@@ -97,7 +116,7 @@ class _RailAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '$label, $count',
+      label: label,
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
@@ -111,7 +130,7 @@ class _RailAction extends StatelessWidget {
               child,
               const SizedBox(height: 2),
               Text(
-                formatCompactCount(count),
+                caption,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   shadows: shadows,
