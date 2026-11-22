@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_spot_sheet.dart';
+import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
 import 'package:faunawatch/features/fauna_guard/viewmodels/fauna_guard_viewmodel.dart';
 import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_intro_dialog.dart';
 import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_status.dart';
@@ -82,12 +85,46 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   Navigator.pop(dialogContext);
                   viewModel.seeMore();
                 },
+                onAuthorTap: (authorId) {
+                  // The Profile tab is behind the card, so close it first.
+                  // A public profile opens on top; Back returns to the card.
+                  if (authorId == ref.read(currentUserIdProvider).valueOrNull) {
+                    Navigator.pop(dialogContext);
+                  }
+                  viewModel.openAuthor(
+                    authorId,
+                    (id) => openPublicProfile(dialogContext, id),
+                  );
+                },
               ),
             ),
           ),
     );
     _postDialogOpen = false;
     if (mounted) viewModel.dismissPost();
+  }
+
+  /// Lists the posts sharing the tapped pin; picking one opens its card.
+  Future<void> _openSpot() async {
+    final spot = ref.read(communityMapViewModelProvider).selectedSpot;
+    if (spot == null) return;
+    final viewModel = ref.read(communityMapViewModelProvider.notifier);
+    final postId = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+      ),
+      builder: (sheetContext) => MapSpotSheet(
+        spot: spot,
+        onPick: (id) => Navigator.pop(sheetContext, id),
+      ),
+    );
+    if (!mounted) return;
+    viewModel.dismissSpot();
+    if (postId != null) viewModel.selectPost(postId);
   }
 
   void _openMapGuide() {
@@ -137,6 +174,10 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
       if (next.selectedPostId != null &&
           previous?.selectedPostId != next.selectedPostId) {
         _openPost();
+      }
+      if (next.selectedSpot != null &&
+          previous?.selectedSpot != next.selectedSpot) {
+        _openSpot();
       }
     });
     final state = ref.watch(communityMapViewModelProvider);

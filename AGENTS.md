@@ -577,8 +577,9 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   Names use the same fallbacks as `list_chat_threads()` (username, full name,
   display name, "FaunaWatch user"); avatars are `profiles.avatar_path`, either
   `preset:<name>` or a signed `avatars` bucket path. Only the feed changed:
-  `community_reports()` (the map) still returns no author, and the map's preview
-  stays anonymous.
+  `community_reports()` (the map) still returns no author; the map's dialog
+  and shared-pin list read the poster from `community_feed()` instead (see the
+  map notes below).
 - **Location:** the feed returns `reports.place_name` exactly as stored (it is
   not split into city and province, because missing parts make that unreliable)
   and shows "Approximate location" when it is null. It never returns exact
@@ -648,11 +649,37 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   refresh; everything is forgotten on account changes. The layer picks each
   feature's picture from its `icon` property (`report-photo-<id>` or the logo). There
   are no sample pins, simulated positions, or demo warning zones.
-  Pin dialogs load the first available post photo on demand through
-  `MapPostThumbnailViewModel` and the existing `FeedService.fetchPost` signed-URL
-  flow. URLs are discarded when the dialog closes and reloaded on account
-  changes. Previews stay anonymous and show a placeholder when no photo is
-  attached or available; a failed photo load can be retried.
+  **Shared pins:** posts whose rounded points are equal (2 decimals,
+  `CommunityReport.spotKey`) would sit exactly on top of each other, so
+  `groupReportsBySpot` (`models/map_pin_spot.dart`) makes one `MapPinSpot` per
+  point, newest first by `created_at`. Only exact matches are grouped (decided
+  2026-11-22); nearby points stay separate pins. The spot's pin is the newest
+  post's (its id and photo; only spot tops load photos). Spots with more than
+  one post get a red count badge ("2" to "9", then "9+") from a second layer
+  `community-report-counts` (filter `count > 1`, `icon-offset` to the head's top
+  right). The badge is a picture (`createCountBadgeImage`, 48 px at 2x), not map
+  text, because Mapbox Standard map text has had glyph issues. Tapping a pin calls
+  `CommunityMapViewModel.onPinTap`: one post opens its dialog, several set
+  `selectedSpot` and open `MapSpotSheet` (photo, category, poster and the start
+  of the description per row). Picking a row closes the sheet and opens that
+  post's dialog.
+  **Reload:** the map is kept alive, so opening the Map tab (a
+  `shellViewModelProvider` change to `map`) reloads the reports unless the last
+  successful load was under `CommunityMapViewModel.reloadAfter` (30 s) ago
+  (`communityMapClockProvider` for tests). The Refresh button still reloads at
+  any time.
+  Pin dialogs load the post on demand through `mapPostProvider` (the existing
+  `FeedService.fetchPost` signed-URL flow); `MapPostThumbnailViewModel` takes its
+  first photo, and `MapPostAuthor` shows the poster's name and avatar from the
+  same post. Tapping the name opens the poster's public profile on top of the
+  dialog, or closes it and selects the Profile tab for the signed-in user's own
+  posts (`CommunityMapViewModel.openAuthor`). Until the post loads, or if it
+  fails, the placeholder "Community spotter" shows without a link.
+  `community_reports()` itself still returns no author, so no migration is
+  needed (decided 2026-11-22: the feed already shows the name with the rounded
+  location, so the map card reveals nothing new). URLs are discarded when the
+  dialog or sheet closes and reloaded on account changes. A placeholder shows
+  when no photo is attached or available; a failed load can be retried.
 
 FaunaGuard lives in `lib/features/fauna_guard/`
 (Model → Service → ViewModel → View), integrated into the community map.
@@ -770,7 +797,7 @@ category is read-only while the analysis is attached, keeps its value when the
 analysis is detached, and is then editable again.
 Approved reports
 are loaded for the map through `community_reports()`, preserving its approximate
-coordinates and returning no author (the For You feed shows authors, see above). The map refresh action reloads approvals.
+coordinates and returning no author (the For You feed shows authors, see above). The map refresh action and opening the Map tab reload approvals.
 Observation locations are selected in a map picker (tap to pin, city/address
 search, or current GPS); the form does not expose coordinate entry.
 The picker opens in 3D and automatically centers on device GPS when available,

@@ -44,8 +44,9 @@ class MapGuideSheet extends StatelessWidget {
               icon: Icons.location_on_outlined,
               title: 'Find reported encounters',
               description:
-                  'Approved reports appear as FaunaWatch logo pins at approximate locations. '
-                  'Use Refresh to load newly approved posts. New submissions remain pending until reviewed.',
+                  "Approved reports appear as pins with the post's photo (or the FaunaWatch logo) at approximate locations. "
+                  'A number on a pin means several posts share that spot; tap it to see them all. '
+                  'The map loads newly approved posts when you open it, or tap Refresh. New submissions remain pending until reviewed.',
             ),
             const SizedBox(height: 20),
             const _GuideStep(

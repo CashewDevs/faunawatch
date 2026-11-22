@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/models/map_pin_spot.dart';
 import 'package:faunawatch/features/community_map/services/map_pin_photo_service.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
@@ -64,6 +65,13 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       dismissPrivateFocus();
       _forgetPinPhotos();
     });
+    // The map stays alive in the background, so posts approved meanwhile
+    // appear when it is opened again.
+    ref.listen(shellViewModelProvider, (previous, next) {
+      if (next == ShellDestination.map && previous != ShellDestination.map) {
+        _refreshIfStale();
+      }
+    });
     ref.onDispose(() {
       _disposed = true;
       _mapboxMapService.detach();
@@ -71,12 +79,43 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     return const CommunityMapState();
   }
 
+  /// Opening the Map tab reloads the posts unless they loaded this recently,
+  /// so switching tabs back and forth does not reload every time.
+  static const reloadAfter = Duration(seconds: 30);
+
+  /// When the posts last loaded successfully.
+  DateTime? _loadedAt;
+
+  void _refreshIfStale() {
+    final loadedAt = _loadedAt;
+    final now = ref.read(communityMapClockProvider)();
+    if (loadedAt != null && now.difference(loadedAt) < reloadAfter) return;
+    unawaited(refreshReports());
+  }
+
   /// Connects the platform map after it has been created.
   Future<void> onMapCreated(MapboxMap mapboxMap) async {
     _isStyleLoaded = false;
     _hasCenteredReports = false;
-    await _mapboxMapService.attach(mapboxMap, onPostTap: selectPost);
+    await _mapboxMapService.attach(mapboxMap, onPostTap: onPinTap);
   }
+
+  /// A tapped pin: one post opens its card; several open their list.
+  void onPinTap(String postId) {
+    if (_disposed) return;
+    final spot = groupReportsBySpot(
+      state.reports,
+    ).where((spot) => spot.reports.any((r) => r.id == postId)).firstOrNull;
+    if (spot == null) return;
+    if (spot.count == 1) {
+      selectPost(postId);
+    } else {
+      state = state.copyWith(selectedSpot: spot, clearSelectedPost: true);
+    }
+  }
+
+  /// Closes the list of posts sharing a pin.
+  void dismissSpot() => state = state.copyWith(clearSelectedSpot: true);
 
   void selectPost(String postId) {
     if (!_disposed && state.reports.any((report) => report.id == postId)) {
@@ -85,6 +124,20 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   }
 
   void dismissPost() => state = state.copyWith(clearSelectedPost: true);
+
+  /// Opens the poster's profile from a pin's card or list: the signed-in
+  /// user's own goes to the Profile tab, anyone else's to their public
+  /// profile through [openOtherProfile].
+  void openAuthor(String authorId, void Function(String) openOtherProfile) {
+    if (authorId.trim().isEmpty) return;
+    if (authorId == ref.read(currentUserIdProvider).valueOrNull) {
+      ref
+          .read(shellViewModelProvider.notifier)
+          .selectDestination(ShellDestination.profile);
+    } else {
+      openOtherProfile(authorId);
+    }
+  }
 
   /// Opens the tapped report in the For You feed.
   void seeMore() {
@@ -268,8 +321,11 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
 
   Future<void> _loadVisiblePhotos() async {
     final generation = _photoGeneration;
+    // A shared pin shows only its newest post's photo.
     final waiting = [
-      for (final report in state.reports)
+      for (final report in groupReportsBySpot(
+        state.reports,
+      ).map((spot) => spot.top))
         if (report.photoPath != null &&
             !_pinPhotos.containsKey(report.id) &&
             !_failedPhotos.contains(report.id))
@@ -346,6 +402,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
             !ref.read(faunaGuardViewModelProvider).isEnabled,
       );
       if (!_disposed) {
+        _loadedAt = ref.read(communityMapClockProvider)();
         if (reports.isNotEmpty) _hasCenteredReports = true;
         state = state.copyWith(
           reports: List.unmodifiable(reports),
@@ -402,6 +459,11 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     );
   }
 }
+
+/// The current time, injectable so tests can check [CommunityMapViewModel.reloadAfter].
+final communityMapClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
 
 /// Provider exposing the community-map presentation state and actions.
 final communityMapViewModelProvider =

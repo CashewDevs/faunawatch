@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/community_map/models/map_post_preview.dart';
 import 'package:faunawatch/features/community_map/viewmodels/map_post_thumbnail_viewmodel.dart';
+import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Anonymous details for an approved report, with a link to its full feed post.
+/// Details for an approved report, with its poster and a link to its full
+/// feed post. The location stays rounded to about 1 km.
 class MapPostDialog extends ConsumerWidget {
   const MapPostDialog({
     super.key,
     required this.preview,
     required this.onSeeMore,
     this.onThumbnailReady,
+    this.onAuthorTap,
   });
   final MapPostPreview preview;
   final VoidCallback onSeeMore;
   final VoidCallback? onThumbnailReady;
+
+  /// Opens the poster's profile, given their user id.
+  final void Function(String authorId)? onAuthorTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -132,12 +138,12 @@ class MapPostDialog extends ConsumerWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            preview.author,
-                            style: theme.textTheme.labelLarge,
-                          ),
                           const SizedBox(height: 4),
+                          MapPostAuthor(
+                            postId: preview.id,
+                            fallbackName: preview.author,
+                            onTap: onAuthorTap,
+                          ),
                           Text(
                             preview.location,
                             style: theme.textTheme.bodySmall,
@@ -163,6 +169,71 @@ class MapPostDialog extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The poster's picture and name, loaded with the post from the feed. Until
+/// then, or if it fails, [fallbackName] shows without a link.
+class MapPostAuthor extends ConsumerWidget {
+  const MapPostAuthor({
+    super.key,
+    required this.postId,
+    required this.fallbackName,
+    this.onTap,
+  });
+
+  final String postId, fallbackName;
+  final void Function(String authorId)? onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final post = ref.watch(mapPostProvider(postId)).valueOrNull;
+    final name = post?.authorName ?? fallbackName;
+    final authorId = post?.authorId ?? '';
+    final canOpen = onTap != null && authorId.isNotEmpty;
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PostAvatar(
+            size: 28,
+            url: post?.authorAvatarUrl,
+            asset: post?.authorAvatarAsset,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!canOpen) return row;
+    return Semantics(
+      button: true,
+      label: "Open $name's profile",
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => onTap!(authorId),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            widthFactor: 1,
+            child: row,
+          ),
         ),
       ),
     );
