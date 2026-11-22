@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/create_post_state.dart';
 import '../models/post_draft.dart';
 import '../models/post_location.dart';
+import '../models/post_photo_source.dart';
 import '../viewmodels/create_post_viewmodel.dart';
 import 'screens/location_picker_screen.dart';
 import 'widgets/animated_check.dart';
@@ -71,6 +72,17 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
   }
 
   void _exit(CreatePostExit exit) => Navigator.of(context).pop(exit);
+
+  Future<void> _addPhoto() async {
+    final source = await showModalBottomSheet<PostPhotoSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const _PhotoSourceSheet(),
+    );
+    if (mounted && source != null) {
+      await ref.read(createPostViewModelProvider.notifier).addPhotos(source);
+    }
+  }
 
   void _showTips() {
     showModalBottomSheet<void>(
@@ -150,7 +162,12 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
             children: [
               PostPhotoSection(
                 photoPath: state.photoPath,
+                extraPhotoPaths: state.extraPhotoPaths,
+                freeSlots: state.freePhotoSlots,
+                notice: state.photoNotice,
                 onRemove: busy ? null : vm.removePhoto,
+                onRemoveExtra: busy ? null : vm.removeExtraPhoto,
+                onAddPhoto: busy ? null : _addPhoto,
                 onChangePhoto: busy
                     ? null
                     : () => _exit(CreatePostExit.changePhoto),
@@ -401,6 +418,35 @@ class _Submitted extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Asks where an extra photo should come from.
+class _PhotoSourceSheet extends StatelessWidget {
+  const _PhotoSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.of(context).pop(PostPhotoSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.of(context).pop(PostPhotoSource.gallery),
+            ),
+          ],
         ),
       ),
     );

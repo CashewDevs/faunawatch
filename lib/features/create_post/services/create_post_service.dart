@@ -27,28 +27,33 @@ class SupabaseCreatePostService implements CreatePostService {
       throw const PostSubmissionException('Sign in to create a post.');
     }
     final row = draft.toRow(user.id);
-    final PreparedPostPhoto? photo;
-    try {
-      photo = draft.photoPath == null
-          ? null
-          : await _photos.prepare(draft.photoPath!);
-      if (photo != null &&
-          photo.bytes.length > DevicePostPhotoService.maxBytes) {
-        throw const FormatException(
-          'The processed photo exceeds 5 MB. Choose a smaller photo.',
+    final paths = draft.photoPaths;
+    // Every photo is prepared before anything is saved, so a bad photo stops
+    // the post early.
+    final photos = <PreparedPostPhoto>[];
+    for (var i = 0; i < paths.length; i++) {
+      // With several photos, say which one is the problem.
+      final which = paths.length == 1 ? '' : 'Photo ${i + 1}: ';
+      try {
+        final photo = await _photos.prepare(paths[i]);
+        if (photo.bytes.length > DevicePostPhotoService.maxBytes) {
+          throw const FormatException(
+            'The processed photo exceeds 5 MB. Choose a smaller photo.',
+          );
+        }
+        photos.add(photo);
+      } on FormatException catch (error) {
+        throw PostSubmissionException('$which${error.message}');
+      } catch (_) {
+        throw PostSubmissionException(
+          '${which}Could not read this photo. Choose another photo.',
         );
       }
-    } on FormatException catch (error) {
-      throw PostSubmissionException(error.message);
-    } catch (_) {
-      throw const PostSubmissionException(
-        'Could not read this photo. Choose another photo.',
-      );
     }
     // Each lookup is billed, so it waits until the post has passed every check.
     final placeName = await _placeNames.lookup(draft.latitude, draft.longitude);
     String? reportId;
-    String? storagePath;
+    final storagePaths = <String>[];
     try {
       final report = await _client
           .from('reports')
@@ -56,10 +61,14 @@ class SupabaseCreatePostService implements CreatePostService {
           .select('id')
           .single();
       reportId = report['id'] as String;
-      if (photo != null) {
+      // One photo at a time, cover first: the feed, the map pin and the admin
+      // site order photos by when their row was saved.
+      for (var i = 0; i < photos.length; i++) {
+        final photo = photos[i];
         // {report_id}/{filename}: the path carries no user id.
         // Storage only accepts uploads while the report is still pending.
-        storagePath = '$reportId/photo.webp';
+        final storagePath = '$reportId/photo-${i + 1}.webp';
+        storagePaths.add(storagePath);
         await _client.storage
             .from('report-images')
             .uploadBinary(
@@ -99,9 +108,9 @@ class SupabaseCreatePostService implements CreatePostService {
     } catch (_) {
       // Storage and Postgres do not share a transaction. Remove partial writes.
       var cleanupFailed = false;
-      if (storagePath != null) {
+      if (storagePaths.isNotEmpty) {
         try {
-          await _client.storage.from('report-images').remove([storagePath]);
+          await _client.storage.from('report-images').remove(storagePaths);
         } catch (_) {
           cleanupFailed = true;
         }

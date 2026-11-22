@@ -26,17 +26,26 @@ class PostDraft {
     this.description = '',
     this.species = '',
     this.notes = '',
-    this.photoPath,
+    this.photoPaths = const [],
     this.aiResult,
   });
+
+  /// The most photos one post can have. The database refuses more.
+  static const maxPhotos = 3;
 
   final ReportCategory category;
   final double latitude, longitude;
   final String description, species, notes;
-  final String? photoPath;
 
-  /// The FaunaLens analysis of [photoPath], saved to `ai_analyses` with the
-  /// report. Only kept with the photo it describes.
+  /// The post's photos in order. The first is the cover: it is uploaded
+  /// first, so the feed, the map pin and the admin site show it first.
+  final List<String> photoPaths;
+
+  /// The cover photo, if there is one.
+  String? get photoPath => photoPaths.isEmpty ? null : photoPaths.first;
+
+  /// The FaunaLens analysis of the cover photo, saved to `ai_analyses` with
+  /// the report. Only kept with the photo it describes.
   final AiIdentification? aiResult;
 
   /// The analysis to save, if any. Ignored without its photo.
@@ -53,6 +62,9 @@ class PostDraft {
   Map<String, dynamic> toRow(String userId) {
     if (!validCoordinates(latitude, longitude)) {
       throw ArgumentError('A valid report location is required.');
+    }
+    if (photoPaths.length > maxPhotos) {
+      throw ArgumentError('A post can have up to $maxPhotos photos.');
     }
     String? optional(String value) =>
         value.trim().isEmpty ? null : value.trim();

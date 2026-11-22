@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
+import 'package:faunawatch/features/create_post/models/create_post_state.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/create_post/models/post_location.dart';
+import 'package:faunawatch/features/create_post/models/post_photo_source.dart';
 import 'package:faunawatch/features/create_post/services/create_post_service.dart';
 import 'package:faunawatch/features/create_post/services/location_preview_service.dart';
+import 'package:faunawatch/features/create_post/services/post_photo_picker_service.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
@@ -50,8 +53,32 @@ class FakePicker implements ImagePickerService {
   Future<String?> pickImage() async => path;
 }
 
+class FakePostPhotoPicker implements PostPhotoPickerService {
+  String? taken;
+  List<String> picked = [];
+  final tooLarge = <String>{};
+  final limits = <int>[];
+  Object? error;
+  @override
+  Future<String?> takePhoto() async {
+    if (error != null) throw error!;
+    return taken;
+  }
+
+  @override
+  Future<List<String>> pickPhotos({required int limit}) async {
+    limits.add(limit);
+    if (error != null) throw error!;
+    return picked;
+  }
+
+  @override
+  Future<bool> isTooLarge(String path) async => tooLarge.contains(path);
+}
+
 void main() {
   late ProviderContainer container;
+  late FakePostPhotoPicker photoPicker;
   late FakeCreatePostService service;
   late FakeLocations locations;
   late FakePicker picker;
@@ -59,12 +86,14 @@ void main() {
     service = FakeCreatePostService();
     locations = FakeLocations();
     picker = FakePicker();
+    photoPicker = FakePostPhotoPicker();
     container = ProviderContainer(
       overrides: [
         currentUserIdProvider.overrideWith((ref) => const Stream.empty()),
         createPostServiceProvider.overrideWithValue(service),
         photoLocationServiceProvider.overrideWithValue(locations),
         imagePickerServiceProvider.overrideWithValue(picker),
+        postPhotoPickerServiceProvider.overrideWithValue(photoPicker),
       ],
     );
   });
@@ -542,4 +571,134 @@ void main() {
       );
     },
   );
+
+  group('extra photos', () {
+    CreatePostState read() => container.read(createPostViewModelProvider);
+    CreatePostViewModel vm() =>
+        container.read(createPostViewModelProvider.notifier);
+
+    test('need a cover photo first', () async {
+      photoPicker.picked = ['a.jpg'];
+      await vm().addPhotos(PostPhotoSource.gallery);
+      expect(read().extraPhotoPaths, isEmpty);
+      expect(photoPicker.limits, isEmpty);
+    });
+
+    test('are added after the cover and submitted in order', () async {
+      vm().usePhoto(_galleryPhoto);
+      photoPicker.picked = ['a.jpg', 'b.jpg'];
+      await vm().addPhotos(PostPhotoSource.gallery);
+      expect(photoPicker.limits, [2]);
+      expect(read().photoPaths, ['bird.jpg', 'a.jpg', 'b.jpg']);
+      expect(read().freePhotoSlots, 0);
+      expect(read().photoNotice, isNull);
+      vm().edit(
+        category: ReportCategory.animalInNeed,
+        latitude: '10',
+        longitude: '123',
+      );
+      expect(await vm().submit(), isTrue);
+      expect(service.drafts.single.photoPaths, ['bird.jpg', 'a.jpg', 'b.jpg']);
+    });
+
+    test('from the camera add one photo', () async {
+      vm().usePhoto(_galleryPhoto);
+      photoPicker.taken = 'shot.jpg';
+      await vm().addPhotos(PostPhotoSource.camera);
+      expect(read().extraPhotoPaths, ['shot.jpg']);
+      photoPicker.taken = null; // cancelled
+      await vm().addPhotos(PostPhotoSource.camera);
+      expect(read().extraPhotoPaths, ['shot.jpg']);
+      expect(read().photoNotice, isNull);
+    });
+
+    test('beyond the limit are left out with a note', () async {
+      vm().usePhoto(_galleryPhoto);
+      // Some phones ignore the picker's limit.
+      photoPicker.picked = ['a.jpg', 'b.jpg', 'c.jpg'];
+      await vm().addPhotos(PostPhotoSource.gallery);
+      expect(read().extraPhotoPaths, ['a.jpg', 'b.jpg']);
+      expect(
+        read().photoNotice,
+        'A post can have up to 3 photos. 1 photo was left out.',
+      );
+    });
+
+    test('over 5 MB are left out with a note', () async {
+      vm().usePhoto(_galleryPhoto);
+      photoPicker.picked = ['big.jpg', 'a.jpg'];
+      photoPicker.tooLarge.add('big.jpg');
+      await vm().addPhotos(PostPhotoSource.gallery);
+      expect(read().extraPhotoPaths, ['a.jpg']);
+      expect(read().photoNotice, '1 photo was over 5 MB and left out.');
+      // The note clears with the next change.
+      vm().edit(description: 'Bird');
+      expect(read().photoNotice, isNull);
+    });
+
+    test('when full, adding only says so', () async {
+      vm().usePhoto(_galleryPhoto);
+      photoPicker.picked = ['a.jpg', 'b.jpg'];
+      await vm().addPhotos(PostPhotoSource.gallery);
+      await vm().addPhotos(PostPhotoSource.gallery);
+      expect(photoPicker.limits, [2]);
+      expect(read().photoNotice, 'A post can have up to 3 photos.');
+    });
+
+    test('a picker failure keeps the photos and shows a note', () async {
+      vm().usePhoto(_galleryPhoto);
+      photoPicker.error = StateError('denied');
+      await vm().addPhotos(PostPhotoSource.camera);
+      expect(read().photoPaths, ['bird.jpg']);
+      expect(read().isBusy, isFalse);
+      expect(read().photoNotice, contains('camera'));
+    });
+
+    test('can be removed one by one', () async {
+      vm().usePhoto(_galleryPhoto);
+      photoPicker.picked = ['a.jpg', 'b.jpg'];
+      await vm().addPhotos(PostPhotoSource.gallery);
+      vm().removeExtraPhoto(0);
+      expect(read().photoPaths, ['bird.jpg', 'b.jpg']);
+      vm().removeExtraPhoto(5); // out of range: ignored
+      expect(read().photoPaths, ['bird.jpg', 'b.jpg']);
+    });
+
+    test('stay when FaunaLens replaces the cover', () async {
+      vm().usePhoto(_galleryPhoto);
+      photoPicker.picked = ['a.jpg'];
+      await vm().addPhotos(PostPhotoSource.gallery);
+      vm().usePhoto(
+        const FaunaLensPhoto(
+          path: 'new.jpg',
+          source: FaunaLensPhotoSource.camera,
+        ),
+      );
+      expect(read().photoPaths, ['new.jpg', 'a.jpg']);
+    });
+
+    test(
+      'removing the cover moves the next photo up and drops the AI',
+      () async {
+        vm().usePhoto(_galleryPhoto, aiResult: sampleIdentification());
+        photoPicker.picked = ['a.jpg', 'b.jpg'];
+        await vm().addPhotos(PostPhotoSource.gallery);
+        vm().removePhoto();
+        expect(read().photoPaths, ['a.jpg', 'b.jpg']);
+        expect(read().aiResult, isNull);
+        vm().removePhoto();
+        vm().removePhoto();
+        expect(read().photoPaths, isEmpty);
+        expect(read().freePhotoSlots, 0);
+      },
+    );
+
+    test('are cleared by reset', () async {
+      vm().usePhoto(_galleryPhoto);
+      photoPicker.picked = ['a.jpg'];
+      await vm().addPhotos(PostPhotoSource.gallery);
+      vm().reset();
+      expect(read().photoPaths, isEmpty);
+    });
+  });
 }
