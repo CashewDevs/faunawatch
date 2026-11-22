@@ -13,12 +13,20 @@ import '../fauna_lens/ai_fakes.dart';
 
 class _Photos implements PostPhotoService {
   int size = 3;
+  final prepared = <String>[];
+
+  /// A photo that cannot be read.
+  String? unreadable;
   @override
-  Future<PreparedPostPhoto> prepare(String path) async => PreparedPostPhoto(
-    bytes: Uint8List(size),
-    fingerprint: 'test-fingerprint',
-    exif: {'gps_latitude': 10.1234, 'gps_longitude': 123.1234},
-  );
+  Future<PreparedPostPhoto> prepare(String path) async {
+    prepared.add(path);
+    if (path == unreadable) throw StateError('corrupt');
+    return PreparedPostPhoto(
+      bytes: Uint8List(size),
+      fingerprint: 'fingerprint-$path',
+      exif: {'gps_latitude': 10.1234, 'gps_longitude': 123.1234},
+    );
+  }
 }
 
 class _PlaceNames implements PlaceNameService {
@@ -187,23 +195,23 @@ void main() {
         category: ReportCategory.animalInNeed,
         latitude: 10,
         longitude: 123,
-        photoPath: 'original.jpg',
+        photoPaths: ['original.jpg'],
       ),
     );
     expect(requests.map((r) => r.$2), [
       '/rest/v1/reports',
-      '/storage/v1/object/report-images/report-1/photo.webp',
+      '/storage/v1/object/report-images/report-1/photo-1.webp',
       '/rest/v1/report_images',
       '/rest/v1/report_image_exif',
     ]);
     final image = requests[2].$3 as Map;
     // No user id in the path, so shared photos don't reveal the reporter.
-    expect(image['storage_path'], 'report-1/photo.webp');
+    expect(image['storage_path'], 'report-1/photo-1.webp');
     expect(image['content_type'], 'image/webp');
     expect(latin1.decode(requests[1].$3 as List<int>), contains('image/webp'));
     expect(image['size_bytes'], photos.size);
     expect(_uploadedPhotoBytes(requests[1].$3), List.filled(photos.size, 0));
-    expect(image['fingerprint'], 'test-fingerprint');
+    expect(image['fingerprint'], 'fingerprint-original.jpg');
     expect(image.containsKey('gps_latitude'), isFalse);
     expect((requests[3].$3 as Map)['gps_latitude'], 10.1234);
   });
@@ -217,7 +225,7 @@ void main() {
           category: ReportCategory.animalInNeed,
           latitude: 10,
           longitude: 123,
-          photoPath: 'original.jpg',
+          photoPaths: ['original.jpg'],
         ),
       ),
       throwsA(isA<PostSubmissionException>()),
@@ -234,7 +242,7 @@ void main() {
       category: ReportCategory.possibleInvasiveSpecies,
       latitude: 10,
       longitude: 123,
-      photoPath: 'original.jpg',
+      photoPaths: ['original.jpg'],
       aiResult: sampleIdentification(invasive: true),
     );
 
@@ -243,7 +251,7 @@ void main() {
       expect(await service.submit(withAnalysis), 'report-1');
       expect(requests.map((r) => r.$2), [
         '/rest/v1/reports',
-        '/storage/v1/object/report-images/report-1/photo.webp',
+        '/storage/v1/object/report-images/report-1/photo-1.webp',
         '/rest/v1/report_images',
         '/rest/v1/report_image_exif',
         '/rest/v1/ai_analyses',
@@ -293,6 +301,95 @@ void main() {
     });
   });
 
+  group('several photos', () {
+    const threePhotos = PostDraft(
+      category: ReportCategory.animalInNeed,
+      latitude: 10,
+      longitude: 123,
+      photoPaths: ['cover.jpg', 'second.jpg', 'third.jpg'],
+    );
+
+    test('are uploaded one at a time, cover first', () async {
+      await signIn();
+      expect(await service.submit(threePhotos), 'report-1');
+      expect(photos.prepared, ['cover.jpg', 'second.jpg', 'third.jpg']);
+      expect(requests.map((r) => r.$2), [
+        '/rest/v1/reports',
+        for (var n = 1; n <= 3; n++) ...[
+          '/storage/v1/object/report-images/report-1/photo-$n.webp',
+          '/rest/v1/report_images',
+          '/rest/v1/report_image_exif',
+        ],
+      ]);
+      final images = [
+        for (final r in requests)
+          if (r.$2 == '/rest/v1/report_images') r.$3 as Map,
+      ];
+      expect(images.map((i) => i['storage_path']), [
+        'report-1/photo-1.webp',
+        'report-1/photo-2.webp',
+        'report-1/photo-3.webp',
+      ]);
+      expect(images.map((i) => i['fingerprint']), [
+        'fingerprint-cover.jpg',
+        'fingerprint-second.jpg',
+        'fingerprint-third.jpg',
+      ]);
+    });
+
+    test('a bad photo is named and stops the post before any write', () async {
+      await signIn();
+      photos.unreadable = 'second.jpg';
+      await expectLater(
+        service.submit(threePhotos),
+        throwsA(
+          isA<PostSubmissionException>().having(
+            (e) => e.message,
+            'message',
+            startsWith('Photo 2: '),
+          ),
+        ),
+      );
+      expect(requests, isEmpty);
+      expect(placeNames.lookups, isEmpty);
+    });
+
+    test('a failure removes every uploaded photo and the report', () async {
+      await signIn();
+      failPath = '/storage/v1/object/report-images/report-1/photo-2.webp';
+      await expectLater(
+        service.submit(threePhotos),
+        throwsA(isA<PostSubmissionException>()),
+      );
+      final deletes = requests.where((r) => r.$1 == 'DELETE').toList();
+      expect(deletes.map((r) => r.$2), [
+        '/storage/v1/object/report-images',
+        '/rest/v1/reports',
+      ]);
+      // Photo 1 was saved and photo 2 failed partway; photo 3 never started.
+      expect((deletes.first.$3 as Map)['prefixes'], [
+        'report-1/photo-1.webp',
+        'report-1/photo-2.webp',
+      ]);
+    });
+
+    test('more than three never reach the database', () async {
+      await signIn();
+      await expectLater(
+        service.submit(
+          const PostDraft(
+            category: ReportCategory.animalInNeed,
+            latitude: 10,
+            longitude: 123,
+            photoPaths: ['1.jpg', '2.jpg', '3.jpg', '4.jpg'],
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(requests, isEmpty);
+    });
+  });
+
   test(
     'processed upload over 5 MB is rejected before any remote write',
     () async {
@@ -304,7 +401,7 @@ void main() {
             category: ReportCategory.animalInNeed,
             latitude: 10,
             longitude: 123,
-            photoPath: 'original.jpg',
+            photoPaths: ['original.jpg'],
           ),
         ),
         throwsA(
@@ -328,7 +425,7 @@ void main() {
         category: ReportCategory.animalInNeed,
         latitude: 10,
         longitude: 123,
-        photoPath: 'original.jpg',
+        photoPaths: ['original.jpg'],
       ),
     );
     expect(

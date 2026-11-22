@@ -9,8 +9,10 @@ import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart';
 import '../models/create_post_state.dart';
 import '../models/post_draft.dart';
 import '../models/post_location.dart';
+import '../models/post_photo_source.dart';
 import '../services/create_post_service.dart';
 import '../services/location_preview_service.dart';
+import '../services/post_photo_picker_service.dart';
 
 class CreatePostViewModel extends Notifier<CreatePostState> {
   var _request = 0;
@@ -74,6 +76,8 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
       species: state.species,
       notes: state.notes,
       photoPath: photo.path,
+      // "Change photo" swaps only the cover; photos added on the form stay.
+      extraPhotoPaths: state.extraPhotoPaths,
       aiResult: aiResult,
       latitude:
           gps?.latitude.toString() ?? (keepLocation ? state.latitude : ''),
@@ -111,11 +115,88 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
     );
   }
 
+  /// Removes the cover photo and its AI analysis. The first extra photo, if
+  /// any, becomes the cover.
   void removePhoto() {
-    if (!state.isBusy) {
-      _request++;
-      state = state.copyWith(clearPhoto: true);
+    if (state.isBusy) return;
+    _request++;
+    final extras = state.extraPhotoPaths;
+    state = state.copyWith(
+      clearPhoto: true,
+      photoPath: extras.isEmpty ? null : extras.first,
+      extraPhotoPaths: extras.isEmpty ? null : extras.sublist(1),
+    );
+  }
+
+  /// Removes the extra photo at [index] (0 is the first photo after the
+  /// cover).
+  void removeExtraPhoto(int index) {
+    final extras = state.extraPhotoPaths;
+    if (state.isBusy || index < 0 || index >= extras.length) return;
+    _request++;
+    state = state.copyWith(extraPhotoPaths: [...extras]..removeAt(index));
+  }
+
+  /// Adds photos after the cover from the camera or the gallery, up to
+  /// [PostDraft.maxPhotos] in all. Photos over 5 MB, and any beyond the
+  /// limit, are left out with a note saying so.
+  Future<void> addPhotos(PostPhotoSource source) async {
+    if (state.isBusy || state.submittedId != null) return;
+    final free = state.freePhotoSlots;
+    if (free <= 0) {
+      if (state.photoPath != null) {
+        state = state.copyWith(photoNotice: _photoLimitNote);
+      }
+      return;
     }
+    final request = ++_request;
+    state = state.copyWith(isBusy: true);
+    final picker = ref.read(postPhotoPickerServiceProvider);
+    final kept = <String>[];
+    var tooLarge = 0, overLimit = 0;
+    try {
+      final picked = switch (source) {
+        PostPhotoSource.camera => [?await picker.takePhoto()],
+        PostPhotoSource.gallery => await picker.pickPhotos(limit: free),
+      };
+      for (final path in picked) {
+        if (kept.length == free) {
+          overLimit++;
+        } else if (await picker.isTooLarge(path)) {
+          tooLarge++;
+        } else {
+          kept.add(path);
+        }
+      }
+    } catch (_) {
+      if (_disposed || request != _request) return;
+      state = state.copyWith(
+        isBusy: false,
+        photoNotice: source == PostPhotoSource.camera
+            ? 'Could not open the camera. Please try again.'
+            : 'Could not open your photos. Please try again.',
+      );
+      return;
+    }
+    if (_disposed || request != _request) return;
+    state = state.copyWith(
+      isBusy: false,
+      extraPhotoPaths: [...state.extraPhotoPaths, ...kept],
+      photoNotice: _leftOutNote(tooLarge: tooLarge, overLimit: overLimit),
+    );
+  }
+
+  static const _photoLimitNote =
+      'A post can have up to ${PostDraft.maxPhotos} photos.';
+
+  static String? _leftOutNote({required int tooLarge, required int overLimit}) {
+    String photos(int count) =>
+        count == 1 ? '1 photo was' : '$count photos were';
+    final notes = [
+      if (tooLarge > 0) '${photos(tooLarge)} over 5 MB and left out.',
+      if (overLimit > 0) '$_photoLimitNote ${photos(overLimit)} left out.',
+    ];
+    return notes.isEmpty ? null : notes.join(' ');
   }
 
   /// Leaves the FaunaLens analysis out of the post. The photo and any
@@ -172,7 +253,7 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
       description: state.description,
       species: state.species,
       notes: state.notes,
-      photoPath: state.photoPath,
+      photoPaths: state.photoPaths,
       aiResult: state.aiResult,
     );
     state = state.copyWith(isBusy: true);

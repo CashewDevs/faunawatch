@@ -16,7 +16,8 @@ import 'package:faunawatch/features/create_post/views/widgets/location_picker_ca
 import 'package:faunawatch/features/create_post/views/screens/location_picker_screen.dart';
 import 'location_picker_fakes.dart';
 import 'create_post_viewmodel_test.dart'
-    show FakeCreatePostService, FakeLocations;
+    show FakeCreatePostService, FakeLocations, FakePostPhotoPicker;
+import 'package:faunawatch/features/create_post/services/post_photo_picker_service.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/photo_location_service.dart';
 import '../fauna_lens/ai_fakes.dart' show sampleIdentification;
@@ -55,7 +56,10 @@ void main() {
     return () => exit;
   }
 
-  ProviderContainer makeContainer({FakeCreatePostService? service}) {
+  ProviderContainer makeContainer({
+    FakeCreatePostService? service,
+    FakePostPhotoPicker? photoPicker,
+  }) {
     final map = FakePickerMap();
     final container = ProviderContainer(
       overrides: [
@@ -64,6 +68,9 @@ void main() {
           service ?? FakeCreatePostService(),
         ),
         photoLocationServiceProvider.overrideWithValue(FakeLocations()),
+        postPhotoPickerServiceProvider.overrideWithValue(
+          photoPicker ?? FakePostPhotoPicker(),
+        ),
         locationSearchServiceProvider.overrideWithValue(FakePlaceSearch()),
         locationPickerMapServiceProvider.overrideWithValue(map),
         locationPickerCanvasBuilderProvider.overrideWithValue(
@@ -191,6 +198,36 @@ void main() {
     await tester.tap(find.text('Add a photo'));
     await tester.pumpAndSettle();
     expect(exit(), CreatePostExit.changePhoto);
+  });
+
+  testWidgets('adds photos from the gallery and removes one', (tester) async {
+    final photoPicker = FakePostPhotoPicker()..picked = ['a.jpg', 'b.jpg'];
+    final container = makeContainer(photoPicker: photoPicker);
+    await openAsPage(tester, container);
+    container.read(createPostViewModelProvider.notifier).usePhoto(birdPhoto);
+    await tester.pump();
+    expect(find.text('1 of 3 photos. The first photo is the cover.'), findsOne);
+
+    await tester.tap(find.text('Add photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose from gallery'));
+    await tester.pumpAndSettle();
+    expect(container.read(createPostViewModelProvider).photoPaths, [
+      'bird.jpg',
+      'a.jpg',
+      'b.jpg',
+    ]);
+    expect(find.text('3 of 3 photos. The first photo is the cover.'), findsOne);
+    // Full: no more "Add photo" tile.
+    expect(find.text('Add photo'), findsNothing);
+
+    await tester.tap(find.byTooltip('Remove photo 2'));
+    await tester.pump();
+    expect(container.read(createPostViewModelProvider).photoPaths, [
+      'bird.jpg',
+      'b.jpg',
+    ]);
+    expect(find.text('Add photo'), findsOne);
   });
 
   testWidgets('the title is on the left, and (i) shows the posting tips', (

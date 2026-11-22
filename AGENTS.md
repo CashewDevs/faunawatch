@@ -769,8 +769,20 @@ SHA-256 fingerprints of the uploaded WebP bytes. `flutter_image_compress` 2.5.1+
 supplies the Android/iOS WebP
 encoder (including AGP 9 compatibility and iOS Swift Package Manager support).
 Only a resized, metadata-free PNG in memory is passed to the encoder; the
-uploaded file is `photo.webp` with MIME type `image/webp`. The bucket already
+uploaded files are `photo-1.webp` to `photo-3.webp` with MIME type `image/webp`
+(posts made before multi-photo posts use `photo.webp`). The bucket already
 allows WebP, and existing uploaded files keep their original formats.
+A post has up to 3 photos (`PostDraft.maxPhotos`). The first is the cover: the
+FaunaLens photo, the only one the AI analyses and whose GPS sets the location.
+Up to 2 more are added on the form through `PostPhotoPickerService` (camera or
+gallery via `image_picker`, several at once, at most 2048 px), each checked
+against 5 MB when picked; they can only be removed, and removing the cover moves
+the next photo up and drops the analysis. All photos are prepared before
+anything is saved, then uploaded and their `report_images` rows inserted one at
+a time, cover first, because `community_feed()`, `community_reports()` and the
+admin site order photos by `created_at, id`. Apply
+`20261122100000_limit_report_photos_to_three.sql` to refuse a 4th
+`report_images` row per report.
 Post photos are limited to 5 MB
 (5,242,880 bytes) for both input files and processed uploads. Files are uploaded
 to the private `report-images` bucket; `report_images` stores their Storage paths

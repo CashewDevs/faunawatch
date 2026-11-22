@@ -12,6 +12,8 @@ class CreatePostState {
     this.species = '',
     this.notes = '',
     this.photoPath,
+    this.extraPhotoPaths = const [],
+    this.photoNotice,
     this.aiResult,
     this.isBusy = false,
     this.error,
@@ -23,12 +25,27 @@ class CreatePostState {
 
   final ReportCategory? category;
   final String latitude, longitude, description, species, notes;
+
+  /// The cover photo: the one from FaunaLens, which the AI looked at.
   final String? photoPath, error, submittedId;
+
+  /// Photos added on the form after the cover, in the order they were added.
+  final List<String> extraPhotoPaths;
+
+  /// Why some picked photos were left out; shown under the photos.
+  final String? photoNotice;
 
   /// The FaunaLens analysis of [photoPath], if the user chose to use it.
   final AiIdentification? aiResult;
   final bool isBusy;
   final String locationLabel;
+
+  /// Every photo in upload order, the cover first.
+  List<String> get photoPaths => [?photoPath, ...extraPhotoPaths];
+
+  /// How many more photos fit. Extras need a cover first.
+  int get freePhotoSlots =>
+      photoPath == null ? 0 : PostDraft.maxPhotos - photoPaths.length;
 
   PostLocation? get location => hasLocation
       ? PostLocation(
@@ -61,6 +78,8 @@ class CreatePostState {
     String? species,
     String? notes,
     String? photoPath,
+    List<String>? extraPhotoPaths,
+    String? photoNotice,
     bool clearPhoto = false,
     bool clearAiResult = false,
     bool? isBusy,
@@ -74,8 +93,10 @@ class CreatePostState {
     description: description ?? this.description,
     species: species ?? this.species,
     notes: notes ?? this.notes,
-    photoPath: clearPhoto ? null : photoPath ?? this.photoPath,
-    // The analysis describes one photo, so it goes with it.
+    photoPath: photoPath ?? (clearPhoto ? null : this.photoPath),
+    extraPhotoPaths: extraPhotoPaths ?? this.extraPhotoPaths,
+    photoNotice: photoNotice,
+    // The analysis describes the cover photo, so it goes with it.
     aiResult: clearPhoto || clearAiResult ? null : aiResult,
     isBusy: isBusy ?? this.isBusy,
     error: error,
