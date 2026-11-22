@@ -204,7 +204,7 @@ class _SafetyBanner extends StatelessWidget {
           Expanded(
             child: Text(
               'Stay at a safe distance. Never approach or handle the animal to get a photo.',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.dmSans(
                 color: Colors.white,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -245,7 +245,7 @@ class _ViewfinderGuide extends StatelessWidget {
         Text(
           'Fit the whole animal inside the frame.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.dmSans(
             color: Colors.white,
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -274,7 +274,7 @@ class _CameraUnavailable extends StatelessWidget {
               'permission in your device settings, or choose a photo from '
               'your gallery.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.dmSans(
                 color: Colors.white,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

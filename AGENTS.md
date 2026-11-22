@@ -59,7 +59,8 @@ This repository contains the FaunaWatch mobile application.
   400-900 and italic 400-600, named as `google_fonts` expects, e.g.
   `DMSans-SemiBold.ttf`; licence `OFL.txt` registered in `main`), so text never
   waits for a download. A new weight or family must be added there too, or it
-  is fetched at runtime (Inter, used on two FaunaLens screens, still is).
+  is fetched at runtime. The app uses DM Sans only (the FaunaLens camera and
+  "Use this photo?" screens used Inter until they were switched to DM Sans).
   `test/flutter_test_config.dart` loads the bundled DM Sans before each widget
   test file, so a font never arrives halfway through a test.
 - External links (provider key consoles and terms): `url_launcher`, already
