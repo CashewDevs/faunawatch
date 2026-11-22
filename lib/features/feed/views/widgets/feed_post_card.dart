@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
+import 'package:faunawatch/features/feed/views/widgets/double_tap_like.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_action_rail.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_caption.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_image_carousel.dart';
@@ -7,9 +10,10 @@ import 'package:faunawatch/features/feed/views/screens/post_photo_viewer.dart';
 import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
 
 /// A full-bleed post: edge-to-edge photos with an action rail floating over
-/// their lower right, and a full-width caption below them. Each photo is shown whole (portrait
-/// photos are not cropped), and tapping one opens it full screen.
-class FeedPostCard extends StatelessWidget {
+/// their lower right, and a full-width caption below them. Each photo is
+/// shown whole (portrait photos are not cropped). Tapping one opens it full
+/// screen, and double-tapping likes the post.
+class FeedPostCard extends ConsumerWidget {
   const FeedPostCard({
     super.key,
     required this.post,
@@ -27,13 +31,16 @@ class FeedPostCard extends StatelessWidget {
   final VoidCallback? onLocation;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // The shell extends its body behind the floating nav bar and reports the
     // bar's height through this padding.
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final openAuthor = post.authorId.isEmpty
         ? null
         : onAuthorTap ?? () => openPublicProfile(context, post.authorId);
+    final like =
+        onLike ??
+        () => ref.read(feedViewModelProvider.notifier).toggleLike(post.id);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -43,16 +50,20 @@ class FeedPostCard extends StatelessWidget {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: PostImageCarousel.network(
-                    key: ValueKey(post.id),
-                    imageUrls: post.photoUrls,
-                    counterOnRight: true,
-                    fit: BoxFit.contain,
-                    backgroundColor: backgroundColor,
-                    onOpen: (index) => PostPhotoViewer.show(
-                      context,
-                      post.photoUrls,
-                      initialIndex: index,
+                  child: DoubleTapLike(
+                    isLiked: post.likedByMe,
+                    onLike: like,
+                    child: PostImageCarousel.network(
+                      key: ValueKey(post.id),
+                      imageUrls: post.photoUrls,
+                      counterOnRight: true,
+                      fit: BoxFit.contain,
+                      backgroundColor: backgroundColor,
+                      onOpen: (index) => PostPhotoViewer.show(
+                        context,
+                        post.photoUrls,
+                        initialIndex: index,
+                      ),
                     ),
                   ),
                 ),
@@ -69,7 +80,7 @@ class FeedPostCard extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       child: PostActionRail(
                         post: post,
-                        onLike: onLike,
+                        onLike: like,
                         onComments: onComments,
                         onAuthorTap: openAuthor,
                       ),
