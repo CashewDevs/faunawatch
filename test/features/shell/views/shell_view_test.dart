@@ -20,6 +20,7 @@ import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canva
 import 'package:faunawatch/features/messages/views/messages_view.dart';
 import 'package:faunawatch/features/notifications/views/notifications_view.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
+import 'package:faunawatch/features/profile/views/widgets/profile_preferences_drawer.dart';
 import 'package:faunawatch/features/profile_customization/viewmodels/profile_picture_viewmodel.dart';
 import 'package:faunawatch/features/shell/views/search_view.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
@@ -485,6 +486,42 @@ void main() {
       }
       await tester.pumpWidget(const SizedBox());
       expect(windowSecurity.enableCalls, 0);
+    });
+
+    testWidgets('profile sidebar opens above the bottom navigation bar', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestShell());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Profile & preferences'));
+      await tester.pumpAndSettle();
+
+      final drawerFinder = find.byType(ProfilePreferencesDrawer);
+      expect(drawerFinder, findsOneWidget);
+      expect(find.text('Sign Out'), findsOneWidget);
+
+      // The sidebar stretches full height, overlapping above ShellNavBar.
+      final navRect = tester.getRect(find.byType(ShellNavBar));
+      final drawerRect = tester.getRect(drawerFinder);
+      expect(drawerRect.bottom, greaterThanOrEqualTo(navRect.bottom));
+
+      // Tapping where the Feed tab sits hits the modal barrier above the nav
+      // bar (closing the sidebar) instead of switching tabs.
+      await tester.tapAt(
+        tester.getCenter(
+          find.descendant(
+            of: find.byType(ShellNavBar),
+            matching: find.text('Feed'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(drawerFinder, findsNothing);
+      expect(find.byType(ProfileView), findsOneWidget);
     });
   });
 }

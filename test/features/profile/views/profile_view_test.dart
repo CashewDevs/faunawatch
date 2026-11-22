@@ -22,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/features/profile/views/edit_profile_view.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
 import 'package:faunawatch/features/profile/views/settings_view.dart';
+import 'package:faunawatch/features/welcome/views/welcome_view.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
@@ -404,8 +405,40 @@ void main() {
       expect(find.text('ACCOUNT'), findsOneWidget);
       expect(find.text('Change password'), findsOneWidget);
       expect(find.text('Theme Mode'), findsNothing);
-      expect(find.text('Sign Out'), findsOneWidget);
+      expect(find.text('Sign Out'), findsNothing);
     });
+
+    testWidgets(
+      'sidebar Sign Out shows confirmation dialog and redirects to WelcomeView',
+      (tester) async {
+        await tester.pumpWidget(buildTestProfile());
+        await tester.pumpAndSettle();
+
+        await openMenu(tester);
+        expect(find.text('Sign Out'), findsOneWidget);
+        expect(
+          tester.getBottomLeft(find.text('Sign Out')).dy,
+          greaterThan(tester.getBottomLeft(find.text('Settings')).dy),
+        );
+
+        await tester.tap(find.text('Sign Out'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'Are you sure you want to sign out? You will need to log back in to access your reports and messages.',
+          ),
+          findsOneWidget,
+        );
+
+        final confirmButton = find.widgetWithText(ElevatedButton, 'Sign Out');
+        expect(confirmButton, findsOneWidget);
+        await tester.tap(confirmButton);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(WelcomeView), findsOneWidget);
+      },
+    );
 
     testWidgets('phone-sized dark menu remains accessible and Back closes it', (
       tester,
