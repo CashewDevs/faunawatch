@@ -6,6 +6,7 @@ import '../../auth/fake_google_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/features/splash/views/splash_view.dart';
 import 'package:faunawatch/features/welcome/views/welcome_view.dart';
@@ -35,13 +36,13 @@ void main() {
     );
   }
 
+  final fox = find.image(const AssetImage(AppAssets.splashFox));
+  final wordmark = find.image(const AssetImage(AppAssets.splashWordmark));
+
   double nameOpacity(WidgetTester tester) => tester
       .widget<FadeTransition>(
         find
-            .ancestor(
-              of: find.text('FaunaWatch'),
-              matching: find.byType(FadeTransition),
-            )
+            .ancestor(of: wordmark, matching: find.byType(FadeTransition))
             .first,
       )
       .opacity
@@ -51,13 +52,16 @@ void main() {
     testWidgets('starts on the fox alone, then shows the name', (tester) async {
       await tester.pumpWidget(createWidgetUnderTest(autoNavigate: false));
 
-      expect(find.byType(Image), findsOneWidget);
+      expect(fox, findsOneWidget);
+      expect(wordmark, findsOneWidget);
       expect(nameOpacity(tester), 0);
       expect(find.text('Splash Screen Placeholder'), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
 
       await tester.pump(SplashView.introDuration);
       expect(nameOpacity(tester), 1);
+      // Screen readers say the wordmark's name once it is visible.
+      expect(find.bySemanticsLabel('FaunaWatch'), findsOneWidget);
     });
 
     testWidgets('waits for the intro even when sign-in is quick', (

@@ -15,8 +15,8 @@ import 'package:faunawatch/features/shell/views/shell_view.dart';
 ///
 /// Its first frame matches the phone's own loading screen (the icon's blue
 /// fade with the fox in the middle at [foxSize]), so opening the app looks
-/// like one motion: the fox pops, wiggles its head, and "FaunaWatch" slides
-/// up. If the sign-in check is still running, the fox breathes; a small
+/// like one motion: the fox pops, wiggles its head, and the "FaunaWatch"
+/// wordmark slides up. If the sign-in check is still running, the fox breathes; a small
 /// spinner appears only after [slowCheckDelay]. When the device asks for
 /// less motion, the final frame is shown at once.
 class SplashView extends ConsumerStatefulWidget {
@@ -32,6 +32,9 @@ class SplashView extends ConsumerStatefulWidget {
 
   /// The fox's size in points; the phone's loading screen uses the same size.
   static const foxSize = 144.0;
+
+  /// Width of the "FaunaWatch" wordmark under the fox (about 84 points tall).
+  static const wordmarkWidth = 200.0;
 
   @override
   ConsumerState<SplashView> createState() => _SplashViewState();
@@ -79,8 +82,9 @@ class _SplashViewState extends ConsumerState<SplashView>
     parent: _intro,
     curve: const Interval(0.6, 1, curve: Curves.easeOut),
   );
+  // Starts about 30 points below its place (0.35 of the wordmark's height).
   late final Animation<Offset> _nameSlide =
-      Tween<Offset>(begin: const Offset(0, 0.6), end: Offset.zero).animate(
+      Tween<Offset>(begin: const Offset(0, 0.35), end: Offset.zero).animate(
         CurvedAnimation(
           parent: _intro,
           curve: const Interval(0.6, 1, curve: Curves.easeOutCubic),
@@ -200,14 +204,11 @@ class _SplashViewState extends ConsumerState<SplashView>
                         opacity: _nameOpacity,
                         child: SlideTransition(
                           position: _nameSlide,
-                          child: Text(
-                            'FaunaWatch',
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
+                          child: Image.asset(
+                            AppAssets.splashWordmark,
+                            width: SplashView.wordmarkWidth,
+                            fit: BoxFit.contain,
+                            semanticLabel: 'FaunaWatch',
                           ),
                         ),
                       ),
