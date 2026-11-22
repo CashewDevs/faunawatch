@@ -354,6 +354,9 @@ between outline and filled, and the opened tab fades in (`ShellView`, about
 never fades or zooms in: Mapbox on Android is a native view (hybrid
 composition, the package default), and animating its opacity or size makes the
 map stutter.
+The top bar's search box shows a search icon and a muted "Search" hint (DM
+Sans); it is read out once as the "Search" button and shrinks (the hint ends
+in "…") only when a narrow phone has no room left, so the bell always fits.
 Notifications are not a bottom-bar tab. A bell to the right of the search
 box in the top bar (`ShellHeader`, shown on Feed and Map; not on other tabs)
 shows a red dot while anything is unread (`hasUnreadNotificationsProvider`)

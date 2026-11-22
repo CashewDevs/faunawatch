@@ -9,7 +9,7 @@ import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
@@ -442,6 +442,37 @@ void main() {
         expect(find.byType(ShellView), findsOneWidget);
       },
     );
+    testWidgets('the search pill shows a "Search" hint, announced once', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(buildTestShell());
+      await tester.pumpAndSettle();
+
+      final pill = find.byKey(const Key('shell_search_pill'));
+      expect(
+        find.descendant(of: pill, matching: find.text('Search')),
+        findsOneWidget,
+      );
+      // One "Search" button for screen readers, not the button plus its text.
+      expect(find.bySemanticsLabel('Search'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('the search pill and bell fit on a small phone', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildTestShell());
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.bySemanticsLabel('Notifications'), findsOneWidget);
+    });
+
     testWidgets('screenshots stay allowed on every tab, Profile included', (
       tester,
     ) async {
