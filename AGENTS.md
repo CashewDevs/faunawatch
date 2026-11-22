@@ -349,7 +349,10 @@ created on first use and then kept alive. Profile uses an outline person icon
 (filled when selected) in the colours of the other tab pictures. The selected
 tab sits in a rounded square that glides to the next tab, the icons fade
 between outline and filled, and the opened tab fades in (`ShellView`, about
-0.25 s); all of it is instant when the device asks for less motion.
+0.25 s); all of it is instant when the device asks for less motion. The Map tab
+never fades or zooms in: Mapbox on Android is a native view (hybrid
+composition, the package default), and animating its opacity or size makes the
+map stutter.
 Notifications are not a bottom-bar tab. A bell to the right of the search
 box in the top bar (`ShellHeader`, shown on Feed and Map; not on other tabs)
 shows a red dot while anything is unread (`hasUnreadNotificationsProvider`)

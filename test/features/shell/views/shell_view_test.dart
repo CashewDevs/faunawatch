@@ -237,6 +237,30 @@ void main() {
       expect(find.byType(MessagesView), findsOneWidget);
     });
 
+    testWidgets('the map appears at once while the squircle still glides', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestShell());
+      await tester.pumpAndSettle();
+      final feed = labelCenter(tester, 'Feed');
+
+      await tester.tap(find.text('Map'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      // Fading the native map view makes it stutter, so it is not faded.
+      expect(tabFadeOpacity(tester), 1);
+      expect(squircleCenter(tester), greaterThan(feed + 1));
+      expect(squircleCenter(tester), lessThan(labelCenter(tester, 'Map') - 1));
+
+      // Leaving the map still fades the next tab in.
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Chats'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tabFadeOpacity(tester), lessThan(1));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('nothing animates when the device asks for less motion', (
       tester,
     ) async {

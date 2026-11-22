@@ -60,8 +60,13 @@ class _ShellViewState extends ConsumerState<ShellView>
   }
 
   /// Fades the new tab in, unless the device asks for less motion.
-  void _playSwitch() {
-    if (MediaQuery.disableAnimationsOf(context)) {
+  ///
+  /// The map appears at once: on Android, Mapbox is a native view, and fading
+  /// or zooming it makes every frame blend that view again, so the map
+  /// stutters. Flutter-drawn tabs fade cheaply.
+  void _playSwitch(ShellDestination destination) {
+    if (destination == ShellDestination.map ||
+        MediaQuery.disableAnimationsOf(context)) {
       _switch.value = 1;
     } else {
       _switch.forward(from: 0);
@@ -85,7 +90,7 @@ class _ShellViewState extends ConsumerState<ShellView>
     if (currentDestination == ShellDestination.map) _mapOpened = true;
 
     ref.listen(shellViewModelProvider, (previous, next) {
-      if (previous != next) _playSwitch();
+      if (previous != next) _playSwitch(next);
     });
 
     // Screenshots are allowed on every tab, Profile included. Only the AI key
