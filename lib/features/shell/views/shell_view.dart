@@ -9,7 +9,6 @@ import 'package:faunawatch/features/messages/views/messages_view.dart';
 import 'package:faunawatch/features/notifications/views/notification_navigation.dart';
 import 'package:faunawatch/features/push/viewmodels/push_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
-import 'package:faunawatch/features/settings/views/ai_key_settings_view.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_nav_bar.dart';
@@ -137,11 +136,6 @@ class _ShellViewState extends ConsumerState<ShellView>
                 const SizedBox.shrink(),
                 const MessagesView(),
                 const ProfileView(),
-                const _PlaceholderDestinationView(
-                  title: 'Alerts View',
-                  icon: Icons.notifications_outlined,
-                ),
-                const AiKeySettingsView(),
               ],
             ),
           ),
@@ -191,34 +185,5 @@ class _ShellViewState extends ConsumerState<ShellView>
         ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
         SystemNavigator.pop();
     }
-  }
-}
-
-/// Internal placeholder widget for shell destinations before feature implementation.
-class _PlaceholderDestinationView extends StatelessWidget {
-  const _PlaceholderDestinationView({required this.title, required this.icon});
-
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 16),
-          Text(title, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Text(
-            'Feature pending implementation',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

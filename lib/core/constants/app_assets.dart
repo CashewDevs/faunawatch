@@ -75,8 +75,6 @@ abstract final class AppAssets {
   static const String navMapPressed = '$iconsPath/map2.webp';
   static const String navChatsUnpressed = '$iconsPath/chats1.webp';
   static const String navChatsPressed = '$iconsPath/chats2.webp';
-  static const String navNotifsUnpressed = '$iconsPath/notifs1.webp';
-  static const String navNotifsPressed = '$iconsPath/notifs2.webp';
 
   // Animations (Add Lottie / Rive animation paths here)
   // Example: static const String loadingSpinner = '$_animationsPath/loading.json';
