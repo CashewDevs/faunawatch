@@ -1,5 +1,6 @@
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
+import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
@@ -234,6 +235,98 @@ void main() {
 
     expect(service.searchedPaths, hasLength(2));
     expect(find.text('turtle'), findsOneWidget);
+  });
+
+  group('editing boxes', () {
+    final deleteRed = find.byKey(const ValueKey('delete_box_red'));
+
+    testWidgets('dragging a corner of the chosen box resizes it', (
+      tester,
+    ) async {
+      service.found = [sampleBox()];
+      await open(tester);
+      expect(deleteRed, findsOneWidget);
+      expect(find.textContaining('Drag a corner of the red box'), findsOne);
+
+      // The red box runs from (0.1, 0.2) to (0.5, 0.6).
+      await dragOnPhoto(tester, const Offset(0.5, 0.6), const Offset(0.7, 0.8));
+      await tester.tap(find.text('Analyse animal'));
+      await tester.pumpAndSettle();
+
+      final box = service.boxesAnalysed.single.single;
+      expect(box.name, 'turtle');
+      expect(box.left, closeTo(0.1, 0.01));
+      expect(box.top, closeTo(0.2, 0.01));
+      expect(box.right, closeTo(0.7, 0.01));
+      expect(box.bottom, closeTo(0.8, 0.01));
+    });
+
+    testWidgets('dragging inside the chosen box moves it', (tester) async {
+      service.found = [sampleBox()];
+      await open(tester);
+
+      await dragOnPhoto(tester, const Offset(0.3, 0.4), const Offset(0.4, 0.5));
+      await tester.tap(find.text('Analyse animal'));
+      await tester.pumpAndSettle();
+
+      final box = service.boxesAnalysed.single.single;
+      expect(box.left, closeTo(0.2, 0.01));
+      expect(box.top, closeTo(0.3, 0.01));
+      expect(box.right, closeTo(0.6, 0.01));
+      expect(box.bottom, closeTo(0.7, 0.01));
+    });
+
+    testWidgets('the delete button removes the box', (tester) async {
+      service.found = [
+        sampleBox(),
+        sampleBox(
+          color: AnimalBoxColor.blue,
+          name: 'heron',
+          left: 0.6,
+          right: 0.9,
+        ),
+      ];
+      await open(tester);
+      // Nothing is being edited until a box is chosen.
+      expect(deleteRed, findsNothing);
+
+      await tester.tap(find.text('turtle'));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Delete turtle, red box'), findsOneWidget);
+
+      await tester.tap(deleteRed);
+      await tester.pump();
+      expect(find.text('turtle'), findsNothing);
+      expect(find.text('heron'), findsOneWidget);
+      expect(deleteRed, findsNothing);
+      final analyse = tester.widget<PillButton>(
+        find.widgetWithText(PillButton, 'Analyse animal'),
+      );
+      expect(analyse.onPressed, isNull);
+    });
+
+    testWidgets('boxes that are not chosen cannot be dragged', (tester) async {
+      service.found = [
+        sampleBox(),
+        sampleBox(
+          color: AnimalBoxColor.blue,
+          name: 'heron',
+          left: 0.6,
+          right: 0.9,
+        ),
+      ];
+      await open(tester);
+
+      await dragOnPhoto(tester, const Offset(0.3, 0.4), const Offset(0.4, 0.5));
+      await tester.tap(find.text('turtle'));
+      await tester.pump();
+      await tester.tap(find.text('Analyse animal'));
+      await tester.pumpAndSettle();
+
+      final box = service.boxesAnalysed.single.single;
+      expect(box.left, closeTo(0.1, 1e-9));
+      expect(box.top, closeTo(0.2, 1e-9));
+    });
   });
 }
 

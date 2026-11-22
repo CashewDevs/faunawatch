@@ -761,7 +761,15 @@ providers. Each box has its own colour (`AnimalBoxColor`, at most six boxes). A
 single animal found is chosen automatically; the user can choose up to three
 (`AnimalBox.maxChosen`, because `ai_analyses.possible_species` holds at most three)
 and can draw boxes by hand. When nothing is found the screen offers "Draw a box" or
-"Retake photo". The chosen boxes are drawn on the resized copy sent to the AI
+"Retake photo". The chosen box last tapped on the photo, chosen in the list or
+drawn is the active box (`AnimalBoxesState.active`, always one of `chosen`): it
+shows four corner handles (drag to resize, `AnimalBox.resized`, never below
+`AnimalBox.minSize`), can be dragged from inside to move (`AnimalBox.moved`), and
+has a ✕ that deletes it (`deleteBox`, which unchooses it and frees its colour).
+On the photo, `tapBox` chooses an unchosen box, makes a chosen one active, and
+unchooses the active one; the chips under the photo still toggle in one tap
+(`toggle`). A resized or moved AI box keeps its name and colour, so it stays
+chosen (`updateBox`). The chosen boxes are drawn on the resized copy sent to the AI
 (`AiPhotoService.prepare(boxes:)`) and listed by colour and position in the
 prompt, which returns ONE combined analysis saved as ONE post: one animal gets up
 to three ranked guesses; several get one best guess each (the reply's `box` colour

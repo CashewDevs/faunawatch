@@ -13,6 +13,7 @@ class AnimalBoxesState {
     this.status = AnimalBoxesStatus.finding,
     this.boxes = const [],
     this.chosen = const {},
+    this.active,
     this.failure,
   });
 
@@ -23,6 +24,11 @@ class AnimalBoxesState {
 
   /// The colours of the boxes the user chose.
   final Set<AnimalBoxColor> chosen;
+
+  /// The colour of the box being edited: the chosen box the user last
+  /// tapped or drew. It shows resize handles and a delete button. Always one
+  /// of [chosen], or null.
+  final AnimalBoxColor? active;
 
   /// Why finding the animals failed, when [status] is failed.
   final IdentificationFailure? failure;
@@ -40,28 +46,48 @@ class AnimalBoxesState {
 
   bool isChosen(AnimalBox box) => chosen.contains(box.color);
 
+  /// The box being edited, or null.
+  AnimalBox? get activeBox {
+    for (final box in boxes) {
+      if (box.color == active) return box;
+    }
+    return null;
+  }
+
   bool get canAnalyse => !isFinding && chosen.isNotEmpty;
 
   /// Another box can be drawn while there is a colour left for it.
   bool get canDrawBox => !isFinding && boxes.length < AnimalBox.maxBoxes;
 
+  static const _keep = Object();
+
+  /// Pass `active: null` to clear the box being edited.
   AnimalBoxesState copyWith({
     AnimalBoxesStatus? status,
     List<AnimalBox>? boxes,
     Set<AnimalBoxColor>? chosen,
+    Object? active = _keep,
   }) => AnimalBoxesState(
     status: status ?? this.status,
     boxes: boxes ?? this.boxes,
     chosen: chosen ?? this.chosen,
+    active: identical(active, _keep) ? this.active : active as AnimalBoxColor?,
     failure: failure,
   );
 }
 
 /// What happened when the user tapped a box.
-enum ChooseBoxOutcome { chosen, unchosen, limitReached }
+enum ChooseBoxOutcome {
+  chosen,
+  unchosen,
+  limitReached,
+
+  /// An already chosen box became the one being edited.
+  activated,
+}
 
 /// Finds the animals in a FaunaLens photo and keeps track of which boxes the
-/// user chose and drew.
+/// user chose, drew, resized, moved and deleted.
 class AnimalBoxesViewModel extends AutoDisposeNotifier<AnimalBoxesState> {
   // Identifies the latest search, so an older reply can't replace a newer one.
   int _request = 0;
@@ -87,6 +113,9 @@ class AnimalBoxesViewModel extends AutoDisposeNotifier<AnimalBoxesState> {
     state = AnimalBoxesState(
       boxes: drawn,
       chosen: {for (final box in drawn) box.color},
+      active: drawn.any((box) => box.color == state.active)
+          ? state.active
+          : null,
     );
 
     AnimalBoxesState next;
@@ -110,18 +139,58 @@ class AnimalBoxesViewModel extends AutoDisposeNotifier<AnimalBoxesState> {
     state = next;
   }
 
-  /// Chooses or unchooses [box]. At most [AnimalBox.maxChosen] can be chosen.
+  /// Chooses or unchooses [box] in one tap (the list under the photo). A box
+  /// just chosen becomes the one being edited. At most [AnimalBox.maxChosen]
+  /// can be chosen.
   ChooseBoxOutcome toggle(AnimalBox box) {
     final chosen = {...state.chosen};
     if (chosen.remove(box.color)) {
-      state = state.copyWith(chosen: chosen);
+      state = state.copyWith(
+        chosen: chosen,
+        active: state.active == box.color ? null : state.active,
+      );
       return ChooseBoxOutcome.unchosen;
     }
     if (chosen.length >= AnimalBox.maxChosen) {
       return ChooseBoxOutcome.limitReached;
     }
-    state = state.copyWith(chosen: chosen..add(box.color));
+    state = state.copyWith(chosen: chosen..add(box.color), active: box.color);
     return ChooseBoxOutcome.chosen;
+  }
+
+  /// A tap on [box] on the photo. An unchosen box is chosen (and edited). A
+  /// chosen box becomes the one being edited, and tapping the box already
+  /// being edited unchooses it.
+  ChooseBoxOutcome tapBox(AnimalBox box) {
+    if (state.isChosen(box) && state.active != box.color) {
+      state = state.copyWith(active: box.color);
+      return ChooseBoxOutcome.activated;
+    }
+    return toggle(box);
+  }
+
+  /// Replaces the box of the same colour with [box], after the user resized
+  /// or moved it. It stays chosen. Returns false when no box has that colour
+  /// or [box] is outside the photo or smaller than [AnimalBox.minSize].
+  bool updateBox(AnimalBox box) {
+    final index = state.boxes.indexWhere((b) => b.color == box.color);
+    if (index < 0 || !box.isValid) return false;
+    state = state.copyWith(boxes: [...state.boxes]..[index] = box);
+    return true;
+  }
+
+  /// Removes the box of colour [color]. It is unchosen too, and its colour is
+  /// free for a new box.
+  void deleteBox(AnimalBoxColor color) {
+    if (!state.boxes.any((box) => box.color == color)) return;
+    state = state.copyWith(
+      boxes: [
+        for (final box in state.boxes)
+          if (box.color != color) box,
+      ],
+      chosen: {...state.chosen}..remove(color),
+      active: state.active == color ? null : state.active,
+    );
   }
 
   /// Adds a box the user drew between two corners, given as fractions of the
@@ -145,11 +214,11 @@ class AnimalBoxesViewModel extends AutoDisposeNotifier<AnimalBoxesState> {
       drawnByUser: true,
     );
     if (box == null) return false;
+    final isChosen = state.chosen.length < AnimalBox.maxChosen;
     state = state.copyWith(
       boxes: [...state.boxes, box],
-      chosen: state.chosen.length < AnimalBox.maxChosen
-          ? {...state.chosen, color}
-          : null,
+      chosen: isChosen ? {...state.chosen, color} : null,
+      active: isChosen ? color : state.active,
     );
     return true;
   }
@@ -172,11 +241,16 @@ class AnimalBoxesViewModel extends AutoDisposeNotifier<AnimalBoxesState> {
       );
     }
     final chosen = {...state.chosen};
-    if (boxes.length == 1) chosen.add(boxes.single.color);
+    var active = state.active;
+    if (boxes.length == 1) {
+      chosen.add(boxes.single.color);
+      active = boxes.single.color;
+    }
     return AnimalBoxesState(
       status: AnimalBoxesStatus.ready,
       boxes: boxes,
       chosen: chosen,
+      active: active,
     );
   }
 
@@ -184,6 +258,7 @@ class AnimalBoxesViewModel extends AutoDisposeNotifier<AnimalBoxesState> {
     status: AnimalBoxesStatus.failed,
     boxes: state.boxes,
     chosen: state.chosen,
+    active: state.active,
     failure: failure,
   );
 }

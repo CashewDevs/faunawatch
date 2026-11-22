@@ -15,7 +15,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// "Choose animals": the user's AI provider finds the animals in [photo] and
 /// boxes each in its own colour. The user picks up to three, or draws a box
-/// by hand, then opens the AI Result for them.
+/// by hand, then opens the AI Result for them. The chosen box last tapped or
+/// drawn can be resized by its corners, moved, or deleted with its ✕.
 ///
 /// Pops with the [AiResultChoice] made on the AI Result, or null on back.
 class FaunaLensBoxesScreen extends ConsumerStatefulWidget {
@@ -52,11 +53,15 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
       );
   }
 
-  void _toggle(AnimalBox box) {
-    if (_viewModel.toggle(box) == ChooseBoxOutcome.limitReached) {
+  void _toggle(AnimalBox box) => _afterChoosing(_viewModel.toggle(box));
+
+  void _tapBox(AnimalBox box) => _afterChoosing(_viewModel.tapBox(box));
+
+  void _afterChoosing(ChooseBoxOutcome outcome) {
+    if (outcome == ChooseBoxOutcome.limitReached) {
       _showMessage(
         'You can choose up to ${AnimalBox.maxChosen} animals. '
-        'Tap a chosen one to unchoose it first.',
+        'Tap a chosen name below to unchoose it first.',
       );
     }
   }
@@ -115,10 +120,13 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
                         path: widget.photo.path,
                         boxes: state.boxes,
                         chosen: state.chosen,
-                        onTapBox: _toggle,
+                        onTapBox: _tapBox,
                         isDrawing: _isDrawing,
                         drawingColor: AnimalBox.nextColor(state.boxes),
                         onBoxDrawn: _boxDrawn,
+                        active: state.active,
+                        onBoxChanged: _viewModel.updateBox,
+                        onDeleteBox: (box) => _viewModel.deleteBox(box.color),
                       ),
                       if (state.isFinding) const _FindingBadge(),
                     ],
@@ -232,6 +240,16 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
     }
     if (state.boxes.isEmpty) {
       return 'You can still draw a box around the animal yourself.';
+    }
+    final active = state.activeBox;
+    if (active != null) {
+      final edit =
+          'Drag a corner of the ${active.color.value} box to resize it, '
+          'or drag inside it to move it. Tap ✕ to delete it.';
+      return state.boxes.length > 1
+          ? 'Tap the animals you want to report, up to '
+                '${AnimalBox.maxChosen}. $edit'
+          : edit;
     }
     return 'Tap the animals you want to report, up to ${AnimalBox.maxChosen}. '
         'The AI will look only inside the boxes you choose.';

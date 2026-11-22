@@ -180,4 +180,127 @@ void main() {
     expect(AnimalBoxColor.parse('teal'), isNull);
     expect(AnimalBoxColor.parse(null), isNull);
   });
+
+  group('resizing and moving', () {
+    const box = AnimalBox(
+      left: 0.2,
+      top: 0.3,
+      right: 0.6,
+      bottom: 0.7,
+      color: AnimalBoxColor.green,
+      name: 'heron',
+    );
+    List<double> edges(AnimalBox b) => [b.left, b.top, b.right, b.bottom];
+
+    test('dragging a corner moves only that corner', () {
+      expect(edges(box.resized(BoxCorner.topLeft, 0.1, 0.2)), [
+        0.1,
+        0.2,
+        0.6,
+        0.7,
+      ]);
+      expect(edges(box.resized(BoxCorner.bottomRight, 0.8, 0.9)), [
+        0.2,
+        0.3,
+        0.8,
+        0.9,
+      ]);
+      expect(edges(box.resized(BoxCorner.topRight, 0.7, 0.25)), [
+        0.2,
+        0.25,
+        0.7,
+        0.7,
+      ]);
+      expect(edges(box.resized(BoxCorner.bottomLeft, 0.15, 0.75)), [
+        0.15,
+        0.3,
+        0.6,
+        0.75,
+      ]);
+    });
+
+    test('a resized box keeps its colour, name and who drew it', () {
+      final resized = box.resized(BoxCorner.topLeft, 0.1, 0.1);
+      expect(resized.color, AnimalBoxColor.green);
+      expect(resized.name, 'heron');
+      expect(resized.drawnByUser, isFalse);
+      const drawn = AnimalBox(
+        left: 0.1,
+        top: 0.1,
+        right: 0.3,
+        bottom: 0.3,
+        color: AnimalBoxColor.red,
+        drawnByUser: true,
+      );
+      expect(drawn.resized(BoxCorner.bottomRight, 0.5, 0.5).drawnByUser, true);
+      expect(drawn.moved(0.1, 0.1).drawnByUser, isTrue);
+    });
+
+    test('a corner stays inside the photo', () {
+      expect(edges(box.resized(BoxCorner.topLeft, -0.5, -0.5)), [
+        0.0,
+        0.0,
+        0.6,
+        0.7,
+      ]);
+      expect(edges(box.resized(BoxCorner.bottomRight, 1.5, 1.5)), [
+        0.2,
+        0.3,
+        1.0,
+        1.0,
+      ]);
+    });
+
+    test('a box cannot shrink below the smallest size or flip over', () {
+      final squashed = box.resized(BoxCorner.bottomRight, 0.0, 0.0);
+      expect(squashed.left, 0.2);
+      expect(squashed.top, 0.3);
+      expect(squashed.width, closeTo(AnimalBox.minSize, 1e-9));
+      expect(squashed.height, closeTo(AnimalBox.minSize, 1e-9));
+      expect(squashed.isValid, isTrue);
+
+      final pulled = box.resized(BoxCorner.topLeft, 0.9, 0.9);
+      expect(pulled.right, 0.6);
+      expect(pulled.bottom, 0.7);
+      expect(pulled.width, closeTo(AnimalBox.minSize, 1e-9));
+      expect(pulled.height, closeTo(AnimalBox.minSize, 1e-9));
+    });
+
+    test('moving keeps the size and stops at the photo edges', () {
+      final moved = box.moved(0.1, -0.1);
+      expect(moved.left, closeTo(0.3, 1e-9));
+      expect(moved.top, closeTo(0.2, 1e-9));
+      expect(moved.width, closeTo(box.width, 1e-9));
+      expect(moved.height, closeTo(box.height, 1e-9));
+      expect(moved.name, 'heron');
+
+      expect(edges(box.moved(5, 5)).map((e) => e.toStringAsFixed(3)), [
+        '0.600',
+        '0.600',
+        '1.000',
+        '1.000',
+      ]);
+      expect(edges(box.moved(-5, -5)).map((e) => e.toStringAsFixed(3)), [
+        '0.000',
+        '0.000',
+        '0.400',
+        '0.400',
+      ]);
+    });
+
+    test('isValid refuses boxes outside the photo or too small', () {
+      expect(box.isValid, isTrue);
+      AnimalBox at(double l, double t, double r, double b) => AnimalBox(
+        left: l,
+        top: t,
+        right: r,
+        bottom: b,
+        color: AnimalBoxColor.red,
+      );
+      expect(at(-0.1, 0.1, 0.5, 0.5).isValid, isFalse);
+      expect(at(0.1, 0.1, 1.1, 0.5).isValid, isFalse);
+      expect(at(0.1, 0.1, 0.11, 0.5).isValid, isFalse);
+      expect(at(0.1, 0.5, 0.5, 0.49).isValid, isFalse);
+    });
+  });
 }
