@@ -8,6 +8,8 @@ import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/about_ai_reports_view.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
+import 'package:faunawatch/features/settings/views/help_and_feedback_view.dart';
+import 'package:faunawatch/features/settings/views/privacy_policy_view.dart';
 
 /// The Settings screen featuring account security (Change password), privacy,
 /// preferences, and AI provider keys.
@@ -30,6 +32,18 @@ class SettingsView extends ConsumerWidget {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const AboutAiReportsView()));
+  }
+
+  void _openHelpAndFeedback(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const HelpAndFeedbackView()),
+    );
+  }
+
+  void _openPrivacyPolicy(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const PrivacyPolicyView()));
   }
 
   @override
@@ -495,14 +509,10 @@ class SettingsView extends ConsumerWidget {
 
                     const SizedBox(height: 20),
 
-                    // About section
-                    _buildSectionHeader('ABOUT', isDark),
+                    // About and Support section
+                    _buildSectionHeader('ABOUT AND SUPPORT', isDark),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF1E293B) : Colors.white,
                         borderRadius: BorderRadius.circular(18),
@@ -512,29 +522,100 @@ class SettingsView extends ConsumerWidget {
                               : const Color(0xFFE2E8F0),
                           width: 1.2,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'FaunaWatch Version',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF1E293B),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.04,
                             ),
-                          ),
-                          Text(
-                            '1.0.0',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF64748B),
-                            ),
+                            offset: const Offset(0, 3),
+                            blurRadius: 8,
                           ),
                         ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          children: [
+                            _buildNavigationRow(
+                              icon: Icons.help_outline_rounded,
+                              iconBackground: isDark
+                                  ? const Color(
+                                      0xFF1A5DC9,
+                                    ).withValues(alpha: 0.22)
+                                  : const Color(0xFFE3F0FE),
+                              iconColor: isDark
+                                  ? AppColors.darkAccentBlue
+                                  : const Color(0xFF1A5DC9),
+                              title: 'Help and feedback',
+                              subtitle: 'How to report, and send us a note',
+                              isDark: isDark,
+                              onTap: () => _openHelpAndFeedback(context),
+                            ),
+                            Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                            _buildNavigationRow(
+                              icon: Icons.verified_user_outlined,
+                              iconBackground: isDark
+                                  ? const Color(
+                                      0xFF475569,
+                                    ).withValues(alpha: 0.28)
+                                  : const Color(0xFFEEF2F6),
+                              iconColor: isDark
+                                  ? const Color(0xFFCBD5E1)
+                                  : const Color(0xFF334155),
+                              title: 'Privacy policy',
+                              subtitle: 'How your data and photos are used',
+                              isDark: isDark,
+                              onTap: () => _openPrivacyPolicy(context),
+                            ),
+                            Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'FaunaWatch Version',
+                                    style: GoogleFonts.dmSans(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                  Text(
+                                    '1.0.0',
+                                    style: GoogleFonts.dmSans(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -543,6 +624,71 @@ class SettingsView extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavigationRow({
+    required IconData icon,
+    required Color iconBackground,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconBackground,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 12.5,
+                      height: 1.3,
+                      color: isDark
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+              size: 24,
+            ),
+          ],
         ),
       ),
     );

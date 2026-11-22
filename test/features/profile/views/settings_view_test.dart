@@ -12,6 +12,8 @@ import 'package:faunawatch/features/settings/services/ai_api_key_storage_service
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
 import 'package:faunawatch/features/settings/views/about_ai_reports_view.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
+import 'package:faunawatch/features/settings/views/help_and_feedback_view.dart';
+import 'package:faunawatch/features/settings/views/privacy_policy_view.dart';
 import 'package:faunawatch/features/profile/views/settings_view.dart';
 
 void main() {
@@ -189,6 +191,47 @@ void main() {
       expect(find.text('If AI is not available'), findsOneWidget);
       expect(find.text('Your photos and AI'), findsOneWidget);
     });
+
+    testWidgets(
+      'About and Support shows Help and feedback and Privacy policy above FaunaWatch Version',
+      (tester) async {
+        await tester.pumpWidget(buildWithKeys(_FakeKeyStorage()));
+        await tester.pumpAndSettle();
+
+        await tester.drag(find.byType(ListView), const Offset(0, -600));
+        await tester.pumpAndSettle();
+
+        expect(find.text('ABOUT AND SUPPORT'), findsOneWidget);
+        expect(find.text('Help and feedback'), findsOneWidget);
+        expect(find.text('How to report, and send us a note'), findsOneWidget);
+        expect(find.text('Privacy policy'), findsOneWidget);
+        expect(find.text('How your data and photos are used'), findsOneWidget);
+        expect(find.text('FaunaWatch Version'), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.text('Help and feedback')).dy,
+          lessThan(tester.getTopLeft(find.text('Privacy policy')).dy),
+        );
+        expect(
+          tester.getTopLeft(find.text('Privacy policy')).dy,
+          lessThan(tester.getTopLeft(find.text('FaunaWatch Version')).dy),
+        );
+
+        await tester.tap(find.text('Help and feedback'));
+        await tester.pumpAndSettle();
+        expect(find.byType(HelpAndFeedbackView), findsOneWidget);
+        expect(find.text('Help and Feedback'), findsOneWidget);
+        expect(find.text('How to report a sighting'), findsOneWidget);
+
+        await tester.tap(find.bySemanticsLabel('Back'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Privacy policy'));
+        await tester.pumpAndSettle();
+        expect(find.byType(PrivacyPolicyView), findsOneWidget);
+        expect(find.text('Privacy Policy'), findsOneWidget);
+        expect(find.text('Photos and wildlife reports'), findsOneWidget);
+      },
+    );
   });
 }
 
