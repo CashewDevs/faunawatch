@@ -455,8 +455,10 @@ as the user nears the last post, supports pull to refresh, and signs out/in with
 the account (the service is replaced on account changes). Posts are one
 full-screen card each (swipe up for the next), with network photos, the title
 (the user's species, else the AI's top guess, else the category label), the
-description, category, AI severity/invasive flag (always with the "Preliminary
-AI-assisted suggestions" note), and the place name. Private photo URLs and
+description, category, AI severity/invasive flag, and the place name. The
+caption no longer shows the "Preliminary AI-assisted suggestions" note
+(`FeedPost.aiNote`); it stays in the "AI analysis" sheet, and the poster still
+sees the AI disclaimers on Create Post and the FaunaLens AI result screen. Private photo URLs and
 uploaded avatars are signed for one hour (they refresh with the page).
 
 My Gallery (`lib/features/gallery/`) appears directly below Profile's banner,
