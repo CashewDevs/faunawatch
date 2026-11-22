@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/widgets/profile_action_card.dart';
+import 'package:faunawatch/features/profile/views/widgets/theme_mode_card.dart';
 
 /// Profile actions live behind the banner's hamburger menu, leaving the page
 /// available for the user's bio and gallery.
@@ -59,6 +60,7 @@ class ProfilePreferencesDrawer extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 children: [
+                  const ThemeModeCard(),
                   ProfileActionCard(
                     icon: Icons.person_outline_rounded,
                     iconBackgroundColor: colors.resolve(
@@ -98,7 +100,7 @@ class ProfilePreferencesDrawer extends ConsumerWidget {
                       scheme.primary,
                     ),
                     title: 'Settings',
-                    subtitle: 'Appearance, AI keys, preferences & account',
+                    subtitle: 'Password, AI keys, preferences & account',
                     onTap: () => _select(context, onSettings),
                   ),
                 ],

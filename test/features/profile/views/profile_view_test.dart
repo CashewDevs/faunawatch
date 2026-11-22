@@ -327,7 +327,13 @@ void main() {
       expect(find.text('Watching wildlife responsibly.'), findsOneWidget);
       await openMenu(tester);
       expect(find.byType(ProfilePreferencesDrawer), findsOneWidget);
+      expect(find.text('APPEARANCE'), findsOneWidget);
+      expect(find.text('Theme Mode'), findsOneWidget);
       expect(find.text('Edit Profile'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Theme Mode')).dy,
+        lessThan(tester.getTopLeft(find.text('Edit Profile')).dy),
+      );
       expect(find.text('Change Theme'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
       await tester.tap(find.byTooltip('Close profile menu'));
@@ -366,6 +372,26 @@ void main() {
       expect(find.text('Forest Emerald'), findsOneWidget);
     });
 
+    testWidgets('drawer Appearance card switches themeModeProvider', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestProfile(liveThemes: true));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ProfileView)),
+        listen: false,
+      );
+
+      await openMenu(tester);
+      await tester.tap(find.text('Dark'));
+      await tester.pumpAndSettle();
+      expect(container.read(themeModeProvider), ThemeMode.dark);
+
+      await tester.tap(find.text('Light'));
+      await tester.pumpAndSettle();
+      expect(container.read(themeModeProvider), ThemeMode.light);
+    });
+
     testWidgets('tapping Settings navigates to SettingsView', (tester) async {
       await tester.pumpWidget(buildTestProfile());
       await tester.pumpAndSettle();
@@ -375,7 +401,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(SettingsView), findsOneWidget);
-      expect(find.text('Theme Mode'), findsOneWidget);
+      expect(find.text('ACCOUNT'), findsOneWidget);
+      expect(find.text('Change password'), findsOneWidget);
+      expect(find.text('Theme Mode'), findsNothing);
       expect(find.text('Sign Out'), findsOneWidget);
     });
 

@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../fauna_lens/ai_fakes.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
-import 'package:faunawatch/core/theme/theme_provider.dart';
+import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
@@ -20,42 +20,31 @@ void main() {
 
   group('SettingsView', () {
     testWidgets(
-      'renders theme mode options, preferences, and docked sign out',
+      'renders Account Change password, preferences, and docked sign out',
       (tester) async {
         await tester.pumpWidget(buildTestSettings());
 
         expect(find.text('Settings'), findsOneWidget);
-        expect(find.text('Theme Mode'), findsOneWidget);
-        expect(find.text('Light'), findsOneWidget);
-        expect(find.text('Dark'), findsOneWidget);
-        expect(find.text('System'), findsOneWidget);
+        expect(find.text('ACCOUNT'), findsOneWidget);
+        expect(find.text('Change password'), findsOneWidget);
+        expect(find.text('Update your sign-in password'), findsOneWidget);
+        expect(find.text('Theme Mode'), findsNothing);
         expect(find.text('Push Notifications'), findsOneWidget);
         expect(find.text('Sign Out'), findsOneWidget);
       },
     );
 
-    testWidgets('tapping Light theme option updates themeModeProvider', (
+    testWidgets('tapping Change password opens ChangePasswordView', (
       tester,
     ) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+      await tester.pumpWidget(buildTestSettings());
 
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: SettingsView()),
-        ),
-      );
-
-      await tester.tap(find.text('Light'));
+      await tester.tap(find.text('Change password'));
       await tester.pumpAndSettle();
 
-      expect(container.read(themeModeProvider), ThemeMode.light);
-
-      await tester.tap(find.text('Dark'));
-      await tester.pumpAndSettle();
-
-      expect(container.read(themeModeProvider), ThemeMode.dark);
+      expect(find.byType(ChangePasswordView), findsOneWidget);
+      expect(find.text('Change Password'), findsOneWidget);
+      expect(find.text('Update password'), findsOneWidget);
     });
 
     testWidgets(

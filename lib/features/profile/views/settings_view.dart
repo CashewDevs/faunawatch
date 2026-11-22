@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
-import 'package:faunawatch/core/theme/theme_provider.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
+import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/profile/views/widgets/sign_out_dialog.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 
-/// The Settings screen featuring Theme Mode (Light/Dark/System), AI provider
-/// keys, application preferences, and the docked Sign Out button.
+/// The Settings screen featuring account security (Change password), AI
+/// provider keys, application preferences, and the docked Sign Out button.
 class SettingsView extends ConsumerWidget {
   const SettingsView({super.key});
 
@@ -21,6 +21,12 @@ class SettingsView extends ConsumerWidget {
     );
   }
 
+  void _openChangePassword(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const ChangePasswordView()));
+  }
+
   void _openAiKeys(BuildContext context) {
     Navigator.of(
       context,
@@ -29,7 +35,6 @@ class SettingsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
     final settings = ref.watch(settingsViewModelProvider);
     final savedKeyCount = ref
         .watch(aiKeySettingsViewModelProvider)
@@ -102,13 +107,10 @@ class SettingsView extends ConsumerWidget {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   children: [
-                    // Theme Mode Section Header
-                    _buildSectionHeader('APPEARANCE', isDark),
+                    // Account Section
+                    _buildSectionHeader('ACCOUNT', isDark),
                     const SizedBox(height: 8),
-
-                    // Light / Dark / System Segmented Control Card
                     Container(
-                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF1E293B) : Colors.white,
                         borderRadius: BorderRadius.circular(18),
@@ -128,70 +130,81 @@ class SettingsView extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Theme Mode',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF1E293B),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => _openChangePassword(context),
+                          borderRadius: BorderRadius.circular(18),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? const Color(
+                                            0xFF0E7A5F,
+                                          ).withValues(alpha: 0.22)
+                                        : const Color(0xFFD9F5EC),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.lock_outline_rounded,
+                                    color: isDark
+                                        ? const Color(0xFF34D399)
+                                        : const Color(0xFF0E7A5F),
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Change password',
+                                        style: GoogleFonts.dmSans(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Update your sign-in password',
+                                        style: GoogleFonts.dmSans(
+                                          fontSize: 12.5,
+                                          color: isDark
+                                              ? const Color(0xFF94A3B8)
+                                              : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: isDark
+                                      ? const Color(0xFF64748B)
+                                      : const Color(0xFF94A3B8),
+                                  size: 24,
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Switch between light and dark display modes across the app.',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 12,
-                              color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildThemeModeOption(
-                                  context: context,
-                                  ref: ref,
-                                  title: 'Light',
-                                  icon: Icons.light_mode_rounded,
-                                  mode: ThemeMode.light,
-                                  isSelected: themeMode == ThemeMode.light,
-                                  isDark: isDark,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildThemeModeOption(
-                                  context: context,
-                                  ref: ref,
-                                  title: 'Dark',
-                                  icon: Icons.dark_mode_rounded,
-                                  mode: ThemeMode.dark,
-                                  isSelected: themeMode == ThemeMode.dark,
-                                  isDark: isDark,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildThemeModeOption(
-                                  context: context,
-                                  ref: ref,
-                                  title: 'System',
-                                  icon: Icons.brightness_auto_rounded,
-                                  mode: ThemeMode.system,
-                                  isSelected: themeMode == ThemeMode.system,
-                                  isDark: isDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
                     ),
 
@@ -449,64 +462,6 @@ class SettingsView extends ConsumerWidget {
           fontWeight: FontWeight.w800,
           color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
           letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThemeModeOption({
-    required BuildContext context,
-    required WidgetRef ref,
-    required String title,
-    required IconData icon,
-    required ThemeMode mode,
-    required bool isSelected,
-    required bool isDark,
-  }) {
-    return InkWell(
-      onTap: () {
-        ref.read(themeModeProvider.notifier).setThemeMode(mode);
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppPaletteColors.of(context).shellHeaderBlue
-              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? AppPaletteColors.of(context).shellHeaderBlue
-                : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: isSelected
-                  ? AppPaletteColors.of(context).onPrimary
-                  : (isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF475569)),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              style: GoogleFonts.dmSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: isSelected
-                    ? AppPaletteColors.of(context).onPrimary
-                    : (isDark
-                          ? const Color(0xFF94A3B8)
-                          : const Color(0xFF475569)),
-              ),
-            ),
-          ],
         ),
       ),
     );
