@@ -327,7 +327,7 @@ void main() {
       expect(find.text('Watching wildlife responsibly.'), findsOneWidget);
       await openMenu(tester);
       expect(find.byType(ProfilePreferencesDrawer), findsOneWidget);
-      expect(find.text('APPEARANCE'), findsOneWidget);
+      expect(find.text('APPEARANCE'), findsNothing);
       expect(find.text('Theme Mode'), findsOneWidget);
       expect(find.text('Edit Profile'), findsOneWidget);
       expect(
