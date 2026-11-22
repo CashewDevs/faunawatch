@@ -467,7 +467,10 @@ author · age · place name (no pin icon; the place name still opens the map).
 The category, severity and invasive tags follow the title's last word in the
 same rich text (`WidgetSpan`s), above the description, so widget tests find a
 title with `findPostTitle` (test/features/feed/post_title_finder.dart) instead
-of `find.text`. Private photo URLs and
+of `find.text`. Double-tapping a post photo likes it with a big heart where the
+finger was (`DoubleTapLike`, the same like action as the heart button; it never
+unlikes). A single tap therefore opens the photo viewer only after the
+double-tap wait, so widget tests pump `kDoubleTapTimeout` after tapping a photo. Private photo URLs and
 uploaded avatars are signed for one hour (they refresh with the page).
 
 My Gallery (`lib/features/gallery/`) appears directly below Profile's banner,

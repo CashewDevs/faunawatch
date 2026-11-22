@@ -22,6 +22,7 @@ import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/feed/views/screens/post_photo_viewer.dart';
 import 'package:faunawatch/features/feed/views/widgets/animated_heart.dart';
 import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
+import 'package:faunawatch/features/feed/views/widgets/double_tap_like.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_action_rail.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
@@ -33,6 +34,7 @@ import 'package:faunawatch/features/notifications/services/notifications_service
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -275,6 +277,8 @@ void main() {
           matching: find.byType(Image),
         ),
       );
+      // A single tap waits to make sure it is not a double-tap (like).
+      await tester.pump(kDoubleTapTimeout);
       await tester.pumpAndSettle();
       final viewer = find.byType(PostPhotoViewer);
       expect(viewer, findsOneWidget);
@@ -642,6 +646,41 @@ void main() {
       expect(heart(tester).color, isNot(AppColors.feedLikeRed));
       expect(find.text('128'), findsOneWidget);
       expect(service.unlikes, ['p0']);
+    });
+
+    Future<void> doubleTapPhoto(WidgetTester tester) async {
+      final photo = find.byType(DoubleTapLike);
+      await tester.tap(photo);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(photo);
+      await tester.pump();
+    }
+
+    testWidgets('double-tapping the photo likes the post with a big heart', (
+      tester,
+    ) async {
+      await pumpFeed(tester);
+      await doubleTapPhoto(tester);
+      expect(find.byKey(const ValueKey('double_tap_heart')), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(heart(tester).color, AppColors.feedLikeRed);
+      expect(find.text('129'), findsOneWidget);
+      expect(service.likes, ['p0']);
+      // The big heart fades away, and the photo did not open full screen.
+      expect(find.byKey(const ValueKey('double_tap_heart')), findsNothing);
+      expect(find.byType(PostPhotoViewer), findsNothing);
+    });
+
+    testWidgets('double-tapping a liked post keeps it liked', (tester) async {
+      service.posts = [testPost('p0', likeCount: 3, likedByMe: true)];
+      await pumpFeed(tester);
+      await doubleTapPhoto(tester);
+      expect(find.byKey(const ValueKey('double_tap_heart')), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(heart(tester).color, AppColors.feedLikeRed);
+      expect(find.text('3'), findsOneWidget);
+      expect(service.likes, isEmpty);
+      expect(service.unlikes, isEmpty);
     });
 
     testWidgets('a post already liked by me starts red', (tester) async {
