@@ -191,6 +191,16 @@ abstract final class AppColors {
   static const Color signOutButtonRed = Color(0xFFB31818);
   static const Color signOutTextYellow = Color(0xFFFECE01);
 
+  // Edit Profile / Profile Appearance Palette
+  static const Color editProfileActionTeal = Color(0xFF264C59);
+  static const Color editProfileHintBlue = Color(0xFF87ACC4);
+  static const Color editProfileFieldBackground = Color(0xFFF4F2EC);
+  static const Color editProfileFieldBorder = Color(0xFFA89E7E);
+  static const Color editProfileSaveActiveBackground = Color(0xFFFECE01);
+  static const Color editProfileSaveActiveText = Color(0xFF1A5DC9);
+  static const Color editProfileSaveInactiveBackground = Color(0xFFFFF9DD);
+  static const Color editProfileSaveInactiveText = Color(0xFF8FA6B6);
+
   // Dark Theme Tokens
   static const Color darkBackground = Color(0xFF0F172A);
   static const Color darkSurface = Color(0xFF1E293B);
