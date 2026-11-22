@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:faunawatch/core/theme/tag_colors.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/severity_tone.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
@@ -184,11 +186,15 @@ class _PostCaptionState extends State<PostCaption> {
                 children: [
                   _Tag(label: post.categoryLabel),
                   if (post.severity != null)
-                    _Tag(label: 'Severity: ${post.severity!.label}'),
+                    _Tag(
+                      label: 'Severity: ${post.severity!.label}',
+                      tone: post.severity!.tagTone,
+                    ),
                   if (post.possibleInvasive)
                     const _Tag(
                       label: 'Possible invasive species',
                       icon: Icons.warning_amber_rounded,
+                      tone: TagTone.invasive,
                     ),
                 ],
               ),
@@ -350,18 +356,23 @@ class _AiAnalysisButton extends StatelessWidget {
   }
 }
 
+/// A small label under the caption. Without a [tone] it stays a plain grey
+/// tag (the category); with one it is filled with that tone's colours.
 class _Tag extends StatelessWidget {
-  const _Tag({required this.label, this.icon});
+  const _Tag({required this.label, this.icon, this.tone});
   final String label;
   final IconData? icon;
+  final TagTone? tone;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurface;
+    final tagColors = tone == null ? null : TagColors.of(context, tone!);
+    final color = tagColors?.foreground ?? theme.colorScheme.onSurface;
     return DecoratedBox(
+      key: tone == null ? null : ValueKey('post_tag_${tone!.name}'),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+        color: tagColors?.background ?? color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(

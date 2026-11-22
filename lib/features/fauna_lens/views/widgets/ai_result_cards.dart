@@ -1,6 +1,8 @@
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/theme/tag_colors.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/severity_tone.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -212,25 +214,12 @@ class SeverityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (background, text) = switch (severity) {
-      SeverityLevel.low => (
-        AppColors.consentBadgeGreenBackground,
-        AppColors.consentBadgeGreenText,
-      ),
-      SeverityLevel.moderate => (
-        AppColors.consentBadgeYellowBackground,
-        AppColors.consentBadgeYellowText,
-      ),
-      SeverityLevel.high || SeverityLevel.critical => (
-        AppColors.consentBadgeRedBackground,
-        AppColors.consentBadgeRedText,
-      ),
-      SeverityLevel.uncertain => (
-        AppColors.consentInfoBackground,
-        AppColors.consentMutedText,
-      ),
-    };
-    return _Pill(label: severity.label, background: background, text: text);
+    final colors = TagColors.of(context, severity.tagTone);
+    return _Pill(
+      label: severity.label,
+      background: colors.background,
+      text: colors.foreground,
+    );
   }
 }
 
