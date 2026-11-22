@@ -105,9 +105,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   /// point cannot be read, the rounded one is used.
   Future<void> focusOnPost(FeedPost post, {required bool isPublic}) async {
     // Switch at once; the exact point arrives a moment later.
-    ref
-        .read(shellViewModelProvider.notifier)
-        .goTo(ShellDestination.feed, feedTab: FeedTab.map);
+    ref.read(shellViewModelProvider.notifier).goTo(ShellDestination.map);
     MapFocus? focus;
     final userId = ref.read(currentUserIdProvider).valueOrNull;
     if (userId != null && post.authorId == userId) {
@@ -142,9 +140,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   /// shown as soon as it has.
   Future<void> focusOn(MapFocus focus) async {
     // One step, so Back returns to where the location was tapped.
-    ref
-        .read(shellViewModelProvider.notifier)
-        .goTo(ShellDestination.feed, feedTab: FeedTab.map);
+    ref.read(shellViewModelProvider.notifier).goTo(ShellDestination.map);
     state = focus.showsOwnerMarker
         ? state.copyWith(clearSelectedPost: true, privateFocus: focus)
         : state.copyWith(clearSelectedPost: true, clearPrivateFocus: true);

@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/feed/models/post_comment.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
-import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/gallery/viewmodels/gallery_post_viewmodel.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
 import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
@@ -37,7 +36,6 @@ void main() {
     container
         .read(shellViewModelProvider.notifier)
         .selectDestination(ShellDestination.profile);
-    container.read(feedTabViewModelProvider.notifier).select(FeedTab.map);
     expect(container.read(provider).isLoading, isTrue);
     await pumpEventQueue();
   }
@@ -68,7 +66,6 @@ void main() {
     expect(service.postRequests, ['own']);
     expect(service.pageRequests, isEmpty);
     expect(container.read(shellViewModelProvider), ShellDestination.profile);
-    expect(container.read(feedTabViewModelProvider), FeedTab.map);
   });
 
   test('missing and other users posts are unavailable', () async {

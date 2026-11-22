@@ -89,7 +89,7 @@ class NotificationsView extends ConsumerWidget {
                     onRefresh: viewModel.refresh,
                     child: ListView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      // Leave room for the nav bar the shell draws over the body.
+                      // Leave room for the system navigation area.
                       padding: EdgeInsets.only(bottom: bottomInset),
                       itemCount: filteredItems.length + (state.hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
@@ -135,6 +135,9 @@ extension on NotificationsView {
     final target = await ref
         .read(notificationsViewModelProvider.notifier)
         .open(item);
+    // A chat switches the shell to Chats, which sits under this page: close
+    // the list first so Chats is what the user sees.
+    if (target is MessagesTarget && navigator.canPop()) navigator.pop();
     await openNotificationTarget(navigator, ref, target);
   }
 

@@ -5,7 +5,6 @@ import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
-import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
@@ -54,7 +53,6 @@ void main() {
     container
         .read(shellViewModelProvider.notifier)
         .selectDestination(ShellDestination.profile);
-    container.read(feedTabViewModelProvider.notifier).select(FeedTab.map);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -84,7 +82,6 @@ void main() {
 
   void staysInProfile() {
     expect(container.read(shellViewModelProvider), ShellDestination.profile);
-    expect(container.read(feedTabViewModelProvider), FeedTab.map);
   }
 
   testWidgets(
@@ -294,8 +291,7 @@ void main() {
       await tester.tap(find.text('Lusod, Kabayan, Benguet'));
       await tester.pumpAndSettle();
       expect(find.byType(GalleryPostViewer), findsNothing);
-      expect(container.read(shellViewModelProvider), ShellDestination.feed);
-      expect(container.read(feedTabViewModelProvider), FeedTab.map);
+      expect(container.read(shellViewModelProvider), ShellDestination.map);
       final focus = container.read(communityMapViewModelProvider).privateFocus;
       expect(focus!.postId, 'p1');
       expect(focus.isPublic, isFalse);

@@ -5,6 +5,7 @@ import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 import '../fake_feed_service.dart';
 
@@ -290,12 +291,14 @@ void main() {
   });
 
   group('openReport (map to feed)', () {
-    test('selects For You and focuses a loaded post', () async {
+    test('switches to the Feed tab and focuses a loaded post', () async {
       create(serviceWith(3));
-      container.read(feedTabViewModelProvider.notifier).select(FeedTab.map);
+      container
+          .read(shellViewModelProvider.notifier)
+          .goTo(ShellDestination.map);
       await open();
       await vm().openReport('p2');
-      expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
+      expect(container.read(shellViewModelProvider), ShellDestination.feed);
       expect(state().focusedPostId, 'p2');
       expect(state().pinnedPost, isNull);
       vm().consumeFocus();

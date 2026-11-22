@@ -138,7 +138,6 @@ void main() {
       await pumpEventQueue();
       expect(container.read(feedViewModelProvider).focusedPostId, 'approved');
       expect(container.read(shellViewModelProvider), ShellDestination.feed);
-      expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
       reports.fail = true;
       await vm.refreshReports();
       expect(
@@ -426,8 +425,7 @@ void main() {
           .read(shellViewModelProvider.notifier)
           .selectDestination(ShellDestination.profile);
       await vm().focusOn(public);
-      expect(container.read(shellViewModelProvider), ShellDestination.feed);
-      expect(container.read(feedTabViewModelProvider), FeedTab.map);
+      expect(container.read(shellViewModelProvider), ShellDestination.map);
       expect(mapboxMapService.focusCalls, isEmpty);
 
       await vm().onStyleLoaded();
@@ -550,7 +548,7 @@ void main() {
           expect(focus.isPublic, isTrue);
           expect(focus.latitude, 16.456789);
           expect(mapboxMapService.focusCalls.last.focus, focus);
-          expect(owner.read(feedTabViewModelProvider), FeedTab.map);
+          expect(owner.read(shellViewModelProvider), ShellDestination.map);
           expect(locations.requests, ['mine']);
         },
       );

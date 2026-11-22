@@ -27,6 +27,8 @@ import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
+import 'package:faunawatch/features/notifications/services/notifications_service.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +37,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 
 import '../fake_feed_service.dart';
+import '../../notifications/fake_notifications_service.dart';
 
 void main() {
   late FakeFeedService service;
@@ -720,46 +723,19 @@ void main() {
     });
   });
 
-  group('tabs', () {
-    testWidgets('feed has only Map and For You tabs', (tester) async {
+  group('feed and map', () {
+    testWidgets('feed shows posts without Map or For You tabs', (tester) async {
       await pumpFeed(tester);
       expect(find.text('Gallery'), findsNothing);
       expect(find.byType(GalleryView), findsNothing);
       expect(find.byType(GalleryCard), findsNothing);
-      expect(find.text('Map'), findsOneWidget);
-      expect(find.text('For You'), findsOneWidget);
-    });
-
-    testWidgets('Map tab creates one map and keeps it across tab switches', (
-      tester,
-    ) async {
-      final canvas = _FakeMapCanvasBuilder();
-      await pumpFeed(
-        tester,
-        more: [
-          mapboxMapCanvasBuilderProvider.overrideWithValue(canvas),
-          mapboxMapServiceProvider.overrideWithValue(_FakeMapService()),
-        ],
-      );
-      expect(canvas.builds, 0);
-
-      await tester.tap(find.text('Map'));
-      await tester.pumpAndSettle();
-      expect(find.byType(CommunityMapView), findsOneWidget);
-      expect(find.byTooltip('About this map'), findsOneWidget);
-      final state = tester.state(find.byType(CommunityMapView));
-
-      await tester.tap(find.text('For You'));
-      await tester.pumpAndSettle();
-      expect(find.byType(CommunityMapView), findsNothing);
+      // The map is its own bottom-bar tab now.
+      expect(find.text('Map'), findsNothing);
+      expect(find.text('For You'), findsNothing);
       expect(find.byType(FeedPostCard), findsOneWidget);
-
-      await tester.tap(find.text('Map'));
-      await tester.pumpAndSettle();
-      expect(tester.state(find.byType(CommunityMapView)), same(state));
     });
 
-    testWidgets('a report opened from the map shows its post in For You', (
+    testWidgets('a report opened from the map shows its post in the feed', (
       tester,
     ) async {
       service.posts = [
@@ -769,6 +745,7 @@ void main() {
       ];
       final container = await pumpFeed(
         tester,
+        home: const _FeedAndMapHost(),
         more: [
           mapboxMapCanvasBuilderProvider.overrideWithValue(
             _FakeMapCanvasBuilder(),
@@ -787,7 +764,9 @@ void main() {
           ),
         ],
       );
-      await tester.tap(find.text('Map'));
+      container
+          .read(shellViewModelProvider.notifier)
+          .goTo(ShellDestination.map);
       await tester.pumpAndSettle();
       final map = container.read(communityMapViewModelProvider.notifier);
       await map.onStyleLoaded();
@@ -798,10 +777,13 @@ void main() {
       await tester.tap(find.text('See more in feed'));
       await tester.pumpAndSettle();
 
-      expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
+      expect(container.read(shellViewModelProvider), ShellDestination.feed);
       expect(find.text('Third post'), findsOneWidget);
       expect(find.text('First'), findsNothing);
       expect(find.text('See more in feed'), findsNothing);
+      // Back returns to the map.
+      container.read(shellViewModelProvider.notifier).back();
+      expect(container.read(shellViewModelProvider), ShellDestination.map);
       expect(tester.takeException(), isNull);
     });
 
@@ -811,6 +793,7 @@ void main() {
       service.posts = [testPost('p0', latitude: 16.46, longitude: 120.99)];
       final container = await pumpFeed(
         tester,
+        home: const _FeedAndMapHost(),
         more: [
           mapboxMapCanvasBuilderProvider.overrideWithValue(
             _FakeMapCanvasBuilder(),
@@ -821,7 +804,7 @@ void main() {
       );
       await tester.tap(find.text('Lusod, Kabayan, Benguet'));
       await tester.pumpAndSettle();
-      expect(container.read(feedTabViewModelProvider), FeedTab.map);
+      expect(container.read(shellViewModelProvider), ShellDestination.map);
       expect(find.byType(CommunityMapView), findsOneWidget);
       // An approved post is public: no owner-only marker.
       expect(
@@ -837,29 +820,22 @@ void main() {
       final container = await pumpFeed(tester);
       await tester.tap(find.text('Lusod, Kabayan, Benguet'));
       await tester.pumpAndSettle();
-      expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
-    });
-
-    testWidgets('header shows the tabs in the feed, not the header', (
-      tester,
-    ) async {
-      await pumpFeed(tester);
-      for (final label in ['Map', 'For You']) {
-        expect(
-          find.descendant(
-            of: find.byType(FeedView),
-            matching: find.text(label),
-          ),
-          findsOneWidget,
-        );
-      }
+      expect(container.read(shellViewModelProvider), ShellDestination.feed);
     });
 
     testWidgets('the shell header shows the logo and the wordmark', (
       tester,
     ) async {
+      // The header reads the unread notifications for its bell.
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(appBar: ShellHeader())),
+        ProviderScope(
+          overrides: [
+            notificationsServiceProvider.overrideWithValue(
+              FakeNotificationsService(),
+            ),
+          ],
+          child: const MaterialApp(home: Scaffold(appBar: ShellHeader())),
+        ),
       );
       bool showsAsset(Widget widget, String asset) =>
           widget is Image &&
@@ -879,6 +855,22 @@ void main() {
       }
     });
   });
+}
+
+/// Feed and the map side by side like the shell shows them: the selected
+/// bottom-bar tab decides which one is on screen.
+class _FeedAndMapHost extends ConsumerWidget {
+  const _FeedAndMapHost();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onMap = ref.watch(shellViewModelProvider) == ShellDestination.map;
+    return IndexedStack(
+      index: onMap ? 1 : 0,
+      sizing: StackFit.expand,
+      children: const [FeedView(), CommunityMapView()],
+    );
+  }
 }
 
 class _FakeReports implements CommunityReportsService {

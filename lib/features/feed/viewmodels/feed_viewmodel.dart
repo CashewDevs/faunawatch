@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/models/feed_state.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
+import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 /// Loads the For You feed: the first page, older pages on demand, pull to
 /// refresh, likes and the comment counts.
@@ -149,10 +150,11 @@ class FeedViewModel extends Notifier<FeedState> {
     );
   }
 
-  /// Shows a report in the For You tab, e.g. from the community map. A report
-  /// that is not loaded yet is fetched and shown first.
+  /// Shows a report in the Feed tab, e.g. from the community map, as one step
+  /// that Back undoes. A report that is not loaded yet is fetched and shown
+  /// first.
   Future<void> openReport(String postId) async {
-    ref.read(feedTabViewModelProvider.notifier).select(FeedTab.forYou);
+    ref.read(shellViewModelProvider.notifier).goTo(ShellDestination.feed);
     if (_find(postId) != null) {
       state = state.copyWith(focusedPostId: postId);
       return;
@@ -196,18 +198,4 @@ class FeedViewModel extends Notifier<FeedState> {
 
 final feedViewModelProvider = NotifierProvider<FeedViewModel, FeedState>(
   FeedViewModel.new,
-);
-
-enum FeedTab { map, forYou }
-
-/// Holds the tab selected at the top of the feed.
-class FeedTabViewModel extends Notifier<FeedTab> {
-  @override
-  FeedTab build() => FeedTab.forYou;
-
-  void select(FeedTab tab) => state = tab;
-}
-
-final feedTabViewModelProvider = NotifierProvider<FeedTabViewModel, FeedTab>(
-  FeedTabViewModel.new,
 );

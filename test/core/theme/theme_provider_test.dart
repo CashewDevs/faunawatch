@@ -1,8 +1,6 @@
 import 'package:faunawatch/core/theme/theme_provider.dart';
 import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
-import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
-import 'package:faunawatch/features/feed/views/widgets/feed_tab_bar.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_header.dart';
 import 'package:faunawatch/features/profile/models/theme_palette.dart';
@@ -111,11 +109,7 @@ void main() {
               theme: theme,
               home: Scaffold(
                 body: Column(
-                  children: [
-                    const ShellHeader(),
-                    const MessagesHeader(),
-                    FeedTabBar(selected: FeedTab.forYou, onSelect: (_) {}),
-                  ],
+                  children: [const ShellHeader(), const MessagesHeader()],
                 ),
               ),
             ),
@@ -152,19 +146,6 @@ void main() {
                   AppColors.messagesHeaderGradientStart,
                   AppColors.messagesHeaderGradientEnd,
                 ],
-        );
-        expect(
-          find.descendant(
-            of: find.byType(FeedTabBar),
-            matching: find.byWidgetPredicate(
-              (widget) =>
-                  widget is Container &&
-                  widget.decoration is BoxDecoration &&
-                  (widget.decoration! as BoxDecoration).color ==
-                      AppColors.messagesHeaderUnderline,
-            ),
-          ),
-          findsOneWidget,
         );
         expect(tester.takeException(), isNull);
       }

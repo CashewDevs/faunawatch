@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
 import 'package:faunawatch/features/fauna_lens/views/fauna_lens_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/feed/views/feed_view.dart';
 import 'package:faunawatch/features/messages/views/messages_view.dart';
 import 'package:faunawatch/features/notifications/views/notification_navigation.dart';
-import 'package:faunawatch/features/notifications/views/notifications_view.dart';
 import 'package:faunawatch/features/push/viewmodels/push_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/profile_view.dart';
 import 'package:faunawatch/features/settings/views/ai_key_settings_view.dart';
@@ -23,12 +23,54 @@ class ShellView extends ConsumerStatefulWidget {
   ConsumerState<ShellView> createState() => _ShellViewState();
 }
 
-class _ShellViewState extends ConsumerState<ShellView> {
+class _ShellViewState extends ConsumerState<ShellView>
+    with SingleTickerProviderStateMixin {
+  /// How long the new tab takes to fade in.
+  static const switchDuration = Duration(milliseconds: 250);
+
+  late final AnimationController _switch = AnimationController(
+    vsync: this,
+    duration: switchDuration,
+    value: 1,
+  );
+  late final Animation<double> _fadeIn = CurvedAnimation(
+    parent: _switch,
+    curve: Curves.easeOutCubic,
+  );
+  late final Animation<double> _zoomIn = Tween<double>(
+    begin: 0.98,
+    end: 1,
+  ).animate(_fadeIn);
+
+  // Mapbox is created on first use, then kept alive so switching tabs does not
+  // reload the map or lose its camera position.
+  bool _mapOpened = false;
+
   @override
   void initState() {
     super.initState();
     // A push that launched the app waits here until the shell is shown.
     WidgetsBinding.instance.addPostFrameCallback((_) => _openPushTarget());
+  }
+
+  @override
+  void dispose() {
+    _switch.dispose();
+    super.dispose();
+  }
+
+  /// Fades the new tab in, unless the device asks for less motion.
+  ///
+  /// The map appears at once: on Android, Mapbox is a native view, and fading
+  /// or zooming it makes every frame blend that view again, so the map
+  /// stutters. Flutter-drawn tabs fade cheaply.
+  void _playSwitch(ShellDestination destination) {
+    if (destination == ShellDestination.map ||
+        MediaQuery.disableAnimationsOf(context)) {
+      _switch.value = 1;
+    } else {
+      _switch.forward(from: 0);
+    }
   }
 
   void _openPushTarget() {
@@ -45,6 +87,11 @@ class _ShellViewState extends ConsumerState<ShellView> {
   Widget build(BuildContext context) {
     final currentDestination = ref.watch(shellViewModelProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (currentDestination == ShellDestination.map) _mapOpened = true;
+
+    ref.listen(shellViewModelProvider, (previous, next) {
+      if (previous != next) _playSwitch(next);
+    });
 
     // Screenshots are allowed on every tab, Profile included. Only the AI key
     // screen (AiKeySetupView) blocks them, while it is open.
@@ -66,24 +113,38 @@ class _ShellViewState extends ConsumerState<ShellView> {
       child: Scaffold(
         backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
         extendBody: true,
-        appBar: currentDestination == ShellDestination.feed
+        appBar:
+            currentDestination == ShellDestination.feed ||
+                currentDestination == ShellDestination.map
             ? const ShellHeader()
             : null,
-        body: IndexedStack(
-          index: currentDestination.index,
-          children: [
-            const FeedView(),
-            const MessagesView(),
-            // "+" opens FaunaLens on top instead of a tab.
-            const SizedBox.shrink(),
-            const NotificationsView(),
-            const ProfileView(),
-            const _PlaceholderDestinationView(
-              title: 'Alerts View',
-              icon: Icons.notifications_outlined,
+        // Each tab keeps its state; the one being opened fades in.
+        body: FadeTransition(
+          key: const Key('shell_tab_fade'),
+          opacity: _fadeIn,
+          child: ScaleTransition(
+            scale: _zoomIn,
+            child: IndexedStack(
+              index: currentDestination.index,
+              sizing: StackFit.expand,
+              children: [
+                const FeedView(),
+                if (_mapOpened)
+                  const CommunityMapView()
+                else
+                  const SizedBox.shrink(),
+                // "+" opens FaunaLens on top instead of a tab.
+                const SizedBox.shrink(),
+                const MessagesView(),
+                const ProfileView(),
+                const _PlaceholderDestinationView(
+                  title: 'Alerts View',
+                  icon: Icons.notifications_outlined,
+                ),
+                const AiKeySettingsView(),
+              ],
             ),
-            const AiKeySettingsView(),
-          ],
+          ),
         ),
         bottomNavigationBar: SafeArea(
           top: false,

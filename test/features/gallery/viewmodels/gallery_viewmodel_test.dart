@@ -357,13 +357,11 @@ void main() {
     () async {
       create(FakeGalleryService(posts: [testPost('p0'), testPost('p1')]));
       await open();
-      container.read(feedTabViewModelProvider.notifier).select(FeedTab.map);
       container
           .read(shellViewModelProvider.notifier)
           .selectDestination(ShellDestination.profile);
       await vm().refresh();
       expect(container.read(shellViewModelProvider), ShellDestination.profile);
-      expect(container.read(feedTabViewModelProvider), FeedTab.map);
       expect(feed.pageRequests, isEmpty);
       expect(service.pageRequests, hasLength(2));
     },
