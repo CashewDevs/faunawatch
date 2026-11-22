@@ -1,8 +1,9 @@
 /// What the map's preview dialog shows for a tapped pin.
 ///
-/// Real pins come from `community_reports()` and stay anonymous and
-/// approximate; the dialog loads its photo separately. The matching feed post
-/// has the author and place name.
+/// Real pins come from `community_reports()`, which has no author and only
+/// approximate locations. [author] is the placeholder shown until the dialog
+/// has loaded the matching feed post, which brings the photo and the poster's
+/// name and picture.
 class MapPostPreview {
   const MapPostPreview({
     required this.id,

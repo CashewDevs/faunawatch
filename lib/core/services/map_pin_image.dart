@@ -67,6 +67,58 @@ Future<StyleImage> createPhotoPinImage(Uint8List photoBytes) async {
   }
 }
 
+/// Badge size in pixels; drawn at 2x, so it shows as 24 x 24 on the map.
+const countBadgeSize = 48;
+
+/// Renders the round badge showing how many posts share a pin, e.g. "3" or
+/// "9+": white text on red with a white ring, drawn at 2x scale. It is a
+/// picture rather than map text, which avoids the map style's font loading.
+Future<StyleImage> createCountBadgeImage(String label) async {
+  const size = countBadgeSize, center = ui.Offset(size / 2, size / 2);
+  final recorder = ui.PictureRecorder();
+  final paragraph =
+      (ui.ParagraphBuilder(
+              ui.ParagraphStyle(
+                textAlign: ui.TextAlign.center,
+                fontSize: label.length > 1 ? 21 : 25,
+                fontWeight: ui.FontWeight.w700,
+              ),
+            )
+            ..pushStyle(ui.TextStyle(color: const ui.Color(0xFFFFFFFF)))
+            ..addText(label))
+          .build()
+        ..layout(const ui.ParagraphConstraints(width: size * 1.0));
+  ui.Canvas(recorder)
+    ..drawCircle(
+      center,
+      size / 2,
+      ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+    )
+    ..drawCircle(
+      center,
+      size / 2 - 4,
+      ui.Paint()..color = const ui.Color(0xFFDC2626),
+    )
+    ..drawParagraph(paragraph, ui.Offset(0, (size - paragraph.height) / 2));
+  final picture = recorder.endRecording();
+  try {
+    final image = await picture.toImage(size, size);
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      return StyleImage.rgba(
+        width: size,
+        height: size,
+        pixels: bytes!.buffer.asUint8List(),
+      );
+    } finally {
+      image.dispose();
+    }
+  } finally {
+    picture.dispose();
+    paragraph.dispose();
+  }
+}
+
 /// Decodes [bytes]; with [targetSize], the shorter side is scaled to about
 /// that many pixels while decoding.
 Future<ui.Image> _decode(Uint8List bytes, {int? targetSize}) async {

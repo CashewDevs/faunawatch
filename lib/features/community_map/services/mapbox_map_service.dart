@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:faunawatch/core/services/map_lighting.dart';
 import 'package:faunawatch/core/services/map_pin_image.dart';
 import '../models/community_report.dart';
+import '../models/map_pin_spot.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_proximity.dart';
@@ -63,6 +64,13 @@ class MapboxCommunityMapService implements MapboxMapService {
   final _photoIds = <String>{};
 
   static String _photoImage(String reportId) => 'report-photo-$reportId';
+
+  /// The badge layer: how many posts share a pin, only where more than one do.
+  static const _countsLayer = 'community-report-counts';
+
+  /// The badge picture for [label] ("2" to "9", or "9+").
+  static String _countImage(String label) =>
+      'community-pin-count-${label.replaceAll('+', 'plus')}';
 
   @override
   Future<void> showGuardLocation(GuardLocation? location) async {
@@ -257,6 +265,27 @@ class MapboxCommunityMapService implements MapboxMapService {
         ),
       );
     }
+    if (!await map.styleLayerExists(_countsLayer)) {
+      // Added after the pins, so each badge sits on top of its pin.
+      await map.addLayer(
+        SymbolLayer(
+          id: _countsLayer,
+          sourceId: _reportsSource,
+          slot: 'top',
+          filter: [
+            '>',
+            ['get', 'count'],
+            1,
+          ],
+          iconImageExpression: ['get', 'badge'],
+          // From the pin's tip to the top-right of its round head.
+          iconOffset: [17, -56],
+          iconAllowOverlap: true,
+          iconIgnorePlacement: true,
+          iconEmissiveStrength: 1,
+        ),
+      );
+    }
     if (recenter && reports.isNotEmpty) {
       final camera = await map.cameraForCoordinatesPadding(
         [
@@ -276,22 +305,39 @@ class MapboxCommunityMapService implements MapboxMapService {
     }
   }
 
+  /// Draws one pin per rounded point: the newest post's photo (or the logo),
+  /// named by that post's id, with a number badge when posts share it.
   Future<void> _setReportsData(MapboxMap map) async {
+    final spots = groupReportsBySpot(_reports);
+    for (final label in {
+      for (final spot in spots)
+        if (spot.count > 1) spot.countLabel,
+    }) {
+      if (!await map.hasStyleImage(_countImage(label))) {
+        await map.addImage(
+          _countImage(label),
+          2,
+          await createCountBadgeImage(label),
+        );
+      }
+    }
     final data = jsonEncode({
       'type': 'FeatureCollection',
       'features': [
-        for (final report in _reports)
+        for (final spot in spots)
           {
             'type': 'Feature',
             'properties': {
-              'postId': report.id,
-              'icon': _photoIds.contains(report.id)
-                  ? _photoImage(report.id)
+              'postId': spot.top.id,
+              'icon': _photoIds.contains(spot.top.id)
+                  ? _photoImage(spot.top.id)
                   : _pinImage,
+              'count': spot.count,
+              'badge': _countImage(spot.countLabel),
             },
             'geometry': {
               'type': 'Point',
-              'coordinates': [report.longitude, report.latitude],
+              'coordinates': [spot.top.longitude, spot.top.latitude],
             },
           },
       ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'community_report.dart';
 import 'map_focus.dart';
+import 'map_pin_spot.dart';
 
 /// Presentation state for the community sightings map.
 ///
@@ -14,6 +15,7 @@ class CommunityMapState {
     this.reportsHaveError = false,
     this.isLoadingReports = false,
     this.privateFocus,
+    this.selectedSpot,
   });
 
   final bool is3dEnabled;
@@ -25,6 +27,9 @@ class CommunityMapState {
   /// The owner's pending or declined post shown with a temporary marker.
   final MapFocus? privateFocus;
 
+  /// A tapped pin holding several posts; its list is open.
+  final MapPinSpot? selectedSpot;
+
   CommunityMapState copyWith({
     bool? is3dEnabled,
     Brightness? brightness,
@@ -35,6 +40,8 @@ class CommunityMapState {
     bool? isLoadingReports,
     MapFocus? privateFocus,
     bool clearPrivateFocus = false,
+    MapPinSpot? selectedSpot,
+    bool clearSelectedSpot = false,
   }) {
     return CommunityMapState(
       is3dEnabled: is3dEnabled ?? this.is3dEnabled,
@@ -48,6 +55,9 @@ class CommunityMapState {
       privateFocus: clearPrivateFocus
           ? null
           : privateFocus ?? this.privateFocus,
+      selectedSpot: clearSelectedSpot
+          ? null
+          : selectedSpot ?? this.selectedSpot,
     );
   }
 }

@@ -344,7 +344,10 @@ void main() {
 
     test('loads at most four at a time', () async {
       final gate = Completer<void>();
-      await open([for (var i = 0; i < 6; i++) photoReport('r$i')], gate: gate);
+      // Separate spots: reports on one spot share the newest one's photo.
+      await open([
+        for (var i = 0; i < 6; i++) photoReport('r$i', lat: 10 + i / 10),
+      ], gate: gate);
       expect(photos.requests, hasLength(CommunityMapViewModel.photosAtOnce));
       gate.complete();
       await pumpEventQueue();
@@ -599,6 +602,119 @@ void main() {
       );
     });
   });
+
+  group('shared pins, reloading and posters', () {
+    late ProviderContainer shared;
+    late DateTime now;
+
+    CommunityReport at(String id, double lat, {DateTime? createdAt}) =>
+        CommunityReport(
+          id: id,
+          category: 'animal_in_need',
+          latitude: lat,
+          longitude: 123.12,
+          description: id,
+          createdAt: createdAt,
+        );
+
+    setUp(() {
+      now = DateTime(2026, 11, 22, 9);
+      shared = ProviderContainer(
+        overrides: [
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          currentUserIdProvider.overrideWith((ref) => Stream.value('me')),
+          feedServiceProvider.overrideWithValue(feed),
+          communityMapClockProvider.overrideWithValue(() => now),
+        ],
+      );
+    });
+
+    tearDown(() => shared.dispose());
+
+    test(
+      'a pin with one post opens its card; a shared pin lists its posts, newest first',
+      () async {
+        reports.items = [
+          at('old', 10.12, createdAt: DateTime(2026, 11, 1)),
+          at('alone', 11.5),
+          at('new', 10.12, createdAt: DateTime(2026, 11, 20)),
+        ];
+        final map = shared.read(communityMapViewModelProvider.notifier);
+        await map.onStyleLoaded();
+        CommunityMapState state() => shared.read(communityMapViewModelProvider);
+
+        map.onPinTap('alone');
+        expect(state().selectedPostId, 'alone');
+        expect(state().selectedSpot, isNull);
+        map.dismissPost();
+
+        map.onPinTap('new');
+        expect(state().selectedPostId, isNull);
+        expect(state().selectedSpot!.reports.map((r) => r.id), ['new', 'old']);
+
+        // Picking from the list closes it and opens that post's card.
+        map.dismissSpot();
+        map.selectPost('old');
+        expect(state().selectedSpot, isNull);
+        expect(state().selectedPostId, 'old');
+
+        map.dismissPost();
+        map.onPinTap('gone');
+        expect(state().selectedPostId, isNull);
+        expect(state().selectedSpot, isNull);
+      },
+    );
+
+    test(
+      'opening the Map tab reloads the posts unless they loaded in the last 30 seconds',
+      () async {
+        final map = shared.read(communityMapViewModelProvider.notifier);
+        final shell = shared.read(shellViewModelProvider.notifier);
+        // Before the map has loaded, the first load comes from the style.
+        shell.goTo(ShellDestination.map);
+        await pumpEventQueue();
+        expect(reports.loads, 0);
+        await map.onStyleLoaded();
+        expect(reports.loads, 1);
+
+        shell.goTo(ShellDestination.feed);
+        now = now.add(const Duration(seconds: 29));
+        shell.goTo(ShellDestination.map);
+        await pumpEventQueue();
+        expect(reports.loads, 1);
+
+        shell.goTo(ShellDestination.feed);
+        now = now.add(const Duration(seconds: 2));
+        reports.items = [_report, at('approved-later', 12)];
+        shell.goTo(ShellDestination.map);
+        await pumpEventQueue();
+        expect(reports.loads, 2);
+        expect(
+          shared.read(communityMapViewModelProvider).reports.map((r) => r.id),
+          ['approved', 'approved-later'],
+        );
+      },
+    );
+
+    test(
+      "the poster's name opens the Profile tab for your own posts and a public profile for others",
+      () async {
+        final map = shared.read(communityMapViewModelProvider.notifier);
+        await shared.read(currentUserIdProvider.future);
+        final opened = <String>[];
+
+        map.openAuthor('someone', opened.add);
+        expect(opened, ['someone']);
+        expect(shared.read(shellViewModelProvider), ShellDestination.feed);
+
+        map.openAuthor('me', opened.add);
+        map.openAuthor('', opened.add);
+        expect(opened, ['someone']);
+        expect(shared.read(shellViewModelProvider), ShellDestination.profile);
+      },
+    );
+  });
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
@@ -667,9 +783,11 @@ class _FakeMapboxMapService implements MapboxMapService {
 
 class _Reports implements CommunityReportsService {
   bool fail = false;
+  int loads = 0;
   List<CommunityReport> items = [_report];
   @override
   Future<List<CommunityReport>> load() async {
+    loads++;
     if (fail) throw StateError('offline');
     return items;
   }

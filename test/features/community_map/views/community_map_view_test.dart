@@ -24,6 +24,7 @@ import 'package:faunawatch/features/community_map/services/mapbox_map_service.da
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_guide_sheet.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_spot_sheet.dart';
 
 void main() {
   Widget buildMap({
@@ -259,6 +260,76 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'a shared pin lists its posts with their posters, and a row opens its card',
+    (tester) async {
+      await tester.pumpWidget(
+        buildMap(
+          extraOverrides: [
+            communityReportsServiceProvider.overrideWithValue(
+              _FakeReports([
+                CommunityReport(
+                  id: 'older',
+                  category: 'animal_in_need',
+                  latitude: 10.12,
+                  longitude: 123.12,
+                  description: 'Owl on a fence.',
+                  createdAt: DateTime.utc(2026, 11, 1),
+                ),
+                CommunityReport(
+                  id: 'newer',
+                  category: 'animal_in_need',
+                  latitude: 10.12,
+                  longitude: 123.12,
+                  description: 'Bird near the road.',
+                  createdAt: DateTime.utc(2026, 11, 20),
+                ),
+              ]),
+            ),
+            feedServiceProvider.overrideWithValue(
+              FakeFeedService(
+                posts: [
+                  testPost('newer', authorId: 'u-ana', authorName: 'ana'),
+                  testPost('older', authorId: 'u-ben', authorName: 'ben'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CommunityMapView)),
+      );
+      final vm = container.read(communityMapViewModelProvider.notifier);
+      await vm.onStyleLoaded();
+      vm.onPinTap('newer');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapSpotSheet), findsOneWidget);
+      expect(find.text('2 posts here'), findsOneWidget);
+      expect(find.text('ana · Bird near the road.'), findsOneWidget);
+      expect(find.text('ben · Owl on a fence.'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('ana · Bird near the road.')).dy,
+        lessThan(tester.getTopLeft(find.text('ben · Owl on a fence.')).dy),
+      );
+
+      await tester.tap(find.text('ben · Owl on a fence.'));
+      await tester.pumpAndSettle();
+      expect(find.byType(MapSpotSheet), findsNothing);
+      expect(find.byType(MapPostDialog), findsOneWidget);
+      expect(find.text('Owl on a fence.'), findsOneWidget);
+      expect(find.text('ben'), findsOneWidget);
+      expect(find.text('Community spotter'), findsNothing);
+      expect(
+        container.read(communityMapViewModelProvider).selectedSpot,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('uses compact controls with info beside the dimension toggle', (
     tester,
   ) async {
@@ -293,7 +364,7 @@ void main() {
     expect(find.text('Find reported encounters'), findsOneWidget);
     expect(
       find.textContaining(
-        'Approved reports appear as FaunaWatch logo pins at approximate locations.',
+        'A number on a pin means several posts share that spot; tap it to see them all.',
       ),
       findsOneWidget,
     );

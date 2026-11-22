@@ -53,6 +53,49 @@ void main() {
     ),
   );
 
+  testWidgets(
+    "shows the poster's name once the post loads and opens their profile",
+    (tester) async {
+      final opened = <String>[];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            feedServiceProvider.overrideWithValue(
+              FakeFeedService(
+                posts: [
+                  testPost('r1', authorId: 'u1', authorName: 'spotter_one'),
+                ],
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: MapPostDialog(
+                preview: _preview,
+                onSeeMore: () {},
+                onAuthorTap: opened.add,
+              ),
+            ),
+          ),
+        ),
+      );
+      // The placeholder shows, without a link, until the post has loaded.
+      expect(find.text('Community spotter'), findsOneWidget);
+      await tester.tap(find.text('Community spotter'), warnIfMissed: false);
+      expect(opened, isEmpty);
+
+      await tester.pumpAndSettle();
+      expect(find.text('Community spotter'), findsNothing);
+      expect(find.text('spotter_one'), findsOneWidget);
+      expect(
+        tester.getSize(find.bySemanticsLabel("Open spotter_one's profile")),
+        isA<Size>().having((size) => size.height, 'height', 48),
+      );
+      await tester.tap(find.text('spotter_one'));
+      expect(opened, ['u1']);
+    },
+  );
+
   testWidgets('shows the first post photo above its details', (tester) async {
     final asset = await rootBundle.load(AppAssets.avatarPanda);
     final client = _ImageClient(asset.buffer.asUint8List());

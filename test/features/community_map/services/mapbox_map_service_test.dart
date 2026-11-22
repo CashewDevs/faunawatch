@@ -320,7 +320,8 @@ void main() {
       );
       await service.showReports([]);
       expect(platform.style.data['community-reports']['features'], isEmpty);
-      expect(platform.style.layers, hasLength(1));
+      // The pins and their count badges.
+      expect(platform.style.layers, hasLength(2));
       expect(platform.style.imageAddCount, 1);
     },
   );
@@ -384,10 +385,90 @@ void main() {
     platform.style.images.clear();
     await service.showReports([]);
     expect(platform.style.sources, {'community-reports'});
-    expect(platform.style.layers.keys, ['community-report-pins']);
+    expect(platform.style.layers.keys, [
+      'community-report-pins',
+      'community-report-counts',
+    ]);
     expect(platform.style.images, {'community-report-logo-pin'});
     expect(platform.style.imageAddCount, 2);
   });
+
+  test(
+    'posts on one rounded point share a pin with the newest photo and a count badge',
+    () async {
+      CommunityReport at(String id, double lat, int day) => CommunityReport(
+        id: id,
+        category: 'animal_in_need',
+        latitude: lat,
+        longitude: 121,
+        description: id,
+        createdAt: DateTime.utc(2026, 11, day),
+      );
+      List<Map<String, dynamic>> features() => [
+        for (final feature
+            in platform.style.data['community-reports']['features'] as List)
+          (feature as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>,
+      ];
+
+      await service.showReports([
+        at('old', 14.6, 1),
+        at('alone', 15, 2),
+        at('new', 14.6, 3),
+      ]);
+      expect(features(), [
+        {
+          'postId': 'new',
+          'icon': 'community-report-logo-pin',
+          'count': 2,
+          'badge': 'community-pin-count-2',
+        },
+        {
+          'postId': 'alone',
+          'icon': 'community-report-logo-pin',
+          'count': 1,
+          'badge': 'community-pin-count-1',
+        },
+      ]);
+      // Only needed badges are drawn, at 2x like the pins.
+      expect(platform.style.images, contains('community-pin-count-2'));
+      expect(platform.style.images, isNot(contains('community-pin-count-1')));
+      expect(platform.style.imageScales['community-pin-count-2'], 2);
+      final badge =
+          platform.style.renderedImages['community-pin-count-2']!
+              as StyleImageRgba;
+      expect(badge.width, 48);
+      final badges = platform.style.layers['community-report-counts']!;
+      expect(badges['filter'], [
+        '>',
+        ['get', 'count'],
+        1,
+      ]);
+      expect(badges['layout']['icon-image'], ['get', 'badge']);
+      expect(badges['layout']['icon-allow-overlap'], isTrue);
+
+      // The newest post's photo is the shared pin's picture.
+      await service.showPinPhotos({
+        'new': StyleImage.rgba(
+          width: 1,
+          height: 1,
+          pixels: Uint8List.fromList([0, 0, 0, 255]),
+        ),
+      });
+      expect(features().first['icon'], 'report-photo-new');
+
+      // Badges are drawn once; more than nine shows "9+".
+      final added = platform.style.imageAddCount;
+      await service.showReports([at('old', 14.6, 1), at('new', 14.6, 3)]);
+      expect(platform.style.imageAddCount, added);
+      await service.showReports([
+        for (var day = 1; day <= 12; day++) at('r$day', 14.6, day),
+      ]);
+      expect(features().single['postId'], 'r12');
+      expect(features().single['badge'], 'community-pin-count-9plus');
+      expect(platform.style.images, contains('community-pin-count-9plus'));
+    },
+  );
 
   test(
     'picker configures 3D and centers GPS without creating a report pin',
