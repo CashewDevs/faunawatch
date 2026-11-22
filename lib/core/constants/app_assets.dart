@@ -17,6 +17,9 @@ abstract final class AppAssets {
   /// (flutter_native_splash), so the two match exactly.
   static const String splashFox = '$imagesPath/splash_fox.png';
 
+  /// Sharper copy of [appWordmark] (1373 px wide), used under the splash fox.
+  static const String splashWordmark = '$imagesPath/splash_wordmark.webp';
+
   // Icons (Add custom SVG / vector icon asset paths here)
   static const String appLogo = '$iconsPath/fwLogo.webp';
   static const String appWordmark = '$iconsPath/fwWM.webp';

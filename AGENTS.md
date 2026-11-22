@@ -318,7 +318,8 @@ to the shell. `SplashView` starts exactly like the phone's loading screen (the
 icon's blue fade, `AppColors.splashFadeTop`/`splashFadeBottom`, with
 `AppAssets.splashFox` centred at 144 points) and plays a 1.5 s intro built with
 Flutter's own animation classes (no package): the fox pops, wiggles its head
-twice, and "FaunaWatch" slides up. `SplashViewModel.initializeApp(introFinished:)`
+twice, and the wordmark (`AppAssets.splashWordmark`, a sharper copy of
+`appWordmark`, 200 points wide, read out as "FaunaWatch") slides up. `SplashViewModel.initializeApp(introFinished:)`
 starts the sign-in check at once and publishes the result only when the check
 and the intro are both done, so startup takes the slower of the two (there is
 no fixed delay). While the check is still running the fox breathes; a spinner
