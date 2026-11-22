@@ -4,6 +4,7 @@ import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/theme/tag_colors.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/community_map/services/community_reports_service.dart';
@@ -38,6 +39,14 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 
 import '../fake_feed_service.dart';
 import '../../notifications/fake_notifications_service.dart';
+
+/// The fill colour of the post tag shown with [tone].
+Color? tagBackground(WidgetTester tester, TagTone tone) {
+  final box = tester.widget<DecoratedBox>(
+    find.byKey(ValueKey('post_tag_${tone.name}')),
+  );
+  return (box.decoration as BoxDecoration).color;
+}
 
 void main() {
   late FakeFeedService service;
@@ -128,6 +137,14 @@ void main() {
       expect(find.text('Severity: High'), findsOneWidget);
       expect(find.text('Possible invasive species'), findsOneWidget);
       expect(find.text(FeedPost.aiNote), findsOneWidget);
+      expect(
+        tagBackground(tester, TagTone.high),
+        TagColors.forTone(TagTone.high, Brightness.light).background,
+      );
+      expect(
+        tagBackground(tester, TagTone.invasive),
+        TagColors.forTone(TagTone.invasive, Brightness.light).background,
+      );
     });
 
     testWidgets('AI analysis opens a sheet with everything public', (
@@ -362,6 +379,10 @@ void main() {
       await pumpFeed(tester, theme: ThemeData.dark());
       expect(find.byType(FeedPostCard), findsOneWidget);
       expect(tester.takeException(), isNull);
+      expect(
+        tagBackground(tester, TagTone.low),
+        TagColors.forTone(TagTone.low, Brightness.dark).background,
+      );
     });
   });
 
