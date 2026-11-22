@@ -219,9 +219,9 @@ void main() {
       await tester.tap(find.text('Edit Profile'));
       await tester.pumpAndSettle();
       final banner = find.bySemanticsLabel('Banner 2');
-      await tester.ensureVisible(banner);
       await tester.tap(banner);
-      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save Changes'));
       await tester.pumpAndSettle();
       expect(writer.savedBanner, AppAssets.bannerSunset);
       expect(writer.savedColor, isNull);
@@ -247,7 +247,9 @@ void main() {
       await openMenu(tester);
       await tester.tap(find.text('Edit Profile'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Save'));
+      await tester.tap(find.bySemanticsLabel('Banner 2'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save Changes'));
       await tester.pumpAndSettle();
       expect(find.byType(EditProfileView), findsOneWidget);
       expect(
@@ -345,7 +347,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(EditProfileView), findsOneWidget);
-      expect(find.text('Save'), findsOneWidget);
+      expect(find.text('Profile Appearance'), findsOneWidget);
+      expect(find.text('Save Changes'), findsOneWidget);
     });
 
     testWidgets('tapping Change Theme opens ThemePickerSheet', (tester) async {

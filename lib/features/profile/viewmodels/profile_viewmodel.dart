@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
 import 'package:faunawatch/features/profile/services/profile_reader_service.dart';
 import 'package:faunawatch/features/profile/services/profile_storage_service.dart';
@@ -42,6 +43,17 @@ class ProfileViewModel extends AsyncNotifier<ProfileData> {
         clearBannerColor: clearColor,
       ),
     );
+  }
+
+  /// Picks a custom avatar image from the device gallery via [ImagePickerService].
+  Future<String?> pickCustomAvatar() async {
+    try {
+      final path = await ref.read(imagePickerServiceProvider).pickImage();
+      if (path == null || path.isEmpty) return null;
+      return path;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> save() async {

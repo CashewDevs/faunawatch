@@ -31,7 +31,10 @@ class ProfileData {
     bool clearBannerColor = false,
   }) {
     return ProfileData(
-      avatarUrl: clearCustomImage || presetAvatar != null ? null : avatarUrl,
+      avatarUrl:
+          clearCustomImage || presetAvatar != null || customImagePath != null
+          ? null
+          : avatarUrl,
       username: username ?? this.username,
       bio: bio ?? this.bio,
       presetAvatar: clearPresetAvatar
