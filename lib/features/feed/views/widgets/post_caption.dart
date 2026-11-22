@@ -3,12 +3,11 @@ import 'package:faunawatch/core/theme/tag_colors.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/severity_tone.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
-import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
 
-/// Author, title, and description of a post. The full description stays hidden
-/// until expanded so the caption does not cover the photos. The location opens
-/// the map when [onLocationTap] is given, and "AI analysis" opens everything
-/// the AI suggested.
+/// Author, age, location, title, description and tags of a post. The full
+/// description stays hidden until expanded so the caption does not cover the
+/// photos. The location opens the map when [onLocationTap] is given. The AI
+/// analysis button lives in the action rail.
 class PostCaption extends StatefulWidget {
   const PostCaption({
     super.key,
@@ -106,22 +105,50 @@ class _PostCaptionState extends State<PostCaption> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ProfileLink(
-                name: post.authorName,
-                onTap: widget.onAuthorTap,
-                child: Text.rich(
-                  TextSpan(
-                    text: post.authorName,
-                    style: textTheme.titleSmall?.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                    children: [TextSpan(text: ' · $when', style: detailStyle)],
+              // Author · age · location on one line. The line is a full
+              // touch height so the location link stays easy to tap.
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: _minTouchHeight),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth * 0.6,
+                        ),
+                        child: ProfileLink(
+                          name: post.authorName,
+                          onTap: widget.onAuthorTap,
+                          child: Text.rich(
+                            TextSpan(
+                              text: post.authorName,
+                              style: textTheme.titleSmall?.copyWith(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: textColor,
+                              ),
+                              children: [
+                                TextSpan(text: ' · $when', style: detailStyle),
+                              ],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      Text(' · ', style: detailStyle),
+                      Flexible(
+                        child: _LocationLink(
+                          location: post.location,
+                          style: detailStyle,
+                          color: detailColor,
+                          onTap: widget.onLocationTap,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
               Text(
                 post.title,
                 style: textTheme.titleLarge?.copyWith(
@@ -198,18 +225,6 @@ class _PostCaptionState extends State<PostCaption> {
                     ),
                 ],
               ),
-              const SizedBox(height: 4),
-              _LocationRow(
-                location: post.location,
-                style: detailStyle,
-                color: detailColor,
-                onTap: widget.onLocationTap,
-              ),
-              if (post.aiAnalysis != null)
-                _AiAnalysisButton(
-                  onTap: () =>
-                      PostAiAnalysisSheet.show(context, post.aiAnalysis!),
-                ),
             ],
           ),
         ),
@@ -239,8 +254,10 @@ class _PostCaptionState extends State<PostCaption> {
 /// The smallest touch height Android and iOS recommend.
 const _minTouchHeight = 48.0;
 
-class _LocationRow extends StatelessWidget {
-  const _LocationRow({
+/// The post's place name, after the author and age. It opens the map when
+/// [onTap] is given.
+class _LocationLink extends StatelessWidget {
+  const _LocationLink({
     required this.location,
     required this.style,
     required this.color,
@@ -254,9 +271,8 @@ class _LocationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final row = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.location_on_outlined, color: color, size: 18),
-        const SizedBox(width: 4),
         Flexible(
           child: Text(
             location,
@@ -271,18 +287,12 @@ class _LocationRow extends StatelessWidget {
           ),
         ),
         if (onTap != null) ...[
-          const SizedBox(width: 2),
           const SizedBox(width: 4),
           Icon(Icons.map_outlined, color: color, size: 16),
         ],
       ],
     );
-    if (onTap == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: row,
-      );
-    }
+    if (onTap == null) return row;
     return Semantics(
       button: true,
       hint: 'Show on the map',
@@ -292,57 +302,6 @@ class _LocationRow extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: _minTouchHeight),
           child: row,
-        ),
-      ),
-    );
-  }
-}
-
-class _AiAnalysisButton extends StatelessWidget {
-  const _AiAnalysisButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurface;
-    final radius = BorderRadius.circular(18);
-    // The outlined pill is 36 dp tall; the touch area around it is 48 dp.
-    return Semantics(
-      button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: _minTouchHeight),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            widthFactor: 1,
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: color.withValues(alpha: 0.5)),
-                borderRadius: radius,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.auto_awesome, size: 16, color: color),
-                  const SizedBox(width: 6),
-                  Text(
-                    'AI analysis',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontSize: 13.5,
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, size: 18, color: color),
-                ],
-              ),
-            ),
-          ),
         ),
       ),
     );

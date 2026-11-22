@@ -458,7 +458,12 @@ full-screen card each (swipe up for the next), with network photos, the title
 description, category, AI severity/invasive flag, and the place name. The
 caption no longer shows the "Preliminary AI-assisted suggestions" note
 (`FeedPost.aiNote`); it stays in the "AI analysis" sheet, and the poster still
-sees the AI disclaimers on Create Post and the FaunaLens AI result screen. Private photo URLs and
+sees the AI disclaimers on Create Post and the FaunaLens AI result screen.
+The author picture, like, comment and (when the post has one) "AI" analysis
+buttons (`PostActionRail`) float over the lower right of the photo, like a
+short-video feed, and the caption below uses the full width
+(`FeedPostCard.photoTopGap` / `railBottomGap`). The caption's first line is
+author · age · place name (no pin icon; the place name still opens the map). Private photo URLs and
 uploaded avatars are signed for one hour (they refresh with the page).
 
 My Gallery (`lib/features/gallery/`) appears directly below Profile's banner,

@@ -25,6 +25,7 @@ import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_action_rail.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
+import 'package:faunawatch/features/feed/views/widgets/post_caption.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
@@ -173,7 +174,16 @@ void main() {
       await pumpFeed(tester);
       // The caption no longer shows the note; only the sheet does.
       expect(find.text(FeedPost.aiNote), findsNothing);
-      await tester.tap(find.text('AI analysis'));
+      // The AI button lives in the right-hand rail, over the photo.
+      final aiButton = find.bySemanticsLabel('AI analysis');
+      expect(
+        find.descendant(
+          of: find.byType(PostActionRail),
+          matching: find.text('AI'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(aiButton);
       await tester.pumpAndSettle();
       final sheet = find.byType(PostAiAnalysisSheet);
       expect(sheet, findsOneWidget);
@@ -195,7 +205,8 @@ void main() {
       tester,
     ) async {
       await pumpFeed(tester);
-      expect(find.text('AI analysis'), findsNothing);
+      expect(find.bySemanticsLabel('AI analysis'), findsNothing);
+      expect(find.text('AI'), findsNothing);
     });
 
     testWidgets('a long description is collapsed until expanded', (
@@ -347,6 +358,21 @@ void main() {
         expect(
           tester.getCenter(find.text('1 / 2')).dx,
           greaterThan(tester.getCenter(find.byType(FeedPostCard)).dx),
+        );
+        // The location sits on the author and age line, with no pin icon.
+        expect(
+          tester.getCenter(find.text('Lusod, Kabayan, Benguet')).dy,
+          closeTo(tester.getCenter(find.textContaining('spotter_one')).dy, 2),
+        );
+        expect(find.byIcon(Icons.location_on_outlined), findsNothing);
+        // The rail floats over the photo, above the full-width caption.
+        expect(
+          tester.getBottomLeft(find.bySemanticsLabel(RegExp('^Comments, '))).dy,
+          lessThanOrEqualTo(tester.getTopLeft(find.byType(PostCaption)).dy),
+        );
+        expect(
+          tester.getTopRight(find.byType(PostCaption)).dx,
+          greaterThan(tester.getTopLeft(find.byType(PostActionRail)).dx),
         );
         expect(tester.takeException(), isNull);
       },
