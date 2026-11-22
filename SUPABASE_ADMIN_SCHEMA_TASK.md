@@ -165,7 +165,7 @@ This changes who can see what. Flag it to the user before applying.
 All check `is_admin()` first and raise if false.
 
 - `admin_list_users()`: profile fields, `email` and `email_confirmed_at` from `auth.users`, report count, current sanction.
-- `admin_sector_stats(from_ts, to_ts, cell_deg default 0.1, min_count default 3)`: groups sightings into fixed grid cells (0.1° is about 11 km), returns the **cell centre** (never an average of points) and counts per cell, and omits cells with fewer than `min_count` sightings.
+- `admin_sector_stats(from_ts, to_ts, cell_deg default 0.1, min_count default 3)`: groups sightings into fixed grid cells (0.1° is about 11 km), returns the cell centre and counts per cell, and omits cells with fewer than `min_count` sightings. Since `20261122163959_add_average_spot_to_sector_stats`, it also returns the **exact average spot** of each cell's sightings (`avg_lat`, `avg_lng`) and a spot per category (`category_spots`). A category gets the average of its own sightings only when it has at least `min_count` of them in the cell; otherwise it gets the cell's average, so the spot of one or two sightings is never returned. The averages are not rounded: the pilot accepted on 2026-11-22 that comparing two date ranges can reveal one sighting's exact spot. Admins only.
 - Admin select policies (`using (public.is_admin())`) on tables the admin site reads that are not already covered above.
 
 ## Mobile App (Dart) Changes
