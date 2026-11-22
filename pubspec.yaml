@@ -64,6 +64,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 # App icon shown on the phone's home screen. The source pictures live in
 # assets/launcher_icon/ (build-time only, not bundled into the app).
@@ -77,6 +78,21 @@ flutter_launcher_icons:
   adaptive_icon_foreground_inset: 0
   ios: true
   remove_alpha_ios: true
+
+# The phone's own loading screen, shown before Flutter starts. It matches the
+# first frame of the animated splash (SplashView): the icon's blue fade with
+# the fox in the middle at 144 points. splash_fox.png is also used by
+# SplashView; assets/splash/ holds build-time pictures only (not bundled).
+# After changing them, run: dart run flutter_native_splash:create
+flutter_native_splash:
+  background_image: "assets/splash/splash_background.png"
+  image: "assets/images/splash_fox.png"
+  # Android 12 and newer always show their own splash: one colour (the middle
+  # of the blue fade) with the icon in a circle.
+  android_12:
+    image: "assets/splash/splash_android12.png"
+    color: "#265CB2"
+  web: false
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

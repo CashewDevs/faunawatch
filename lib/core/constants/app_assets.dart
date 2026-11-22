@@ -13,6 +13,10 @@ abstract final class AppAssets {
   static const String signUpDesign = '$imagesPath/signupD.webp';
   static const String introBackground = '$imagesPath/inBG.webp';
 
+  /// The fox on the splash screen. Also the phone's own loading screen picture
+  /// (flutter_native_splash), so the two match exactly.
+  static const String splashFox = '$imagesPath/splash_fox.png';
+
   // Icons (Add custom SVG / vector icon asset paths here)
   static const String appLogo = '$iconsPath/fwLogo.webp';
   static const String appWordmark = '$iconsPath/fwWM.webp';
