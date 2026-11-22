@@ -39,9 +39,14 @@ class SettingsViewModel extends Notifier<SettingsState> {
     return ref.read(pushViewModelProvider.notifier).setEnabled(enabled);
   }
 
-  /// Toggles location privacy.
+  /// Toggles location privacy (show approximate location on reports).
   void toggleLocationPrivacy(bool enabled) {
     state = state.copyWith(locationPrivacyEnabled: enabled);
+  }
+
+  /// Toggles posting reports anonymously as "Anonymous spotter".
+  void toggleHideNameOnReports(bool enabled) {
+    state = state.copyWith(hideNameOnReports: enabled);
   }
 
   /// Signs the user out, resets shell navigation to default Feed, and invalidates session.

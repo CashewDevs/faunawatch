@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../fauna_lens/ai_fakes.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
+import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
@@ -20,7 +21,7 @@ void main() {
 
   group('SettingsView', () {
     testWidgets(
-      'renders Account Change password, preferences, and docked sign out',
+      'renders Account, Privacy below Account, preferences, and docked sign out',
       (tester) async {
         await tester.pumpWidget(buildTestSettings());
 
@@ -28,11 +29,59 @@ void main() {
         expect(find.text('ACCOUNT'), findsOneWidget);
         expect(find.text('Change password'), findsOneWidget);
         expect(find.text('Update your sign-in password'), findsOneWidget);
+        expect(find.text('PRIVACY'), findsOneWidget);
+        expect(find.text('Show approximate location'), findsOneWidget);
+        expect(
+          find.text('Other users see a nearby area, not your exact spot'),
+          findsOneWidget,
+        );
+        expect(find.text('Hide my name on reports'), findsOneWidget);
+        expect(find.text('Post as "Anonymous spotter"'), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.text('PRIVACY')).dy,
+          greaterThan(tester.getBottomLeft(find.text('Change password')).dy),
+        );
         expect(find.text('Theme Mode'), findsNothing);
-        expect(find.text('Push Notifications'), findsOneWidget);
         expect(find.text('Sign Out'), findsOneWidget);
       },
     );
+
+    testWidgets('toggling Privacy switches updates SettingsViewModel', (
+      tester,
+    ) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SettingsView()),
+        ),
+      );
+
+      final switches = find.byType(Switch);
+      expect(
+        container.read(settingsViewModelProvider).locationPrivacyEnabled,
+        isTrue,
+      );
+      expect(
+        container.read(settingsViewModelProvider).hideNameOnReports,
+        isFalse,
+      );
+
+      await tester.tap(switches.at(0));
+      await tester.tap(switches.at(1));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(settingsViewModelProvider).locationPrivacyEnabled,
+        isFalse,
+      );
+      expect(
+        container.read(settingsViewModelProvider).hideNameOnReports,
+        isTrue,
+      );
+    });
 
     testWidgets('tapping Change password opens ChangePasswordView', (
       tester,
@@ -117,7 +166,8 @@ void main() {
       await tester.pumpWidget(buildWithKeys(_FakeKeyStorage()));
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text('AI Integration'));
+      await tester.drag(find.byType(ListView), const Offset(0, -250));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('AI Integration'));
       await tester.pumpAndSettle();
 

@@ -210,6 +210,81 @@ class SettingsView extends ConsumerWidget {
 
                     const SizedBox(height: 20),
 
+                    // Privacy Section
+                    _buildSectionHeader('PRIVACY', isDark),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.04,
+                            ),
+                            offset: const Offset(0, 3),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _buildPrivacyToggleRow(
+                            context: context,
+                            icon: Icons.shield_outlined,
+                            iconBackground: isDark
+                                ? const Color(
+                                    0xFF1A5DC9,
+                                  ).withValues(alpha: 0.22)
+                                : const Color(0xFFE3F0FE),
+                            iconColor: isDark
+                                ? AppColors.darkAccentBlue
+                                : const Color(0xFF1A5DC9),
+                            title: 'Show approximate location',
+                            subtitle:
+                                'Other users see a nearby area, not your exact spot',
+                            value: settings.locationPrivacyEnabled,
+                            isDark: isDark,
+                            onChanged: (val) => ref
+                                .read(settingsViewModelProvider.notifier)
+                                .toggleLocationPrivacy(val),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildPrivacyToggleRow(
+                            context: context,
+                            icon: Icons.image_outlined,
+                            iconBackground: isDark
+                                ? const Color(
+                                    0xFFB91C1C,
+                                  ).withValues(alpha: 0.22)
+                                : const Color(0xFFFDE8E8),
+                            iconColor: isDark
+                                ? const Color(0xFFFCA5A5)
+                                : const Color(0xFFB91C1C),
+                            title: 'Hide my name on reports',
+                            subtitle: 'Post as "Anonymous spotter"',
+                            value: settings.hideNameOnReports,
+                            isDark: isDark,
+                            onChanged: (val) => ref
+                                .read(settingsViewModelProvider.notifier)
+                                .toggleHideNameOnReports(val),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
                     // Preferences Section
                     _buildSectionHeader('PREFERENCES', isDark),
                     const SizedBox(height: 8),
@@ -236,77 +311,35 @@ class SettingsView extends ConsumerWidget {
                       child: Material(
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(18),
-                        child: Column(
-                          children: [
-                            SwitchListTile.adaptive(
-                              value: settings.pushNotificationsEnabled,
-                              onChanged: (val) {
-                                ref
-                                    .read(settingsViewModelProvider.notifier)
-                                    .togglePushNotifications(val);
-                              },
-                              title: Text(
-                                'Push Notifications',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark
-                                      ? Colors.white
-                                      : const Color(0xFF1E293B),
-                                ),
-                              ),
-                              subtitle: Text(
-                                'Receive alerts on community sightings and replies',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? const Color(0xFF94A3B8)
-                                      : const Color(0xFF64748B),
-                                ),
-                              ),
-                              activeTrackColor: AppPaletteColors.of(
-                                context,
-                              ).shellHeaderBlue,
-                            ),
-                            Divider(
-                              height: 1,
-                              indent: 16,
-                              endIndent: 16,
+                        child: SwitchListTile.adaptive(
+                          value: settings.pushNotificationsEnabled,
+                          onChanged: (val) {
+                            ref
+                                .read(settingsViewModelProvider.notifier)
+                                .togglePushNotifications(val);
+                          },
+                          title: Text(
+                            'Push Notifications',
+                            style: GoogleFonts.dmSans(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
                               color: isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFE2E8F0),
+                                  ? Colors.white
+                                  : const Color(0xFF1E293B),
                             ),
-                            SwitchListTile.adaptive(
-                              value: settings.locationPrivacyEnabled,
-                              onChanged: (val) {
-                                ref
-                                    .read(settingsViewModelProvider.notifier)
-                                    .toggleLocationPrivacy(val);
-                              },
-                              title: Text(
-                                'Location Privacy',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark
-                                      ? Colors.white
-                                      : const Color(0xFF1E293B),
-                                ),
-                              ),
-                              subtitle: Text(
-                                'Obfuscate precise location coordinates on reports',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? const Color(0xFF94A3B8)
-                                      : const Color(0xFF64748B),
-                                ),
-                              ),
-                              activeTrackColor: AppPaletteColors.of(
-                                context,
-                              ).shellHeaderBlue,
+                          ),
+                          subtitle: Text(
+                            'Receive alerts on community sightings and replies',
+                            style: GoogleFonts.dmSans(
+                              fontSize: 12,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B),
                             ),
-                          ],
+                          ),
+                          activeTrackColor: AppPaletteColors.of(
+                            context,
+                          ).shellHeaderBlue,
                         ),
                       ),
                     ),
@@ -449,6 +482,69 @@ class SettingsView extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPrivacyToggleRow({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconBackground,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required bool isDark,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: iconBackground,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: iconColor, size: 22),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.dmSans(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: GoogleFonts.dmSans(
+                  fontSize: 12.5,
+                  height: 1.3,
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Switch.adaptive(
+          value: value,
+          onChanged: onChanged,
+          activeTrackColor: AppPaletteColors.of(context).shellHeaderBlue,
+          activeThumbColor: Colors.white,
+        ),
+      ],
     );
   }
 
