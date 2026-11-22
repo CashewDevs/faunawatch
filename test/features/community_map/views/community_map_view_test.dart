@@ -254,7 +254,6 @@ void main() {
     await tester.tap(find.text('See more in feed'));
     await tester.pumpAndSettle();
     expect(container.read(shellViewModelProvider), ShellDestination.feed);
-    expect(container.read(feedTabViewModelProvider), FeedTab.forYou);
     expect(container.read(feedViewModelProvider).focusedPostId, 'r1');
     expect(find.text('See more in feed'), findsNothing);
     expect(tester.takeException(), isNull);

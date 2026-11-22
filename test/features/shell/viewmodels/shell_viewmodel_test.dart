@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 void main() {
@@ -29,12 +28,13 @@ void main() {
       }
     });
 
-    test('destinations match the navigation bar order, without a '
-        'notifications tab', () {
+    test('destinations match the navigation bar order, with Map and without '
+        'a notifications tab', () {
       expect(ShellDestination.values, [
         ShellDestination.feed,
-        ShellDestination.chats,
+        ShellDestination.map,
         ShellDestination.addPost,
+        ShellDestination.chats,
         ShellDestination.profile,
       ]);
     });
@@ -76,25 +76,17 @@ void main() {
 
     group('Back', () {
       ShellViewModel vm() => container.read(shellViewModelProvider.notifier);
-      ShellPlace here() => (
-        destination: container.read(shellViewModelProvider),
-        feedTab: container.read(feedTabViewModelProvider),
-      );
-      FeedTabViewModel tabs() =>
-          container.read(feedTabViewModelProvider.notifier);
+      ShellDestination here() => container.read(shellViewModelProvider);
 
-      test('returns through tabs and feed sub-tabs in reverse order', () {
-        tabs().select(FeedTab.map);
+      test('returns through the tabs in reverse order', () {
+        vm().selectDestination(ShellDestination.map);
         vm().selectDestination(ShellDestination.profile);
         vm().selectDestination(ShellDestination.chats);
 
         expect(vm().back(), ShellBackResult.moved);
-        expect(here().destination, ShellDestination.profile);
+        expect(here(), ShellDestination.profile);
         expect(vm().back(), ShellBackResult.moved);
-        expect(here(), (
-          destination: ShellDestination.feed,
-          feedTab: FeedTab.map,
-        ));
+        expect(here(), ShellDestination.map);
         expect(vm().back(), ShellBackResult.moved);
         expect(here(), ShellViewModel.home);
       });
@@ -114,7 +106,7 @@ void main() {
       });
 
       test('resetToHome goes home and forgets earlier places', () {
-        tabs().select(FeedTab.map);
+        vm().goTo(ShellDestination.map);
         vm().resetToHome();
         expect(here(), ShellViewModel.home);
         vm().goTo(ShellDestination.chats);
@@ -122,19 +114,12 @@ void main() {
         expect(vm().back(), ShellBackResult.confirmExit);
       });
 
-      test('goTo with a feed tab is a single Back step', () {
+      test('goTo is a single Back step', () {
         vm().selectDestination(ShellDestination.profile);
-        vm().goTo(ShellDestination.feed, feedTab: FeedTab.map);
-        expect(here(), (
-          destination: ShellDestination.feed,
-          feedTab: FeedTab.map,
-        ));
+        vm().goTo(ShellDestination.map);
+        expect(here(), ShellDestination.map);
         expect(vm().back(), ShellBackResult.moved);
-        // The feed tab is restored too, as it was before the jump.
-        expect(here(), (
-          destination: ShellDestination.profile,
-          feedTab: FeedTab.forYou,
-        ));
+        expect(here(), ShellDestination.profile);
       });
 
       test('reselecting the current tab adds no step', () {
@@ -143,6 +128,19 @@ void main() {
         expect(vm().back(), ShellBackResult.moved);
         expect(here(), ShellViewModel.home);
         expect(vm().back(), ShellBackResult.confirmExit);
+      });
+
+      test('history keeps only the last 20 places', () {
+        const tabs = [ShellDestination.map, ShellDestination.chats];
+        for (var i = 0; i < 30; i++) {
+          vm().selectDestination(tabs[i % 2]);
+        }
+        var steps = 0;
+        while (vm().back() == ShellBackResult.moved) {
+          steps++;
+        }
+        // 20 remembered places, then home.
+        expect(steps, 21);
       });
     });
   });

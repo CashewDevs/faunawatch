@@ -38,7 +38,7 @@ void main() {
     camera = _FakeCamera();
   });
 
-  Widget buildTestShell() {
+  Widget buildTestShell({bool reduceMotion = false}) {
     return ProviderScope(
       overrides: [
         currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
@@ -55,9 +55,34 @@ void main() {
           _FakeProfilePictureViewModel.new,
         ),
       ],
-      child: const MaterialApp(home: ShellView()),
+      child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(disableAnimations: reduceMotion),
+          child: child!,
+        ),
+        home: const ShellView(),
+      ),
     );
   }
+
+  double tabFadeOpacity(WidgetTester tester) => tester
+      .widget<FadeTransition>(find.byKey(const Key('shell_tab_fade')))
+      .opacity
+      .value;
+
+  double squircleCenter(WidgetTester tester) =>
+      tester.getCenter(find.byKey(const Key('nav_selection_squircle'))).dx;
+
+  double labelCenter(WidgetTester tester, String label) => tester
+      .getCenter(
+        find.descendant(
+          of: find.byType(ShellNavBar),
+          matching: find.text(label),
+        ),
+      )
+      .dx;
 
   group('ShellView', () {
     testWidgets('renders custom header, nav bar, and default Feed view', (
@@ -73,12 +98,12 @@ void main() {
       expect(find.text('No posts yet.'), findsOneWidget);
     });
 
-    testWidgets('header only appears on the feed view, not on other pages', (
+    testWidgets('header only appears on Feed and Map, not on other pages', (
       tester,
     ) async {
       await tester.pumpWidget(buildTestShell());
 
-      // Feed view and its tabs have the header
+      // Feed and Map have the header
       expect(find.byType(ShellHeader), findsOneWidget);
       await tester.tap(find.text('Map'));
       await tester.pumpAndSettle();
@@ -125,24 +150,128 @@ void main() {
       },
     );
 
-    testWidgets('keeps Map in the feed and Gallery in Profile', (tester) async {
-      await tester.pumpWidget(buildTestShell());
-      final navBar = find.byType(ShellNavBar);
+    testWidgets(
+      'the bar is Feed · Map | + | Chats · Profile with "+" centred',
+      (tester) async {
+        await tester.pumpWidget(buildTestShell());
+        final navBar = find.byType(ShellNavBar);
 
-      for (final label in ['Feed', 'Chats', 'Profile']) {
+        for (final label in ['Feed', 'Map', 'Chats', 'Profile']) {
+          expect(
+            find.descendant(of: navBar, matching: find.text(label)),
+            findsOneWidget,
+          );
+        }
+        // Notifications open from the top bar's bell; Gallery is in Profile.
+        for (final label in ['Gallery', 'Notifs', 'Notifications', 'For You']) {
+          expect(
+            find.descendant(of: navBar, matching: find.text(label)),
+            findsNothing,
+          );
+        }
+        final add = tester.getCenter(find.bySemanticsLabel('Add post')).dx;
+        expect(add, closeTo(tester.getSize(navBar).width / 2, 0.5));
         expect(
-          find.descendant(of: navBar, matching: find.text(label)),
-          findsOneWidget,
+          labelCenter(tester, 'Feed'),
+          lessThan(labelCenter(tester, 'Map')),
         );
-      }
-      // Notifications open from the Feed top bar's bell instead.
-      for (final label in ['Gallery', 'Map', 'Notifs', 'Notifications']) {
+        expect(labelCenter(tester, 'Map'), lessThan(add));
+        expect(add, lessThan(labelCenter(tester, 'Chats')));
         expect(
-          find.descendant(of: navBar, matching: find.text(label)),
-          findsNothing,
+          labelCenter(tester, 'Chats'),
+          lessThan(labelCenter(tester, 'Profile')),
         );
-      }
-      expect(find.bySemanticsLabel('Add post'), findsOneWidget);
+        // Two tabs on each side, mirrored around "+".
+        expect(
+          add - labelCenter(tester, 'Map'),
+          closeTo(labelCenter(tester, 'Chats') - add, 0.5),
+        );
+      },
+    );
+
+    testWidgets('Profile uses an outline person icon, filled when selected', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestShell());
+      expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.person_rounded), findsNothing);
+
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.person_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.person_outline_rounded), findsNothing);
+    });
+
+    testWidgets('the squircle glides from the current tab to the next', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestShell());
+      await tester.pumpAndSettle();
+      final feed = labelCenter(tester, 'Feed');
+      final chats = labelCenter(tester, 'Chats');
+      expect(squircleCenter(tester), closeTo(feed, 0.5));
+
+      await tester.tap(find.text('Chats'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // Part of the way there.
+      expect(squircleCenter(tester), greaterThan(feed + 1));
+      expect(squircleCenter(tester), lessThan(chats - 1));
+
+      await tester.pumpAndSettle();
+      expect(squircleCenter(tester), closeTo(chats, 0.5));
+    });
+
+    testWidgets('the opened tab fades in', (tester) async {
+      await tester.pumpWidget(buildTestShell());
+      await tester.pumpAndSettle();
+      expect(tabFadeOpacity(tester), 1);
+
+      await tester.tap(find.text('Chats'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tabFadeOpacity(tester), lessThan(1));
+
+      await tester.pumpAndSettle();
+      expect(tabFadeOpacity(tester), 1);
+      expect(find.byType(MessagesView), findsOneWidget);
+    });
+
+    testWidgets('nothing animates when the device asks for less motion', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestShell(reduceMotion: true));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Chats'));
+      await tester.pump();
+      expect(tabFadeOpacity(tester), 1);
+      expect(
+        squircleCenter(tester),
+        closeTo(labelCenter(tester, 'Chats'), 0.5),
+      );
+    });
+
+    testWidgets('the map is created on first use and kept across tabs', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestShell());
+      await tester.pumpAndSettle();
+      expect(find.byType(CommunityMapView, skipOffstage: false), findsNothing);
+
+      await tester.tap(find.text('Map'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CommunityMapView), findsOneWidget);
+      final state = tester.state(find.byType(CommunityMapView));
+
+      await tester.tap(find.text('Feed'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CommunityMapView), findsNothing);
+      expect(find.byType(FeedView), findsOneWidget);
+
+      await tester.tap(find.text('Map'));
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(CommunityMapView)), same(state));
     });
 
     testWidgets('switches views when navigation items are tapped', (
@@ -169,11 +298,10 @@ void main() {
       expect(find.byType(GalleryView), findsOneWidget);
       expect(find.text('My Gallery'), findsOneWidget);
 
-      // Returning to Feed keeps the selected tab
       await tester.tap(find.text('Feed'));
       await tester.pumpAndSettle();
       expect(find.byType(FeedView), findsOneWidget);
-      expect(find.byTooltip('About this map'), findsOneWidget);
+      expect(find.byTooltip('About this map'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 

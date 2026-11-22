@@ -342,10 +342,17 @@ actor, time) instead of a new row ("<name> liked your report", then "<name> and
 N others liked your report" by the number of likes from other users). The body
 is the report's species, else its category (reports have no title column).
 
-Notifications are not a bottom-bar tab (the bar is Feed · Chats | + | Profile,
-each side half the bar so "+" stays centred). A bell to the right of the search
-box in the Feed top bar (`ShellHeader`, on both Map and For You; not on other
-tabs) shows a red dot while anything is unread (`hasUnreadNotificationsProvider`)
+The bottom bar (`ShellNavBar`) is Feed · Map | + | Chats · Profile, each side
+half the bar so "+" stays centred. Feed shows the For You posts directly (there
+is no Map/For You switch); the community map is its own tab (`ShellDestination.map`),
+created on first use and then kept alive. Profile uses an outline person icon
+(filled when selected) in the colours of the other tab pictures. The selected
+tab sits in a rounded square that glides to the next tab, the icons fade
+between outline and filled, and the opened tab fades in (`ShellView`, about
+0.25 s); all of it is instant when the device asks for less motion.
+Notifications are not a bottom-bar tab. A bell to the right of the search
+box in the top bar (`ShellHeader`, shown on Feed and Map; not on other tabs)
+shows a red dot while anything is unread (`hasUnreadNotificationsProvider`)
 and pushes `NotificationsView` as a page on top, with a back arrow; Back returns
 to Feed and is not a shell history step. Tapping a chat notification there
 closes the page before switching the shell to Chats.
@@ -451,15 +458,13 @@ Settings live in `ProfilePreferencesDrawer`, opened by the hamburger icon at
 the top-right of the banner. Selecting an action closes the drawer before
 opening the existing editor, theme picker or settings screen.
 The system Back button on the shell (`ShellView`'s `PopScope`,
-`ShellViewModel.back`) never closes the app at once: every bottom-tab and Feed
-Map/For You change is remembered (up to 20 places), Back returns to the previous
-one, then home (Feed › For You), and at home the first Back shows "Press back
-again to exit" and only a second Back within 2 seconds closes the app.
-`ShellViewModel.goTo(destination, feedTab:)` makes a combined jump one step;
-sign-out calls `resetToHome()`, which also forgets the history. Screens pushed on
-top of the shell keep their normal Back.
-Gallery is absent from the feed tabs,
-which contain Map and For You only. Gallery shows the signed-in user's approved,
+`ShellViewModel.back`) never closes the app at once: every bottom-tab change is
+remembered (up to 20 places), Back returns to the previous one, then home
+(Feed), and at home the first Back shows "Press back again to exit" and only a
+second Back within 2 seconds closes the app. `ShellViewModel.goTo(destination)`
+makes a jump one step; sign-out calls `resetToHome()`, which also forgets the
+history. Screens pushed on top of the shell keep their normal Back.
+Gallery is not a bottom-bar tab; it lives in Profile. Gallery shows the signed-in user's approved,
 pending AND declined reports, mixed in one three-column grid with yellow
 title/date footers, newest submission first; changes-requested reports stay
 out. Pending tiles carry a "Pending review" badge (clock icon) and declined tiles
@@ -588,7 +593,7 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   `user_notes` are never shown on posts.
 - **Post location on the map:** tapping a post's location (For You, for posts
   with a rounded point, or any post in the gallery viewer) calls
-  `CommunityMapViewModel.focusOnPost`, which switches the shell to Feed › Map at
+  `CommunityMapViewModel.focusOnPost`, which switches the shell to the Map tab at
   once as one Back step (`ShellViewModel.goTo`). The signed-in user's OWN post
   (any status) opens at its exact point, read on demand through owner RLS by
   `ReportDetailService.fetchOwnLocation` (`MapFocus.isExact`); it is held only in
@@ -614,7 +619,8 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   trigger notifies the report's owner. The table has no replies, reactions or
   photos, so the comments sheet offers plain text and emoji only, newest first
   (the latest 100; no paging yet).
-- The community map's report pins open the matching post in the For You tab
+- The community map's report pins open the matching post in the Feed tab (one
+  Back step returns to the map)
   (`FeedViewModel.openReport`, fetching it through `community_feed(p_report_id)`
   when it is not loaded). The map shows only real approved reports at the
   approximate coordinates returned by `community_reports()`. It fits the first
