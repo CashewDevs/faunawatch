@@ -99,10 +99,11 @@ void main() {
       expect(statusRect.top, greaterThan(nameRect.bottom));
       expect(statusRect.height, greaterThanOrEqualTo(80));
       expect(find.text('Pending review'), findsOneWidget);
-      expect(
+      final pendingDescription = tester.widget<Text>(
         find.text('An admin has not reviewed this report yet.'),
-        findsOneWidget,
       );
+      expect(pendingDescription.maxLines, 1);
+      expect(pendingDescription.softWrap, isFalse);
 
       final statusDecoration =
           tester.widget<Container>(statusCardFinder).decoration!

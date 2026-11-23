@@ -231,15 +231,32 @@ class _StatusNoticeCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    status.description,
-                    style: GoogleFonts.dmSans(
-                      color: bodyColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
+                  if (status == ReportStatus.pending)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        status.description,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: GoogleFonts.dmSans(
+                          color: bodyColor,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      status.description,
+                      style: GoogleFonts.dmSans(
+                        color: bodyColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
