@@ -259,14 +259,20 @@ A user's AI API key is runtime user data, not application configuration.
 - The chosen provider and model (`AiPreferences`) are not secret but are
   stored per user in the same secure store as the keys, under
   `faunawatch.ai_pref.<userId>.*`.
-- Keys are added in two places: the first-time "Power up FaunaLens" screen
-  (`AiKeySetupView`, onboarding only) and Settings › AI Integration, where the
-  "API key" row opens a small key pop-up (`AiKeyDialog`, opened through
-  `editAiProviderKey`) for the selected provider: add, replace or remove its
-  key. FaunaLens "Add an AI key" buttons open AI Integration. Every save goes
-  through the AI Keys Agreement sheet (`showAiKeysAgreementSheet`) first.
-  The pop-up and the agreement use the AI Integration look
-  (`AiSettingsStyle`) and follow dark mode.
+- Keys are typed only in a small key pop-up (`AiKeyDialog`, opened through
+  `editAiProviderKey`) for one provider. Settings › AI Integration's "API key"
+  row opens it to add, replace or remove the selected provider's key; the
+  first-time "Power up FaunaLens" screen (`AiKeySetupView`, onboarding only)
+  shows the same card with just "AI provider" and "API key" rows (no Model or
+  Test; replace but not remove), and Continue needs a saved key. FaunaLens
+  "Add an AI key" buttons open AI Integration. Every save goes through the AI
+  Keys Agreement sheet (`showAiKeysAgreementSheet`) first. The card pieces
+  (`AiSettingsCard`, `AiSettingsRow`, `AiProviderPill`,
+  `AiSettingsSectionHeader`) live in `views/widgets/ai_settings_card.dart`;
+  the pop-up and the agreement use `AiSettingsStyle` and follow dark mode,
+  except on `AiKeySetupView`, which is always light like the onboarding
+  screens around it (it wraps itself in `appLightThemeProvider`'s theme, so
+  what it opens is light too).
 - One optional backup key (Settings › AI Integration › BACKUP KEY card) can
   be for any provider, including a second key for the main provider. The card
   mirrors the Provider card: "Backup provider" (picking one opens the key
@@ -297,11 +303,11 @@ A user's AI API key is runtime user data, not application configuration.
 ## Security
 
 Screenshots are blocked (Android `FLAG_SECURE` through `WindowSecurityService`)
-only while an AI key can be typed: `AiKeySetupView` (onboarding) and the key
-pop-up from Settings › AI Integration, for the main key and the backup key
-(`editAiProviderKey` and `editAiBackupKey` turn the block on before it opens
-and off when it closes). Every other screen, including the Profile tab,
-allows screenshots.
+only while an AI key can be typed: the key pop-up, for the main key and the
+backup key, from onboarding or Settings › AI Integration (`editAiProviderKey`
+and `editAiBackupKey` turn the block on before it opens and off when it
+closes). Every other screen, including the Profile tab and the first-time key
+screen itself, allows screenshots.
 
 Treat all API keys, tokens, passwords, credentials, and private user data
 as secrets. Never commit them. Before adding a new config file, check
