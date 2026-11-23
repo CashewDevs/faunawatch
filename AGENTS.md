@@ -934,12 +934,27 @@ outside the App Store/TestFlight), a "Check for updates" row. Checking happens o
 when tapped (no automatic check yet): `GitHubAppReleaseService` reads
 `GET /repos/CashewDevs/faunawatch/releases/latest` without sign-in (drafts and
 pre-releases are skipped; 404 means nothing released yet), and
-`AppUpdateViewModel` compares name, then build number. A newer release opens an
-"Update available" box with its notes and "Open download page" (the release page
-in the browser, through `ExternalLinkService`). Updates only install over the
-existing app when every release is built on the same computer (same signing
-key) with a higher build number. The ViewModel keeps the result for the app
-session. No new dependency or migration.
+`AppUpdateViewModel` compares name, then build number. A newer release opens the
+"Update available" box (`UpdateAvailableDialog`) with its notes and **Update**
+(or "Open download page", the release page in the browser through
+`ExternalLinkService`, when the release has no `faunawatch.apk`). Update
+(`AppUpdateViewModel.startUpdate`, `UpdateInstallStatus`) downloads the apk with
+`http` into the app's cache folder `updates/` (`AndroidAppUpdateInstaller`:
+percentage progress, Cancel, a 30 s stall timeout, a `.part` file renamed only
+when complete; the box cannot be closed while downloading), then, through the
+`faunawatch/app_update` channel in `MainActivity.kt`, checks Android's "install
+unknown apps" permission (`REQUEST_INSTALL_PACKAGES` in the manifest). Without
+it the box says "One more step" and offers Open settings and Install (the
+download is kept); with it Android's installer opens on the file, shared through
+`UpdateFileProvider` (its own `FileProvider` subclass, authority
+`<applicationId>.updates`, folder in `res/xml/update_paths.xml`; the app depends
+on `androidx.core` for it). Downloads are deleted when the ViewModel first starts
+in a session. No Flutter package was added (`ota_update`-style plugins risk the
+same AGP 9 problems as `package_info_plus`). Google Play does not allow
+self-updating apps: remove the permission and the Update button from any Play
+Store build. Updates only install over the existing app when every release is
+built on the same computer (same signing key) with a higher build number. The
+ViewModel keeps the result for the app session. No migration.
 
 Appearance palettes (Apollo, Forest, Ocean, Sunset, Arctic and Meadow) are selected
 in Profile > Change Theme. Apollo is the default and retains the original blue
