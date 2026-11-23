@@ -1,17 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/features/profile/models/settings_state.dart';
 import 'package:faunawatch/features/profile/models/theme_palette.dart';
-import 'package:faunawatch/features/profile/services/profile_storage_service.dart';
+import 'package:faunawatch/features/auth/services/auth_service.dart';
 import 'package:faunawatch/features/push/viewmodels/push_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 /// ViewModel managing settings options, preferences, and session termination.
 class SettingsViewModel extends Notifier<SettingsState> {
-  late final ProfileStorageService _storageService;
-
   @override
   SettingsState build() {
-    _storageService = ref.watch(profileStorageServiceProvider);
     // The push choice is stored per device and loaded by PushViewModel.
     ref.listen<bool>(pushViewModelProvider.select((push) => push.enabled), (
       _,
@@ -45,7 +42,12 @@ class SettingsViewModel extends Notifier<SettingsState> {
     // database.
     final push = ref.read(pushViewModelProvider.notifier);
     await push.onBeforeSignOut();
-    final success = await _storageService.signOut();
+    var success = true;
+    try {
+      await ref.read(authServiceProvider).signOut();
+    } catch (_) {
+      success = false;
+    }
     if (!success) await push.onSignOutFailed();
     if (success) {
       // The next account starts at home with no Back history.

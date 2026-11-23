@@ -2,8 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
-import 'package:faunawatch/features/profile/models/profile_data.dart';
-import 'package:faunawatch/features/profile/services/profile_storage_service.dart';
+import 'package:faunawatch/features/auth/services/auth_service.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/push/services/device_token_service.dart';
 import 'package:faunawatch/features/push/services/push_messaging_service.dart';
@@ -11,20 +10,20 @@ import 'package:faunawatch/features/push/services/push_preferences_service.dart'
 import '../../push/fake_push_services.dart';
 
 /// Records whether the push token was already removed when sign-out ran.
-class _OrderedStorage implements ProfileStorageService {
-  _OrderedStorage(this.tokens, {this.succeeds = true});
+class _OrderedAuth implements AuthService {
+  _OrderedAuth(this.tokens, {this.fails = false});
   final FakeDeviceTokenService tokens;
-  final bool succeeds;
+  final bool fails;
   List<String>? unregisteredAtSignOut;
 
   @override
-  Future<ProfileData> loadProfile() async => const ProfileData();
+  Future<bool> login(String email, String password) async => true;
   @override
-  Future<bool> saveProfile(ProfileData data) async => true;
+  Future<bool> signUp(String email, String password) async => true;
   @override
-  Future<bool> signOut() async {
+  Future<void> signOut() async {
     unregisteredAtSignOut = List.of(tokens.unregistered);
-    return succeeds;
+    if (fails) throw StateError('still signed in');
   }
 }
 
@@ -34,14 +33,14 @@ void main() {
   late FakePushPreferencesService prefs;
   late StreamController<String?> users;
 
-  ProviderContainer build(_OrderedStorage storage) {
+  ProviderContainer build(_OrderedAuth auth) {
     users = StreamController<String?>();
     final container = ProviderContainer(
       overrides: [
         pushMessagingServiceProvider.overrideWithValue(push),
         deviceTokenServiceProvider.overrideWithValue(tokens),
         pushPreferencesServiceProvider.overrideWithValue(prefs),
-        profileStorageServiceProvider.overrideWithValue(storage),
+        authServiceProvider.overrideWithValue(auth),
         currentUserIdProvider.overrideWith((ref) => users.stream),
       ],
     );
@@ -60,7 +59,7 @@ void main() {
 
   test('loads the per-device choice into the settings state', () async {
     prefs.enabled = false;
-    final container = build(_OrderedStorage(tokens));
+    final container = build(_OrderedAuth(tokens));
     container.listen(settingsViewModelProvider, (_, _) {});
     expect(
       container.read(settingsViewModelProvider).pushNotificationsEnabled,
@@ -74,7 +73,7 @@ void main() {
   });
 
   test('the switch persists and registers or unregisters', () async {
-    final container = build(_OrderedStorage(tokens));
+    final container = build(_OrderedAuth(tokens));
     container.listen(settingsViewModelProvider, (_, _) {});
     users.add('u1');
     await pumpEventQueue();
@@ -95,8 +94,8 @@ void main() {
   });
 
   test('sign-out removes the token before the session ends', () async {
-    final storage = _OrderedStorage(tokens);
-    final container = build(storage);
+    final auth = _OrderedAuth(tokens);
+    final container = build(auth);
     container.listen(settingsViewModelProvider, (_, _) {});
     users.add('u1');
     await pumpEventQueue();
@@ -105,12 +104,12 @@ void main() {
       await container.read(settingsViewModelProvider.notifier).signOut(),
       true,
     );
-    expect(storage.unregisteredAtSignOut, ['token-1']);
+    expect(auth.unregisteredAtSignOut, ['token-1']);
   });
 
   test('a failed sign-out registers the device again', () async {
-    final storage = _OrderedStorage(tokens, succeeds: false);
-    final container = build(storage);
+    final auth = _OrderedAuth(tokens, fails: true);
+    final container = build(auth);
     container.listen(settingsViewModelProvider, (_, _) {});
     users.add('u1');
     await pumpEventQueue();

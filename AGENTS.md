@@ -446,7 +446,11 @@ alive by `FaunaWatchApp`) registers this device's token on sign-in and on token
 refresh when push is on and the user allowed notifications (Android 13+
 `POST_NOTIFICATIONS`, declared in the manifest, and iOS), and unregisters it when
 the switch is turned off; `SettingsViewModel.signOut` calls
-`onBeforeSignOut` first so the token is removed while the session still works.
+`onBeforeSignOut` first so the token is removed while the session still works,
+then ends the Supabase session with `AuthService.signOut` (offline, the local
+session is still cleared and that counts as signed out). If the user is still
+signed in, it returns false, the push token is registered again and the
+sign-out dialog stays on the current screen with an error.
 The Settings switch (`SettingsViewModel.togglePushNotifications`) is now real.
 A tapped push (backgrounded or launching the app) carries `notification_id`,
 `type`, `report_id`, `thread_id`; `PushPayload` feeds the existing
@@ -1076,7 +1080,8 @@ are unreachable; when it ends the app's navigator restarts at the splash.
 `SuspensionBanner` sits under the update banner on the Feed, the comment and
 chat input bars are replaced by `SuspendedInputNote`, and "+" (new post),
 likes (`FeedPostCard`, so Feed, My Gallery and report details), New chat,
-the public profile's Message and Edit profile call `blockedBySuspension`,
+Message on the public profile and on the profile preview sheet (which closes
+first), and Edit profile call `blockedBySuspension`,
 which explains with a snackbar instead of trying. Widget tests that reach
 these without Supabase override `suspensionServiceProvider` with
 `SignedOutSuspensionService`.

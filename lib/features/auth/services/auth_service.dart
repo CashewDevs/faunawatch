@@ -18,7 +18,8 @@ abstract interface class AuthService {
   /// Registers a new user with email and password.
   Future<bool> signUp(String email, String password);
 
-  /// Signs out the currently authenticated user.
+  /// Ends the session on this device. Throws only when the user is still
+  /// signed in afterwards.
   Future<void> signOut();
 }
 
@@ -57,7 +58,14 @@ class SupabaseAuthService implements AuthService {
 
   @override
   Future<void> signOut() async {
-    await _client.auth.signOut();
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // Supabase clears the session on the device first and then tells the
+      // server; offline, only the second part fails. The user is signed out
+      // here either way, and the old token expires by itself.
+      if (_client.auth.currentSession != null) rethrow;
+    }
   }
 }
 
