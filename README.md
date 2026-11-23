@@ -241,6 +241,8 @@ unsent chat draft.
 **Profile bios:** run
 [`20261123083000_add_profile_bio.sql`](supabase/migrations/20261123083000_add_profile_bio.sql)
 in the Supabase SQL editor to add `profiles.bio` (optional, up to 50 characters).
+New accounts save the bio entered during onboarding when **Continue** is
+pressed on the username/bio step, before profile-picture setup.
 Without this migration, profiles load with an empty bio and saving a bio fails.
 After applying it, open **Edit Profile**, enter the bio and **Save Changes**
 again. The saved bio appears below the name on your profile, public profiles
