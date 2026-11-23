@@ -69,6 +69,8 @@ class MessagesViewModel extends Notifier<MessagesState> {
 
   void setFilter(MessagesFilter filter) =>
       state = state.copyWith(activeFilter: filter);
+  void setSortOrder(MessagesSortOrder sortOrder) =>
+      state = state.copyWith(sortOrder: sortOrder);
   void setSearchQuery(String query) =>
       state = state.copyWith(searchQuery: query);
   Future<void> _change(
