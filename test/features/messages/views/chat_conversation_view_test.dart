@@ -14,6 +14,7 @@ import 'package:faunawatch/features/messages/views/widgets/chat_input_bar.dart';
 
 class TestChatService extends FakeMessagesService {
   bool failSend = false;
+  int fetchCount = 0;
   @override
   Future<List<MessageThread>> fetchMessageThreads() async => const [];
 
@@ -32,6 +33,7 @@ class TestChatService extends FakeMessagesService {
     String threadId, {
     ChatMessage? before,
   }) async {
+    fetchCount++;
     return const [
       ChatMessage(
         id: 'msg-1',
@@ -197,35 +199,35 @@ void main() {
     });
 
     testWidgets(
-      'renders input bar with addIM.webp, "Type something", and sendM.webp',
+      'renders input bar with crisp gallery and send icons and supports pull-to-refresh',
       (tester) async {
-        await tester.pumpWidget(buildTestWidget());
+        final service = TestChatService();
+        await tester.pumpWidget(buildTestWidget(service: service));
         await tester.pumpAndSettle();
 
+        expect(find.byTooltip('Refresh chat'), findsNothing);
         expect(find.byType(ChatInputBar), findsOneWidget);
         expect(find.text('Type something'), findsOneWidget);
 
-        // addIM.webp icon is present
         expect(
-          find.byWidgetPredicate(
-            (w) =>
-                w is Image &&
-                w.image is AssetImage &&
-                (w.image as AssetImage).assetName == AppAssets.addImageIcon,
+          find.descendant(
+            of: find.byType(ChatInputBar),
+            matching: find.byIcon(Icons.add_photo_alternate_outlined),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(ChatInputBar),
+            matching: find.byIcon(Icons.send_rounded),
           ),
           findsOneWidget,
         );
 
-        // sendM.webp icon is present
-        expect(
-          find.byWidgetPredicate(
-            (w) =>
-                w is Image &&
-                w.image is AssetImage &&
-                (w.image as AssetImage).assetName == AppAssets.sendMessageIcon,
-          ),
-          findsOneWidget,
-        );
+        final beforeRefresh = service.fetchCount;
+        await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
+        await tester.pumpAndSettle();
+        expect(service.fetchCount, greaterThan(beforeRefresh));
       },
     );
 

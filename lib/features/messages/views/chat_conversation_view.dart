@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/messages/models/message_thread.dart';
 import 'package:faunawatch/features/messages/viewmodels/chat_conversation_viewmodel.dart';
 import 'package:faunawatch/features/messages/views/widgets/chat_bubble.dart';
@@ -70,28 +71,11 @@ class _ChatConversationViewState extends ConsumerState<ChatConversationView> {
                 ? _openProfile
                 : null,
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (state.isSending || state.isPickingPhoto)
-                const Padding(
-                  padding: EdgeInsets.only(right: 12),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              IconButton(
-                tooltip: 'Refresh chat',
-                onPressed: vm.refresh,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
+          if (state.isSending || state.isPickingPhoto)
+            const LinearProgressIndicator(minHeight: 2),
           if (state.error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: Text(
                 state.error!,
                 style: TextStyle(
@@ -103,33 +87,42 @@ class _ChatConversationViewState extends ConsumerState<ChatConversationView> {
             child: state.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : state.messages.isEmpty
-                ? const Center(child: Text('Start the conversation.'))
-                : ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    itemCount: state.messages.length + (state.hasMore ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == state.messages.length) {
-                        return Center(
-                          child: TextButton(
-                            onPressed: state.isLoadingMore
-                                ? null
-                                : vm.loadOlder,
-                            child: Text(
-                              state.isLoadingMore
-                                  ? 'Loading…'
-                                  : 'Load older messages',
+                ? InsetCenteredScroll(
+                    onRefresh: vm.refresh,
+                    child: const Text('Start the conversation.'),
+                  )
+                : RefreshIndicator(
+                    onRefresh: vm.refresh,
+                    triggerMode: RefreshIndicatorTriggerMode.anywhere,
+                    child: ListView.builder(
+                      reverse: true,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      itemCount:
+                          state.messages.length + (state.hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == state.messages.length) {
+                          return Center(
+                            child: TextButton(
+                              onPressed: state.isLoadingMore
+                                  ? null
+                                  : vm.loadOlder,
+                              child: Text(
+                                state.isLoadingMore
+                                    ? 'Loading…'
+                                    : 'Load older messages',
+                              ),
                             ),
-                          ),
+                          );
+                        }
+                        final message =
+                            state.messages[state.messages.length - 1 - index];
+                        return ChatBubble(
+                          message: message,
+                          onReloadPhoto: () => vm.reloadPhoto(message),
                         );
-                      }
-                      final message =
-                          state.messages[state.messages.length - 1 - index];
-                      return ChatBubble(
-                        message: message,
-                        onReloadPhoto: () => vm.reloadPhoto(message),
-                      );
-                    },
+                      },
+                    ),
                   ),
           ),
           if (state.photo != null)

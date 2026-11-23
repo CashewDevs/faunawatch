@@ -1,11 +1,10 @@
 import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 
-/// Bottom typing input bar with add image button (`addIM.webp`),
-/// "Type something" input, and send message button (`sendM.webp`).
+/// Bottom typing input bar with a crisp gallery icon button, "Type something"
+/// input field, and send button.
 class ChatInputBar extends StatefulWidget {
   const ChatInputBar({
     super.key,
@@ -50,6 +49,14 @@ class _ChatInputBarState extends State<ChatInputBar> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = AppPaletteColors.of(context);
+    final accentColor = isDark
+        ? palette.darkAccentBlue
+        : palette.messagesHeaderBlue;
+    final buttonColor = widget.isBusy
+        ? accentColor.withValues(alpha: 0.45)
+        : accentColor;
+
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
@@ -64,36 +71,35 @@ class _ChatInputBarState extends State<ChatInputBar> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Add Image Icon: addIM.webp
+              // Crisp gallery / add image button
               Semantics(
                 button: true,
                 label: 'Add image',
-                child: GestureDetector(
-                  onTap: widget.isBusy ? null : widget.onAddImage,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Image.asset(
-                      AppAssets.addImageIcon,
-                      width: 34,
-                      height: 34,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => Icon(
+                child: Material(
+                  color: isDark
+                      ? AppColors.darkBackground
+                      : palette.messagesFilterUnselected,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: widget.isBusy ? null : widget.onAddImage,
+                    child: SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: Icon(
                         Icons.add_photo_alternate_outlined,
-                        size: 34,
-                        color: isDark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.chatInputHintColor,
+                        size: 24,
+                        color: buttonColor,
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
               // "Type something" input field
               Expanded(
@@ -103,9 +109,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   controller: _textController,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _handleSend(),
-                  cursorColor: isDark
-                      ? AppPaletteColors.of(context).darkAccentBlue
-                      : AppPaletteColors.of(context).messagesHeaderBlue,
+                  cursorColor: accentColor,
                   style: GoogleFonts.dmSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -127,32 +131,27 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
-              // Send Message Icon: sendM.webp
+              // Crisp send message button
               Semantics(
                 button: true,
                 label: 'Send message',
-                child: GestureDetector(
-                  onTap: widget.isBusy ? null : _handleSend,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Image.asset(
-                      AppAssets.sendMessageIcon,
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.contain,
-                      color: isDark
-                          ? AppPaletteColors.of(context).darkAccentBlue
-                          : null,
-                      colorBlendMode: isDark ? BlendMode.srcIn : null,
-                      errorBuilder: (_, _, _) => Icon(
+                child: Material(
+                  color: accentColor.withValues(
+                    alpha: widget.isBusy ? 0.45 : 1.0,
+                  ),
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: widget.isBusy ? null : _handleSend,
+                    child: SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: Icon(
                         Icons.send_rounded,
-                        size: 32,
-                        color: isDark
-                            ? AppPaletteColors.of(context).darkAccentBlue
-                            : AppPaletteColors.of(context).messagesHeaderBlue,
+                        size: 21,
+                        color: isDark ? AppColors.darkBackground : Colors.white,
                       ),
                     ),
                   ),
