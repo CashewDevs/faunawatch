@@ -144,13 +144,14 @@ const LOCKED_EFFECT =
   "You can't use FaunaWatch until the suspension ends. If you open the app, " +
   "you will see the reason and the end date.";
 
-/** One block of the email: a label and its value. */
-interface Row {
+/** One block of the email: a label and its value. Also used by the
+ * account deletion emails. */
+export interface Row {
   label: string;
   value: string;
 }
 
-function render(
+export function render(
   options: EmailOptions,
   subject: string,
   intro: string,
