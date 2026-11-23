@@ -1086,6 +1086,16 @@ which explains with a snackbar instead of trying. Widget tests that reach
 these without Supabase override `suspensionServiceProvider` with
 `SignedOutSuspensionService`.
 
+Suspension emails are sent by the Edge Function `send-suspension-email`
+(Database Webhook on `user_sanctions` INSERT and UPDATE, through Brevo's
+transactional API): one when a suspension starts (reason, admin's message,
+length, end date, what is blocked for its level) and one when an admin lifts
+it early; none when it simply ends. It reuses send-push's `WEBHOOK_SECRET`
+(secrets are shared by all functions) and needs `BREVO_API_KEY` and
+`EMAIL_SENDER_ADDRESS`; setup, optional settings and tests are in
+`supabase/functions/send-suspension-email/README.md`. No app change or
+migration is needed.
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.
