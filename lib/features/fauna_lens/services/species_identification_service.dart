@@ -270,8 +270,8 @@ Rules:
     throw IdentificationException(mainFailure, provider: provider);
   }
 
-  /// The backup's provider, key and model (the one picked for that provider,
-  /// else its default), or null when there is no backup key.
+  /// The backup's provider, key and model (the backup's own model choice for
+  /// that provider, else its default), or null when there is no backup key.
   Future<(AiProvider, String, String)?> _backup(
     String userId,
     AiPreferences preferences,
@@ -281,7 +281,8 @@ Rules:
       final key = await _backupKeys.readKey(userId);
       if (provider == null || key == null || key.isEmpty) return null;
       final model =
-          preferences.models[provider] ?? _clients[provider]!.defaultModel;
+          preferences.backupModels[provider] ??
+          _clients[provider]!.defaultModel;
       return (provider, key, model);
     } catch (error) {
       // A storage problem with the backup must not hide the main failure.

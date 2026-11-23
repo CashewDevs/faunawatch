@@ -270,19 +270,35 @@ void main() {
       expect(result.backupKeyUse!.mainProvider, AiProvider.gemini);
     });
 
-    test("uses the model picked for the backup's provider", () async {
+    test("uses the backup's own model, not the main pick", () async {
       preferences.saved[_user] = const AiPreferences(
         provider: AiProvider.gemini,
-        models: {AiProvider.gemini: 'g-picked', AiProvider.groq: 'q-picked'},
+        models: {AiProvider.gemini: 'g-picked', AiProvider.groq: 'q-main'},
+        backupModels: {AiProvider.groq: 'q-backup'},
       );
       clients[AiProvider.gemini]!.failure = AiVisionFailure.rateLimited;
 
       final result = await identify();
 
       expect(clients[AiProvider.gemini]!.modelsUsed, ['g-picked']);
-      expect(clients[AiProvider.groq]!.modelsUsed, ['q-picked']);
-      expect(result.model, 'q-picked');
+      expect(clients[AiProvider.groq]!.modelsUsed, ['q-backup']);
+      expect(result.model, 'q-backup');
     });
+
+    test(
+      "without its own pick, the backup uses its provider's default",
+      () async {
+        preferences.saved[_user] = const AiPreferences(
+          provider: AiProvider.gemini,
+          models: {AiProvider.groq: 'q-main'},
+        );
+        clients[AiProvider.gemini]!.failure = AiVisionFailure.rateLimited;
+
+        final result = await identify();
+
+        expect(result.model, clients[AiProvider.groq]!.defaultModel);
+      },
+    );
 
     test("when both fail, the main key's failure is reported", () async {
       clients[AiProvider.gemini]!.failure = AiVisionFailure.rateLimited;

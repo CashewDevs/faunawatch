@@ -63,20 +63,28 @@ void main() {
       expect(state.backupModel, isNull);
     });
 
-    test("uses the model picked for the backup's provider", () async {
-      backups.backups[_user] = (AiProvider.groq, 'backup');
-      preferences.saved[_user] = const AiPreferences(
-        models: {AiProvider.groq: 'groq-picked'},
-      );
-      var state = stateOf(await makeContainer());
-      expect(state.backupProvider, AiProvider.groq);
-      expect(state.backupModel, 'groq-picked');
+    test(
+      "uses the backup's own model for its provider, else the default",
+      () async {
+        backups.backups[_user] = (AiProvider.groq, 'backup');
+        preferences.saved[_user] = const AiPreferences(
+          // The main choice for Groq does not change the backup's model.
+          models: {AiProvider.groq: 'groq-main'},
+          backupModels: {AiProvider.groq: 'groq-backup-pick'},
+        );
+        var state = stateOf(await makeContainer());
+        expect(state.backupProvider, AiProvider.groq);
+        expect(state.backupModel, 'groq-backup-pick');
+        expect(state.usesDefaultBackupModel, isFalse);
 
-      backups.backups[_user] = (AiProvider.gemini, 'backup');
-      preferences.saved.clear();
-      state = stateOf(await makeContainer());
-      expect(state.backupModel, 'gemini-default');
-    });
+        preferences.saved[_user] = const AiPreferences(
+          models: {AiProvider.groq: 'groq-main'},
+        );
+        state = stateOf(await makeContainer());
+        expect(state.backupModel, 'groq-default');
+        expect(state.usesDefaultBackupModel, isTrue);
+      },
+    );
 
     test('Test backup passes or explains the failure', () async {
       backups.backups[_user] = (AiProvider.openRouter, 'or-backup');
@@ -122,34 +130,105 @@ void main() {
     });
 
     test(
-      'a new key for the same backup provider clears the old result',
+      'saving a backup key stores it and resets its model list and test',
       () async {
         backups.backups[_user] = (AiProvider.groq, 'groq-backup');
         final container = await makeContainer();
-        await viewModelOf(container).testBackup();
+        final viewModel = viewModelOf(container);
+        await viewModel.loadBackupModels();
+        await viewModel.testBackup();
+        expect(stateOf(container).backupAvailableModels, isNotNull);
         expect(stateOf(container).backupTestStatus, AiTestStatus.passed);
 
-        viewModelOf(container).backupKeyChanged();
+        // A new key for the same provider still clears the old results.
+        expect(await viewModel.saveBackupKey(AiProvider.groq, ' new '), isTrue);
+        expect(backups.backups[_user], (AiProvider.groq, 'new'));
+        expect(stateOf(container).backupAvailableModels, isNull);
         expect(stateOf(container).backupTestStatus, AiTestStatus.idle);
+
+        expect(await viewModel.saveBackupKey(AiProvider.gemini, 'g'), isTrue);
+        expect(stateOf(container).backupProvider, AiProvider.gemini);
+        expect(stateOf(container).backupModel, 'gemini-default');
       },
     );
 
-    test(
-      'changing the model of the backup provider clears its test result',
-      () async {
-        keys.keys[(_user, AiProvider.groq)] = 'main';
-        backups.backups[_user] = (AiProvider.groq, 'groq-backup');
-        preferences.saved[_user] = const AiPreferences(
-          provider: AiProvider.groq,
-        );
-        final container = await makeContainer();
-        await viewModelOf(container).testBackup();
+    test('a failed backup save keeps the old backup', () async {
+      backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+      final container = await makeContainer();
+      backups.saveError = StateError('storage');
 
-        await viewModelOf(container).selectModel('groq/other');
-        expect(stateOf(container).backupTestStatus, AiTestStatus.idle);
-        expect(stateOf(container).backupModel, 'groq/other');
-      },
-    );
+      expect(
+        await viewModelOf(container).saveBackupKey(AiProvider.gemini, 'g'),
+        isFalse,
+      );
+      expect(stateOf(container).backupProvider, AiProvider.groq);
+    });
+
+    test('removing the backup key clears it', () async {
+      backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+      final container = await makeContainer();
+
+      expect(await viewModelOf(container).removeBackupKey(), isTrue);
+      expect(backups.backups, isEmpty);
+      expect(stateOf(container).hasBackup, isFalse);
+      expect(stateOf(container).backupModel, isNull);
+    });
+
+    test('loads backup models with the backup key', () async {
+      keys.keys[(_user, AiProvider.gemini)] = 'main';
+      backups.backups[_user] = (AiProvider.openRouter, 'or-backup');
+      final container = await makeContainer();
+
+      await viewModelOf(container).loadBackupModels();
+
+      expect(stateOf(container).backupAvailableModels, hasLength(1));
+      expect(clients[AiProvider.openRouter]!.keysUsed, ['or-backup']);
+      expect(clients[AiProvider.gemini]!.keysUsed, isEmpty);
+      // The main provider's list is separate.
+      expect(stateOf(container).availableModels, isNull);
+    });
+
+    test('a failed backup model list is shown', () async {
+      backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+      clients[AiProvider.groq]!.failure = AiVisionFailure.invalidKey;
+      final container = await makeContainer();
+
+      await viewModelOf(container).loadBackupModels();
+
+      expect(
+        stateOf(container).backupModelsFailure,
+        AiIntegrationFailure.invalidKey,
+      );
+      expect(stateOf(container).isLoadingBackupModels, isFalse);
+    });
+
+    test('picking a backup model saves it apart from the main model', () async {
+      keys.keys[(_user, AiProvider.groq)] = 'main';
+      backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+      preferences.saved[_user] = const AiPreferences(provider: AiProvider.groq);
+      final container = await makeContainer();
+      final viewModel = viewModelOf(container);
+      await viewModel.testBackup();
+
+      await viewModel.selectBackupModel('groq/backup');
+      expect(stateOf(container).backupModel, 'groq/backup');
+      expect(stateOf(container).model, 'groq-default');
+      expect(stateOf(container).backupTestStatus, AiTestStatus.idle);
+      expect(preferences.saved[_user]!.backupModels, {
+        AiProvider.groq: 'groq/backup',
+      });
+
+      await viewModel.testBackup();
+      expect(clients[AiProvider.groq]!.modelsUsed.last, 'groq/backup');
+
+      // Changing the main model leaves the backup's model and test alone.
+      await viewModel.selectModel('groq/main');
+      expect(stateOf(container).backupModel, 'groq/backup');
+      expect(stateOf(container).backupTestStatus, AiTestStatus.passed);
+
+      await viewModel.selectBackupModel(null);
+      expect(stateOf(container).usesDefaultBackupModel, isTrue);
+    });
   });
 
   test('starts from saved choices and key status', () async {

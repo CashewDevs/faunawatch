@@ -9,7 +9,7 @@ import 'package:faunawatch/features/fauna_lens/views/widgets/ai_failure_card.dar
 import 'package:faunawatch/features/fauna_lens/views/widgets/ai_result_cards.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/boxed_photo.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
-import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
+import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,9 +69,9 @@ class _FaunaLensAiResultScreenState
   }
 
   Future<void> _openKeySettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const AiKeySetupView.manage()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AiIntegrationView()));
     if (mounted) _analyze();
   }
 

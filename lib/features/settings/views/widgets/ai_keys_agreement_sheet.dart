@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:faunawatch/core/constants/app_colors.dart';
-import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
+import 'package:faunawatch/features/settings/views/widgets/ai_settings_style.dart';
 
 /// Shows the AI Keys Agreement for [provider]. Resolves to `true` only when
 /// the user ticks the box and taps "Agree & save key".
@@ -14,7 +13,7 @@ Future<bool> showAiKeysAgreementSheet(
   final agreed = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: AiSettingsStyle.of(context).sheet,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -37,40 +36,73 @@ Future<void> showAiKeysFullAgreement(
   // published. Until then this shows the complete in-app agreement text.
   return showDialog<void>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('AI Keys Agreement'),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final (_, title, body) in aiKeysAgreementPoints(provider)) ...[
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: title,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+    builder: (dialogContext) {
+      final style = AiSettingsStyle.of(dialogContext);
+      return AlertDialog(
+        backgroundColor: style.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        icon: Icon(Icons.description_outlined, color: style.accent, size: 28),
+        title: Text(
+          'AI Keys Agreement',
+          style: GoogleFonts.dmSans(
+            color: style.title,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (_, title, body) in aiKeysAgreementPoints(
+                provider,
+              )) ...[
+                Text.rich(
+                  TextSpan(
+                    style: GoogleFonts.dmSans(
+                      color: style.muted,
+                      fontSize: 14,
+                      height: 1.4,
                     ),
-                    TextSpan(text: body),
-                  ],
+                    children: [
+                      TextSpan(
+                        text: title,
+                        style: TextStyle(
+                          color: style.title,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      TextSpan(text: body),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: onOpenTerms,
-          child: Text('${provider.displayName} terms'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Close'),
-        ),
-      ],
-    ),
+        actions: [
+          TextButton(
+            onPressed: onOpenTerms,
+            child: Text(
+              '${provider.displayName} terms',
+              style: GoogleFonts.dmSans(fontWeight: FontWeight.w700),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            style: FilledButton.styleFrom(
+              backgroundColor: style.accent,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Close',
+              style: GoogleFonts.dmSans(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 
@@ -119,157 +151,204 @@ class AiKeysAgreementSheet extends StatefulWidget {
 class _AiKeysAgreementSheetState extends State<AiKeysAgreementSheet> {
   bool _agreed = false;
 
-  static const _pointColors = [
-    (AppColors.consentBadgeYellowBackground, AppColors.consentBadgeYellowText),
-    (AppColors.consentBadgeBlueBackground, AppColors.consentBadgeBlueText),
-    (AppColors.searchHeaderBackground, AppColors.consentLogoBlue),
-    (AppColors.consentBadgeGreenBackground, AppColors.consentBadgeGreenText),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final style = AiSettingsStyle.of(context);
     final points = aiKeysAgreementPoints(widget.provider);
+
+    BoxDecoration cardDecoration({Color? borderColor}) => BoxDecoration(
+      color: style.card,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: borderColor ?? style.border, width: 1.2),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: style.isDark ? 0.3 : 0.04),
+          offset: const Offset(0, 3),
+          blurRadius: 8,
+        ),
+      ],
+    );
 
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
               child: Container(
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.consentCardBorder,
+                  color: style.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.aiKeyAgreementTag,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'AI Keys Agreement',
-                style: GoogleFonts.dmSans(
-                  color: AppColors.aiKeyAgreementTagText,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
+            const SizedBox(height: 18),
+            Text(
+              'AI KEYS AGREEMENT',
+              style: GoogleFonts.dmSans(
+                color: style.accent,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               'Before we save your ${widget.provider.displayName} key',
               style: GoogleFonts.dmSans(
-                color: AppColors.consentTitleNavy,
+                color: style.title,
                 fontSize: 22,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 height: 1.2,
+                letterSpacing: -0.2,
               ),
             ),
-            const SizedBox(height: 14),
-            for (var i = 0; i < points.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: _pointColors[i].$1,
-                        borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: 16),
+            Container(
+              decoration: cardDecoration(),
+              child: Column(
+                children: [
+                  for (final (index, (icon, title, body))
+                      in points.indexed) ...[
+                    if (index > 0)
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: style.border,
                       ),
-                      child: Icon(
-                        points[i].$1,
-                        size: 18,
-                        color: _pointColors[i].$2,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          style: GoogleFonts.dmSans(
-                            color: AppColors.consentBodyText,
-                            fontSize: 13,
-                            height: 1.4,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: points[i].$2,
-                              style: const TextStyle(
-                                color: AppColors.consentTitleNavy,
-                                fontWeight: FontWeight.w700,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(icon, size: 24, color: style.accent),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Text.rich(
+                              TextSpan(
+                                style: GoogleFonts.dmSans(
+                                  color: style.muted,
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: title,
+                                    style: TextStyle(
+                                      color: style.title,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  TextSpan(text: body),
+                                ],
                               ),
                             ),
-                            TextSpan(text: points[i].$3),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-            const SizedBox(height: 4),
-            Material(
-              color: AppColors.consentInfoBackground,
-              borderRadius: BorderRadius.circular(10),
-              child: CheckboxListTile(
-                value: _agreed,
-                onChanged: (value) => setState(() => _agreed = value ?? false),
-                controlAffinity: ListTileControlAffinity.leading,
-                activeColor: AppColors.consentLogoBlue,
-                dense: true,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                title: Text(
-                  'I agree to the AI Keys Agreement',
-                  style: GoogleFonts.dmSans(
-                    color: AppColors.consentTitleNavy,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+            ),
+            const SizedBox(height: 12),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: cardDecoration(
+                borderColor: _agreed ? style.accent : null,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => setState(() => _agreed = !_agreed),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 4, 16, 4),
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: _agreed,
+                          onChanged: (value) =>
+                              setState(() => _agreed = value ?? false),
+                          activeColor: style.accent,
+                          side: BorderSide(color: style.muted, width: 1.6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'I agree to the AI Keys Agreement',
+                            style: GoogleFonts.dmSans(
+                              color: style.title,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 8),
-            GestureDetector(
-              onTap: widget.onReadFullAgreement,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: widget.onReadFullAgreement,
+                style: TextButton.styleFrom(
+                  foregroundColor: style.accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                ),
                 child: Text(
                   'Read the full AI Keys Agreement',
                   style: GoogleFonts.dmSans(
-                    color: AppColors.consentLinkBlue,
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
-                    decorationColor: AppColors.consentLinkBlue,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            PillButton(
-              label: 'Agree & save key',
-              onPressed: _agreed ? () => Navigator.of(context).pop(true) : null,
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 52,
+              child: FilledButton(
+                onPressed: _agreed
+                    ? () => Navigator.of(context).pop(true)
+                    : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: style.accent,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: style.accent.withValues(alpha: 0.35),
+                  disabledForegroundColor: Colors.white.withValues(alpha: 0.85),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'Agree & save key',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 4),
             Center(
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
+                style: TextButton.styleFrom(foregroundColor: style.muted),
                 child: Text(
                   'Not now',
                   style: GoogleFonts.dmSans(
-                    color: AppColors.consentTitleNavy,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),

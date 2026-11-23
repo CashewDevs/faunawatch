@@ -259,14 +259,36 @@ A user's AI API key is runtime user data, not application configuration.
 - The chosen provider and model (`AiPreferences`) are not secret but are
   stored per user in the same secure store as the keys, under
   `faunawatch.ai_pref.<userId>.*`.
-- One optional backup key (Settings › AI Integration › Backup key,
-  `AiBackupKeyView`) can be for any provider, including a second key for the
-  main provider. `AiBackupKeyStorageService` keeps it in the same secure store
-  under `faunawatch.ai_key.<userId>.backup` (plus `.backup_provider`), apart
-  from the per-provider keys; `deleteAllKeys` removes it too. It uses the
-  model picked for its provider (else that provider's default), is saved only
-  after the AI Keys Agreement for its provider, and has its own "Test backup".
-  Only services read the key itself. `SpeciesIdentificationService._ask`
+- Keys are typed only in a small key pop-up (`AiKeyDialog`, opened through
+  `editAiProviderKey`) for one provider. Settings › AI Integration's "API key"
+  row opens it to add, replace or remove the selected provider's key; the
+  first-time "Power up FaunaLens" screen (`AiKeySetupView`, onboarding only)
+  shows the same card with just "AI provider" and "API key" rows (no Model or
+  Test; replace but not remove), and Continue needs a saved key. FaunaLens
+  "Add an AI key" buttons open AI Integration. Every save goes through the AI
+  Keys Agreement sheet (`showAiKeysAgreementSheet`) first. The card pieces
+  (`AiSettingsCard`, `AiSettingsRow`, `AiProviderPill`,
+  `AiSettingsSectionHeader`) live in `views/widgets/ai_settings_card.dart`;
+  the pop-up and the agreement use `AiSettingsStyle` and follow dark mode,
+  except on `AiKeySetupView`, which is always light like the onboarding
+  screens around it (it wraps itself in `appLightThemeProvider`'s theme, so
+  what it opens is light too).
+- One optional backup key (Settings › AI Integration › BACKUP KEY card) can
+  be for any provider, including a second key for the main provider. The card
+  mirrors the Provider card: "Backup provider" (picking one opens the key
+  pop-up through `editAiBackupKey`; the backup is saved only together with
+  its key, so Cancel keeps the old one), "Backup API key" (same pop-up:
+  replace or remove), "Backup model" and "Test backup".
+  `AiBackupKeyStorageService` keeps it in the same secure store under
+  `faunawatch.ai_key.<userId>.backup` (plus `.backup_provider`), apart from
+  the per-provider keys; `deleteAllKeys` removes it too.
+  `AiIntegrationViewModel` saves, removes and tests it through
+  `AiIntegrationService`, and lists its models with the backup key. It uses
+  its own model choice, `AiPreferences.backupModels[its provider]` (stored as
+  `faunawatch.ai_pref.<userId>.backup_model.<provider>`, kept per provider so
+  switching providers never carries over a wrong model), else that provider's
+  default; the main model choice never affects it. It is saved only after
+  the AI Keys Agreement for its provider. Only services read the key itself. `SpeciesIdentificationService._ask`
   tries it once, with the same prepared photo and instructions, only when the
   main call fails with `invalidKey`, `rateLimited` or `unavailable` (never for
   `network`, `badResponse`, an unreadable photo, or a missing main key). The
@@ -281,10 +303,11 @@ A user's AI API key is runtime user data, not application configuration.
 ## Security
 
 Screenshots are blocked (Android `FLAG_SECURE` through `WindowSecurityService`)
-only while an AI key screen is open: `AiKeySetupView` (onboarding and Settings ›
-AI Integration › manage keys) and `AiBackupKeyView` (Settings › AI Integration ›
-Backup key). Each turns the block on and off itself. Every other screen,
-including the Profile tab, allows screenshots.
+only while an AI key can be typed: the key pop-up, for the main key and the
+backup key, from onboarding or Settings › AI Integration (`editAiProviderKey`
+and `editAiBackupKey` turn the block on before it opens and off when it
+closes). Every other screen, including the Profile tab and the first-time key
+screen itself, allows screenshots.
 
 Treat all API keys, tokens, passwords, credentials, and private user data
 as secrets. Never commit them. Before adding a new config file, check

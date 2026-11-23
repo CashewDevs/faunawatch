@@ -175,15 +175,7 @@ abstract final class AppColors {
   static const Color consentBadgeGreenText = Color(0xFF2E7D32);
   static const Color consentBadgeRedBackground = Color(0xFFFDE2DE);
   static const Color consentBadgeRedText = Color(0xFFC0392B);
-  static const Color aiKeyAddedBackground = Color(0xFFD7F5DD);
-  static const Color aiKeyAddedText = Color(0xFF2E7D32);
-  static const Color aiKeyMissingBackground = Color(0xFFEEF1F6);
-  static const Color aiKeyMissingText = Color(0xFF5B6B82);
-  static const Color aiKeyFieldBackground = Color(0xFFF4F3EF);
-  static const Color aiKeyActiveBorder = Color(0xFF2D5BB5);
   static const Color aiKeyIconYellow = Color(0xFFFFCE1F);
-  static const Color aiKeyAgreementTag = Color(0xFFFFE9A8);
-  static const Color aiKeyAgreementTagText = Color(0xFF8A5A00);
 
   // Notifications Screen Palette
   static const Color notifsBadgeRed = Color(0xFFE53935);
