@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/theme/theme_provider.dart';
+import 'package:faunawatch/features/account_deletion/views/account_deletion_gate.dart';
 import 'package:faunawatch/features/push/viewmodels/push_viewmodel.dart';
 import 'package:faunawatch/features/splash/views/splash_view.dart';
 import 'package:faunawatch/features/suspension/views/suspension_gate.dart';
@@ -21,8 +22,11 @@ class FaunaWatchApp extends ConsumerWidget {
       theme: ref.watch(appLightThemeProvider),
       darkTheme: ref.watch(appDarkThemeProvider),
       themeMode: themeMode,
-      // A locked suspension replaces every screen.
-      builder: (context, child) => SuspensionGate(child: child),
+      // An account waiting to be deleted, then a locked suspension, replace
+      // every screen. Deletion comes first so a suspended user can still
+      // keep their account.
+      builder: (context, child) =>
+          AccountDeletionGate(child: SuspensionGate(child: child)),
       home: const SplashView(),
     );
   }

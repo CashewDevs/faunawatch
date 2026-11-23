@@ -1,22 +1,90 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/account_deletion/models/account_deletion.dart';
+import 'package:faunawatch/features/account_deletion/viewmodels/account_deletion_viewmodel.dart';
+import 'package:faunawatch/features/welcome/views/welcome_view.dart';
 
-/// Confirmation modal explaining the consequences of deleting an account.
-///
-/// Presentation-only UI with no account-deletion backend action wired yet.
-class DeleteAccountDialog extends StatelessWidget {
+/// Confirmation modal explaining what deleting the account does. The user
+/// types "Delete" to enable the button; the account is then deleted after
+/// [accountDeletionGraceDays] days unless they sign in and keep it.
+class DeleteAccountDialog extends ConsumerStatefulWidget {
   const DeleteAccountDialog({super.key});
 
-  static const _consequences = [
-    'Your profile, username, bio, and avatar will be permanently removed and cannot be recovered.',
-    'Your submitted wildlife reports, comments, and uploaded photos will no longer be linked to an active account.',
-    'Your private chats, notification history, and saved AI API keys on this device will be cleared.',
-    'This action is permanent and cannot be undone.',
+  static const consequences = [
+    'You are signed out on all your devices, and your saved AI keys are '
+        'removed from this phone.',
+    "For the next $accountDeletionGraceDays days, other people can't see "
+        'your profile, posts, comments or chats.',
+    'Changed your mind? Sign in within $accountDeletionGraceDays days and '
+        'choose "Keep my account".',
+    'After $accountDeletionGraceDays days, your profile, reports, photos, '
+        'comments, chats and notifications are permanently deleted. This '
+        "can't be undone.",
   ];
 
   @override
+  ConsumerState<DeleteAccountDialog> createState() =>
+      _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends ConsumerState<DeleteAccountDialog> {
+  final _confirmation = TextEditingController();
+  bool _deleting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _confirmation.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    // Both outlive this dialog.
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    setState(() {
+      _deleting = true;
+      _error = null;
+    });
+    final AccountDeletionRequestResult result;
+    try {
+      result = await ref
+          .read(accountDeletionViewModelProvider.notifier)
+          .requestDeletion(_confirmation.text);
+    } on AccountDeletionException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _deleting = false;
+        _error = error.failure.message;
+      });
+      return;
+    }
+    // Not signed out: the "Keep my account" screen has already taken over.
+    if (!result.signedOut) return;
+
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const WelcomeView()),
+      (route) => false,
+    );
+    messenger?.showSnackBar(
+      SnackBar(
+        key: const Key('account_deletion_scheduled_snackbar'),
+        duration: const Duration(seconds: 8),
+        content: Text(
+          'Your account will be deleted on '
+          '${result.deletion.deleteAfterLabel}. Sign in before then to '
+          'keep it.',
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final consequences = DeleteAccountDialog.consequences;
+    final confirmed = isDeleteConfirmation(_confirmation.text);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
     final bodyColor = isDark
@@ -72,7 +140,7 @@ class DeleteAccountDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Are you sure you want to delete this account?',
+              'Are you sure you want to delete your account?',
               style: GoogleFonts.dmSans(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -92,7 +160,7 @@ class DeleteAccountDialog extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'What happens if you delete your account:',
+                    'What happens next:',
                     style: GoogleFonts.dmSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -100,7 +168,7 @@ class DeleteAccountDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  for (var i = 0; i < _consequences.length; i++) ...[
+                  for (var i = 0; i < consequences.length; i++) ...[
                     if (i > 0) const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,7 +187,7 @@ class DeleteAccountDialog extends StatelessWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            _consequences[i],
+                            consequences[i],
                             style: GoogleFonts.dmSans(
                               fontSize: 13,
                               height: 1.4,
@@ -133,12 +201,40 @@ class DeleteAccountDialog extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            Text(
+              'Type $accountDeletionConfirmWord to confirm',
+              style: GoogleFonts.dmSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: titleColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('delete_account_confirm_field'),
+              controller: _confirmation,
+              enabled: !_deleting,
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.none,
+              onChanged: (_) => setState(() => _error = null),
+              style: GoogleFonts.dmSans(fontSize: 15, color: titleColor),
+              decoration: InputDecoration(
+                hintText: accountDeletionConfirmWord,
+                errorText: _error,
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ],
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _deleting ? null : () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
             style: GoogleFonts.dmSans(
@@ -159,9 +255,9 @@ class DeleteAccountDialog extends StatelessWidget {
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           ),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: confirmed && !_deleting ? _delete : null,
           child: Text(
-            'Delete account',
+            _deleting ? 'Deleting...' : 'Delete account',
             style: GoogleFonts.dmSans(
               fontSize: 15,
               fontWeight: FontWeight.w800,
