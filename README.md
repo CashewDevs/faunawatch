@@ -247,6 +247,14 @@ the gallery's public fields explicitly so later feed columns do not break its
 return type. If you applied an earlier copy using `select f.*`, rerun the corrected
 script when updating the feed. The app does not apply this script automatically.
 
+The migration has an isolated PostgreSQL regression test, with no hosted
+connection or app dependency:
+
+```powershell
+npm install --prefix .dart_tool/public-profile-sql --no-save --no-package-lock --ignore-scripts @electric-sql/pglite
+node test/features/public_profile/public_gallery_security_test.cjs
+```
+
 ### Private posts
 
 Settings › Privacy › **Private posts** hides your posts from people who visit
@@ -264,13 +272,15 @@ This needs
 run by hand in the Supabase SQL editor. On a database without it, the switch
 shows "Could not load this setting" and profiles behave as before.
 
-The migration has an isolated PostgreSQL regression test, with no hosted
-connection or app dependency:
+## AI keys and the backup key
 
-```powershell
-npm install --prefix .dart_tool/public-profile-sql --no-save --no-package-lock --ignore-scripts @electric-sql/pglite
-node test/features/public_profile/public_gallery_security_test.cjs
-```
+FaunaLens uses your own Gemini, Groq or OpenRouter key, set in Settings ›
+AI Integration. Keys are encrypted and stay on the phone; they are never sent
+to FaunaWatch.
+
+Under **Backup key** you can add one extra key, for any provider (it can even
+be a second key for the same provider). Use **Test backup** to check it. It
+uses the model picked for its provider, or that provider's default.
 
 ## Community map and FaunaGuard
 

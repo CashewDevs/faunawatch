@@ -6,6 +6,7 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_integration_service.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_integration_viewmodel.dart';
+import 'package:faunawatch/features/settings/views/ai_backup_key_view.dart';
 import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_model_picker_sheet.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_provider_picker_sheet.dart';
@@ -192,53 +193,17 @@ class AiIntegrationView extends ConsumerWidget {
                                 ? null
                                 : () => _pickModel(context, ref),
                           ),
-                          _Row(
-                            icon: switch (state.testStatus) {
-                              AiTestStatus.passed => Icons.check_rounded,
-                              AiTestStatus.failed =>
-                                Icons.error_outline_rounded,
-                              _ => Icons.network_check_rounded,
-                            },
-                            iconColor: switch (state.testStatus) {
-                              AiTestStatus.passed =>
-                                isDark ? _readyDark : _ready,
-                              AiTestStatus.failed => AppColors.signOutButtonRed,
-                              _ => null,
-                            },
+                          _testRow(
                             title: 'Test API',
-                            subtitle: switch (state.testStatus) {
-                              AiTestStatus.idle =>
+                            idle:
                                 'Send a test photo to check your key and model.',
-                              AiTestStatus.testing => 'Testing…',
-                              AiTestStatus.passed => 'API ready',
-                              AiTestStatus.failed => _failureMessage(
-                                state.testFailure!,
-                                state.provider,
-                                forTest: true,
-                              ),
-                            },
-                            subtitleColor: switch (state.testStatus) {
-                              AiTestStatus.passed =>
-                                isDark ? _readyDark : _ready,
-                              AiTestStatus.failed => AppColors.signOutButtonRed,
-                              _ => null,
-                            },
+                            status: state.testStatus,
+                            failure: state.testFailure,
+                            provider: state.provider,
                             isDark: isDark,
-                            trailing: state.isTesting
-                                ? const SizedBox.square(
-                                    dimension: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                    ),
-                                  )
-                                : null,
-                            onTap: state.isTesting
-                                ? null
-                                : ref
-                                      .read(
-                                        aiIntegrationViewModelProvider.notifier,
-                                      )
-                                      .testConnection,
+                            onTap: ref
+                                .read(aiIntegrationViewModelProvider.notifier)
+                                .testConnection,
                           ),
                         ],
                       ),
@@ -257,6 +222,53 @@ class AiIntegrationView extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 24),
+                      _SectionHeader('BACKUP KEY', isDark: isDark),
+                      const SizedBox(height: 8),
+                      _Card(
+                        isDark: isDark,
+                        children: [
+                          _Row(
+                            icon: Icons.vpn_key_outlined,
+                            title: 'Backup key',
+                            subtitle: state.hasBackup
+                                ? '${state.backupProvider!.displayName} · '
+                                      '${state.backupModel}'
+                                : 'Not set up. Tap to add one.',
+                            isDark: isDark,
+                            trailing: const Icon(Icons.arrow_forward_rounded),
+                            onTap: () => _openBackup(context, ref),
+                          ),
+                          if (state.hasBackup)
+                            _testRow(
+                              title: 'Test backup',
+                              idle: 'Send a test photo with your backup key.',
+                              ready: 'Backup key ready',
+                              status: state.backupTestStatus,
+                              failure: state.backupTestFailure,
+                              provider: state.backupProvider!,
+                              isDark: isDark,
+                              onTap: ref
+                                  .read(aiIntegrationViewModelProvider.notifier)
+                                  .testBackup,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          'If your main key is rejected, runs out, or its '
+                          'provider is down, FaunaLens tries the backup key '
+                          'once. It uses the model picked for its provider.',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 12,
+                            color: isDark
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -265,6 +277,64 @@ class AiIntegrationView extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _openBackup(BuildContext context, WidgetRef ref) async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AiBackupKeyView()));
+    final viewModel = ref.read(aiIntegrationViewModelProvider.notifier);
+    // The key may have been replaced even if the provider stayed the same.
+    viewModel.backupKeyChanged();
+    await viewModel.refreshKeys();
+  }
+
+  /// A row that sends a test photo and shows the result: used for both the
+  /// main key ("Test API") and the backup key ("Test backup").
+  static Widget _testRow({
+    required String title,
+    required String idle,
+    String ready = 'API ready',
+    required AiTestStatus status,
+    required AiIntegrationFailure? failure,
+    required AiProvider provider,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    final resultColor = switch (status) {
+      AiTestStatus.passed => isDark ? _readyDark : _ready,
+      AiTestStatus.failed => AppColors.signOutButtonRed,
+      _ => null,
+    };
+    final isTesting = status == AiTestStatus.testing;
+    return _Row(
+      icon: switch (status) {
+        AiTestStatus.passed => Icons.check_rounded,
+        AiTestStatus.failed => Icons.error_outline_rounded,
+        _ => Icons.network_check_rounded,
+      },
+      iconColor: resultColor,
+      title: title,
+      subtitle: switch (status) {
+        AiTestStatus.idle => idle,
+        AiTestStatus.testing => 'Testing…',
+        AiTestStatus.passed => ready,
+        AiTestStatus.failed => _failureMessage(
+          failure!,
+          provider,
+          forTest: true,
+        ),
+      },
+      subtitleColor: resultColor,
+      isDark: isDark,
+      trailing: isTesting
+          ? const SizedBox.square(
+              dimension: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            )
+          : null,
+      onTap: isTesting ? null : onTap,
     );
   }
 

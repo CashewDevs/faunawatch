@@ -26,6 +26,54 @@ Future<bool> showAiKeysAgreementSheet(
   return agreed ?? false;
 }
 
+/// The complete in-app AI Keys Agreement for [provider], with a link to the
+/// provider's own terms through [onOpenTerms].
+Future<void> showAiKeysFullAgreement(
+  BuildContext context, {
+  required AiProvider provider,
+  required VoidCallback onOpenTerms,
+}) {
+  // TODO(legal): Link the full AI Keys Agreement document once it is
+  // published. Until then this shows the complete in-app agreement text.
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('AI Keys Agreement'),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (_, title, body) in aiKeysAgreementPoints(provider)) ...[
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: title,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    TextSpan(text: body),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: onOpenTerms,
+          child: Text('${provider.displayName} terms'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// The four AI Keys Agreement points, worded for [provider].
 List<(IconData, String, String)> aiKeysAgreementPoints(AiProvider provider) {
   final name = provider.displayName;

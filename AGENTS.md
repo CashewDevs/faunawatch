@@ -259,6 +259,14 @@ A user's AI API key is runtime user data, not application configuration.
 - The chosen provider and model (`AiPreferences`) are not secret but are
   stored per user in the same secure store as the keys, under
   `faunawatch.ai_pref.<userId>.*`.
+- One optional backup key (Settings › AI Integration › Backup key,
+  `AiBackupKeyView`) can be for any provider, including a second key for the
+  main provider. `AiBackupKeyStorageService` keeps it in the same secure store
+  under `faunawatch.ai_key.<userId>.backup` (plus `.backup_provider`), apart
+  from the per-provider keys; `deleteAllKeys` removes it too. It uses the
+  model picked for its provider (else that provider's default), is saved only
+  after the AI Keys Agreement for its provider, and has its own "Test backup".
+  Only services read the key itself.
 - Photos sent to a provider are resized and have EXIF (including GPS)
   removed first (`AiPhotoService`). The possible-invasive hint comes only
   from the curated `species_reference` table, never from the AI.
@@ -266,9 +274,10 @@ A user's AI API key is runtime user data, not application configuration.
 ## Security
 
 Screenshots are blocked (Android `FLAG_SECURE` through `WindowSecurityService`)
-only while the AI key screen (`AiKeySetupView`, onboarding and Settings › AI
-Integration › manage keys) is open; it turns the block on and off itself. Every
-other screen, including the Profile tab, allows screenshots.
+only while an AI key screen is open: `AiKeySetupView` (onboarding and Settings ›
+AI Integration › manage keys) and `AiBackupKeyView` (Settings › AI Integration ›
+Backup key). Each turns the block on and off itself. Every other screen,
+including the Profile tab, allows screenshots.
 
 Treat all API keys, tokens, passwords, credentials, and private user data
 as secrets. Never commit them. Before adding a new config file, check

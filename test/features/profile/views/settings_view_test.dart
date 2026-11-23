@@ -147,6 +147,9 @@ void main() {
           currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
           postsPrivacyServiceProvider.overrideWithValue(_FakePostsPrivacy()),
           aiApiKeyStorageServiceProvider.overrideWithValue(keyStorage),
+          aiBackupKeyStorageServiceProvider.overrideWithValue(
+            FakeBackupKeyStorage(),
+          ),
           aiPreferencesServiceProvider.overrideWithValue(
             FakePreferencesService(),
           ),
