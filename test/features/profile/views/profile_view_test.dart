@@ -219,6 +219,21 @@ void main() {
       expect(find.text('Change Theme'), findsNothing);
       expect(find.text('Settings'), findsNothing);
       expect(find.byTooltip('Profile & preferences'), findsOneWidget);
+      final menuButton = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.menu_rounded),
+      );
+      expect(
+        menuButton.style?.backgroundColor?.resolve(const {}),
+        const Color(0xFF1A5DC9),
+      );
+      expect(
+        menuButton.style?.foregroundColor?.resolve(const {}),
+        const Color(0xFFFECE01),
+      );
+      expect(
+        menuButton.style?.side?.resolve(const {}),
+        const BorderSide(color: Color(0xFFFECE01), width: 2),
+      );
       expect(tester.getTopLeft(find.byType(GalleryHeader)).dy, lessThan(350));
       await tester.scrollUntilVisible(
         find.byType(GalleryCard),
