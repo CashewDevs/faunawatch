@@ -5,11 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class ProfileTagService {
-  Future<ProfileTagActivity> fetchActivity();
   Future<bool> saveTag(ProfileTag? tag);
 }
 
-/// Reads the current account's aggregate counts and persists its confirmed tag.
+/// Persists the current account's chosen tag.
 class SupabaseProfileTagService implements ProfileTagService {
   const SupabaseProfileTagService(this._client, this._userId);
   final SupabaseClient _client;
@@ -19,18 +18,6 @@ class SupabaseProfileTagService implements ProfileTagService {
     if (_client.auth.currentUser?.id != _userId) {
       throw const AuthException('Sign in to manage your profile tag.');
     }
-  }
-
-  @override
-  Future<ProfileTagActivity> fetchActivity() async {
-    _requireAccount();
-    final rows = await _client.rpc('my_profile_tag_activity') as List;
-    if (rows.length != 1 || rows.single is! Map) {
-      throw const FormatException('Invalid profile activity summary.');
-    }
-    return ProfileTagActivity.fromJson(
-      Map<String, dynamic>.from(rows.single as Map),
-    );
   }
 
   @override
@@ -47,12 +34,6 @@ class SupabaseProfileTagService implements ProfileTagService {
 
 class SignedOutProfileTagService implements ProfileTagService {
   const SignedOutProfileTagService();
-  @override
-  Future<ProfileTagActivity> fetchActivity() async => const ProfileTagActivity(
-    approvedReports: 0,
-    dogReports: 0,
-    catReports: 0,
-  );
   @override
   Future<bool> saveTag(ProfileTag? tag) async => false;
 }

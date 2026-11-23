@@ -10,14 +10,10 @@ void main() {
   late SupabaseClient client;
   late SupabaseProfileTagService service;
   late List<({String method, Uri uri, Map<String, dynamic> body})> requests;
-  late Object activity;
   late List<Map<String, String>> updatedRows;
 
   setUp(() async {
     requests = [];
-    activity = [
-      {'approved_reports': 5, 'dog_reports': 3, 'cat_reports': 0},
-    ];
     updatedRows = [
       {'id': 'user-a'},
     ];
@@ -52,9 +48,7 @@ void main() {
           uri: request.uri,
           body: body is Map ? Map<String, dynamic>.from(body) : {},
         ));
-        request.response.write(
-          jsonEncode(request.method == 'PATCH' ? updatedRows : activity),
-        );
+        request.response.write(jsonEncode(updatedRows));
       }
       await request.response.close();
     });
@@ -72,30 +66,30 @@ void main() {
     password: 'test-password',
   );
 
-  test('signed-out or replaced accounts cannot read or write', () async {
-    await expectLater(service.fetchActivity(), throwsA(isA<AuthException>()));
+  test('signed-out or replaced accounts cannot write', () async {
     await expectLater(
       service.saveTag(ProfileTag.dogLover),
       throwsA(isA<AuthException>()),
     );
     await signIn();
     final other = SupabaseProfileTagService(client, 'other-account');
-    await expectLater(other.fetchActivity(), throwsA(isA<AuthException>()));
     await expectLater(other.saveTag(null), throwsA(isA<AuthException>()));
     expect(requests, isEmpty);
   });
 
-  test(
-    'loads aggregate counts without accepting an account parameter',
-    () async {
-      await signIn();
-      final summary = await service.fetchActivity();
-      expect(summary.approvedReports, 5);
-      expect(summary.suggestions, [ProfileTag.dogLover]);
-      expect(requests.single.uri.path, '/rest/v1/rpc/my_profile_tag_activity');
-      expect(requests.single.body, isEmpty);
-    },
-  );
+  test('every tag can be saved without reading report activity', () async {
+    await signIn();
+    for (final tag in ProfileTag.values) {
+      expect(await service.saveTag(tag), isTrue);
+      expect(requests.last.body, {'profile_tag': tag.value});
+    }
+    expect(requests, hasLength(ProfileTag.values.length));
+    expect(requests.every((request) => request.method == 'PATCH'), isTrue);
+    expect(
+      requests.every((request) => request.uri.path == '/rest/v1/profiles'),
+      isTrue,
+    );
+  });
 
   test(
     'confirmation and removal update only the captured account tag',
@@ -112,17 +106,10 @@ void main() {
     },
   );
 
-  test('malformed summaries fail instead of fabricating suggestions', () async {
-    await signIn();
-    for (final bad in [
-      [],
-      [null],
-      [
-        {'approved_reports': 5, 'dog_reports': 6, 'cat_reports': 0},
-      ],
-    ]) {
-      activity = bad;
-      await expectLater(service.fetchActivity(), throwsFormatException);
-    }
+  test('signed-out service does not save a tag', () async {
+    const signedOut = SignedOutProfileTagService();
+    expect(await signedOut.saveTag(ProfileTag.dogLover), isFalse);
+    expect(await signedOut.saveTag(null), isFalse);
+    expect(requests, isEmpty);
   });
 }

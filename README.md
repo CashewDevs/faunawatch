@@ -248,25 +248,23 @@ After applying it, open **Edit Profile**, enter the bio and **Save Changes**
 again. The saved bio appears below the name on your profile, public profiles
 and profile previews. The app does not apply this migration automatically.
 
-**Profile tags:** **Add profile tag** below your bio opens activity-based
-suggestions. After three approved reports, Dog Lover or Cat Lover is suggested
-when at least 60% include that animal; otherwise the suggestion is Spotter.
+**Profile tags:** **Add profile tag** below your bio opens a picker with
+Dog Lover, Cat Lover, and Spotter. Every tag is available immediately, with
+no report-count requirement or activity analysis.
 Choose **Use Dog Lover**, **Use Cat Lover**, or **Use Spotter** to display one
-public tag below your bio. Opening or dismissing suggestions never assigns a
-tag. Tap your displayed tag to change or remove it; new activity does not
-replace a tag you already confirmed. Other profiles and previews show only
-the confirmed tag, including when the account's posts are private.
+public tag below your bio. Opening or dismissing the picker never assigns a
+tag. Tap your displayed tag to change or remove it anytime. Other profiles
+and previews show only the chosen tag, including when posts are private.
 
 Apply
 [`20261123170000_add_profile_tags.sql`](supabase/migrations/20261123170000_add_profile_tags.sql)
-manually in Supabase's SQL editor. It adds nullable `profiles.profile_tag` and
-the caller-only `my_profile_tag_activity()` count query, preserving existing
-RLS. Reports count once per animal type, regardless of photo count. Recognized
-domestic dog/cat names and scientific names are used; explicit report species
-win over AI, and only the latest completed analysis's first guess is used
-when no species was entered. Unknown names count toward the total but not
-dog/cat counts. Unposted scans are not stored or counted. Mixed-animal reports
-may qualify both suggestions, but the owner confirms only one tag.
+manually in Supabase's SQL editor if it has not been applied. Its nullable
+`profiles.profile_tag` column and allowed-value check are still required;
+existing profile RLS governs updates. The activity RPC from that original
+migration is now unused. Optionally apply
+[`20261124090000_remove_profile_tag_activity.sql`](supabase/migrations/20261124090000_remove_profile_tag_activity.sql)
+afterward to remove it. The new picker works before this optional cleanup;
+saved tags are preserved. The app does not apply hosted database changes.
 
 The local PostgreSQL check uses the same ignored PGlite runtime as the gallery:
 

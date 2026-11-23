@@ -16,22 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../gallery/fake_gallery_service.dart';
 
 class _Tags implements ProfileTagService {
-  ProfileTagActivity activity = const ProfileTagActivity(
-    approvedReports: 3,
-    dogReports: 2,
-    catReports: 0,
-  );
   bool succeeds = true;
-  bool throwsOnLoad = false;
-  int reads = 0;
   final writes = <ProfileTag?>[];
-
-  @override
-  Future<ProfileTagActivity> fetchActivity() async {
-    reads++;
-    if (throwsOnLoad) throw StateError('Unavailable');
-    return activity;
-  }
 
   @override
   Future<bool> saveTag(ProfileTag? tag) async {
@@ -105,53 +91,58 @@ void main() {
     matching: find.text(label),
   );
 
-  testWidgets('suggestions appear only on request and require confirmation', (
+  testWidgets(
+    'all tags are available without reports and require confirmation',
+    (tester) async {
+      await pump(tester);
+      await open(tester);
+      expect(find.text('Choose your tag'), findsOneWidget);
+      for (final tag in ProfileTag.values) {
+        expect(find.text('Use ${tag.label}'), findsOneWidget);
+      }
+      expect(headerTag('Dog Lover'), findsNothing);
+      expect(service.writes, isEmpty);
+      await tester.tap(find.byTooltip('Close profile tags'));
+      await tester.pumpAndSettle();
+      expect(headerTag('Dog Lover'), findsNothing);
+
+      await open(tester);
+      await tester.ensureVisible(find.text('Use Dog Lover'));
+      await tester.tap(find.text('Use Dog Lover'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProfileTagSheet), findsNothing);
+      expect(headerTag('Dog Lover'), findsOneWidget);
+      expect(service.writes, [ProfileTag.dogLover]);
+      expect(
+        tester.getRect(headerTag('Dog Lover')).top,
+        greaterThan(
+          tester.getRect(find.text('Watching wildlife responsibly.')).bottom,
+        ),
+      );
+    },
+  );
+
+  testWidgets('an existing tag can be changed to any other choice', (
     tester,
   ) async {
-    await pump(tester);
-    expect(service.reads, 0);
-    await open(tester);
-    expect(find.text('Suggested for you'), findsOneWidget);
-    expect(headerTag('Dog Lover'), findsNothing);
-    expect(service.writes, isEmpty);
-    await tester.tap(find.byTooltip('Close profile tags'));
-    await tester.pumpAndSettle();
-    expect(headerTag('Dog Lover'), findsNothing);
-
-    await open(tester);
-    await tester.tap(find.text('Use Dog Lover'));
-    await tester.pumpAndSettle();
-    expect(find.byType(ProfileTagSheet), findsNothing);
-    expect(headerTag('Dog Lover'), findsOneWidget);
-    expect(service.writes, [ProfileTag.dogLover]);
+    await pump(tester, tag: ProfileTag.dogLover);
+    await open(tester, hasTag: true);
     expect(
-      tester.getRect(headerTag('Dog Lover')).top,
-      greaterThan(
-        tester.getRect(find.text('Watching wildlife responsibly.')).bottom,
-      ),
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('confirm_profile_tag_dog_lover')),
+          )
+          .onPressed,
+      isNull,
     );
-  });
-
-  testWidgets('before three approvals the sheet shows progress without a tag', (
-    tester,
-  ) async {
-    service.activity = const ProfileTagActivity(
-      approvedReports: 2,
-      dogReports: 2,
-      catReports: 0,
-    );
-    await pump(tester);
-    await open(tester);
-    expect(find.text('2 of 3 approved reports'), findsOneWidget);
-    expect(
-      find.text(
-        'Your first suggestion becomes available after 3 '
-        'approved reports. Unposted scans do not count.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Use Dog Lover'), findsNothing);
-    expect(service.writes, isEmpty);
+    expect(find.text('Use Cat Lover'), findsOneWidget);
+    expect(find.text('Use Spotter'), findsOneWidget);
+    await tester.ensureVisible(find.text('Use Cat Lover'));
+    await tester.tap(find.text('Use Cat Lover'));
+    await tester.pumpAndSettle();
+    expect(headerTag('Cat Lover'), findsOneWidget);
+    expect(headerTag('Dog Lover'), findsNothing);
+    expect(service.writes, [ProfileTag.catLover]);
   });
 
   testWidgets(
@@ -160,12 +151,14 @@ void main() {
       service.succeeds = false;
       await pump(tester, tag: ProfileTag.catLover);
       await open(tester, hasTag: true);
+      await tester.ensureVisible(find.text('Use Dog Lover'));
       await tester.tap(find.text('Use Dog Lover'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('profile_tag_error')), findsOneWidget);
       expect(headerTag('Cat Lover'), findsOneWidget);
       expect(headerTag('Dog Lover'), findsNothing);
       service.succeeds = true;
+      await tester.ensureVisible(find.text('Remove tag'));
       await tester.tap(find.text('Remove tag'));
       await tester.pumpAndSettle();
       expect(find.byType(ProfileTagSheet), findsNothing);
@@ -178,17 +171,21 @@ void main() {
   testWidgets(
     'a narrow dark sheet with large text scrolls through errors and retry',
     (tester) async {
-      service.throwsOnLoad = true;
+      service.succeeds = false;
       await pump(tester, dark: true, scale: 2);
       await open(tester);
-      expect(find.byKey(const ValueKey('profile_tag_error')), findsOneWidget);
-      service.throwsOnLoad = false;
-      await tester.ensureVisible(find.text('Retry'));
-      await tester.tap(find.text('Retry'));
+      await tester.ensureVisible(find.text('Use Spotter'));
+      await tester.tap(find.text('Use Spotter'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Use Dog Lover'));
+      expect(find.byKey(const ValueKey('profile_tag_error')), findsOneWidget);
+      expect(headerTag('Spotter'), findsNothing);
+      service.succeeds = true;
+      await tester.ensureVisible(find.text('Use Spotter'));
+      await tester.tap(find.text('Use Spotter'));
+      await tester.pumpAndSettle();
+      expect(headerTag('Spotter'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(service.writes, isEmpty);
+      expect(service.writes, [ProfileTag.spotter, ProfileTag.spotter]);
     },
   );
 }

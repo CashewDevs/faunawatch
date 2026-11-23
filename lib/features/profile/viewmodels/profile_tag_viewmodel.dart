@@ -7,49 +7,25 @@ import 'package:faunawatch/features/suspension/models/account_suspension.dart';
 import 'package:faunawatch/features/suspension/viewmodels/account_suspension_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Suggestions never change the public profile until an explicit confirmation.
+/// The owner can choose any tag; only an explicit save changes the profile.
 class ProfileTagViewModel extends AutoDisposeNotifier<ProfileTagState> {
   late ProfileTagService _service;
   int _generation = 0;
 
   @override
   ProfileTagState build() {
-    final userId = ref.watch(currentUserIdProvider).valueOrNull;
+    ref.watch(currentUserIdProvider);
     _service = ref.watch(profileTagServiceProvider);
-    final generation = ++_generation;
+    ++_generation;
     ref.onDispose(() => ++_generation);
-    if (userId == null) return const ProfileTagState();
-    Future.microtask(() => _load(generation, _service));
-    return const ProfileTagState(isLoading: true);
-  }
-
-  Future<void> _load(int generation, ProfileTagService service) async {
-    if (generation != _generation) return;
-    try {
-      final activity = await service.fetchActivity();
-      if (generation == _generation) {
-        state = ProfileTagState(activity: activity);
-      }
-    } catch (_) {
-      if (generation == _generation) {
-        state = const ProfileTagState(
-          errorMessage: 'Could not load tag suggestions. Please try again.',
-        );
-      }
-    }
-  }
-
-  Future<void> retry() async {
-    if (state.isLoading || state.isSaving) return;
-    state = const ProfileTagState(isLoading: true);
-    await _load(++_generation, _service);
+    return const ProfileTagState();
   }
 
   Future<bool> confirm(ProfileTag tag) => _save(tag);
   Future<bool> remove() => _save(null);
 
   Future<bool> _save(ProfileTag? tag) async {
-    if (state.isLoading || state.isSaving) return false;
+    if (state.isSaving) return false;
     final userId = ref.read(currentUserIdProvider).valueOrNull;
     if (userId == null) return false;
     final suspension = ref.read(accountSuspensionViewModelProvider);
@@ -59,10 +35,6 @@ class ProfileTagViewModel extends AutoDisposeNotifier<ProfileTagState> {
       );
       return false;
     }
-    if (tag != null && !(state.activity?.suggestions.contains(tag) ?? false)) {
-      return false;
-    }
-
     final generation = _generation;
     final keepAlive = ref.keepAlive();
     state = state.copyWith(isSaving: true);

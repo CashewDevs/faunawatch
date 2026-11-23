@@ -11,30 +11,10 @@ import 'package:faunawatch/features/suspension/viewmodels/account_suspension_vie
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const dogs = ProfileTagActivity(
-  approvedReports: 5,
-  dogReports: 3,
-  catReports: 0,
-);
-const mixed = ProfileTagActivity(
-  approvedReports: 6,
-  dogReports: 2,
-  catReports: 2,
-);
-
 class _Tags implements ProfileTagService {
-  ProfileTagActivity activity = dogs;
   bool succeeds = true;
-  bool throwsOnLoad = false;
   final writes = <ProfileTag?>[];
   Completer<bool>? pendingSave;
-  Completer<ProfileTagActivity>? pendingLoad;
-
-  @override
-  Future<ProfileTagActivity> fetchActivity() async {
-    if (throwsOnLoad) throw StateError('Unavailable');
-    return pendingLoad?.future ?? activity;
-  }
 
   @override
   Future<bool> saveTag(ProfileTag? tag) async {
@@ -105,12 +85,12 @@ void main() {
   });
 
   test(
-    'loading suggestions never assigns a tag; confirmation persists it',
+    'opening the picker offers every tag without automatically assigning one',
     () async {
       await start();
       expect(
-        container.read(profileTagViewModelProvider).activity?.suggestions,
-        [ProfileTag.dogLover],
+        container.read(profileTagViewModelProvider).availableTags,
+        ProfileTag.values,
       );
       expect(service.writes, isEmpty);
       expect(
@@ -130,21 +110,34 @@ void main() {
     },
   );
 
-  test('unqualified tags and duplicate submissions are rejected', () async {
+  test('every tag can be chosen and changed without report activity', () async {
     await start();
     final vm = container.read(profileTagViewModelProvider.notifier);
-    expect(await vm.confirm(ProfileTag.catLover), isFalse);
-    expect(service.writes, isEmpty);
+    for (final tag in ProfileTag.values) {
+      expect(await vm.confirm(tag), isTrue);
+      expect(
+        container.read(profileViewModelProvider).requireValue.profileTag,
+        tag,
+      );
+    }
+    expect(service.writes, ProfileTag.values);
+  });
+
+  test('duplicate saves and removals are blocked while saving', () async {
+    await start();
+    final vm = container.read(profileTagViewModelProvider.notifier);
     service.pendingSave = Completer<bool>();
     final save = vm.confirm(ProfileTag.dogLover);
     expect(await vm.confirm(ProfileTag.dogLover), isFalse);
+    expect(await vm.confirm(ProfileTag.catLover), isFalse);
+    expect(await vm.remove(), isFalse);
     expect(service.writes, hasLength(1));
     service.pendingSave!.complete(true);
     expect(await save, isTrue);
   });
 
   test(
-    'closing suggestions during a confirmed save still updates the profile',
+    'closing the picker during a confirmed save still updates the profile',
     () async {
       await start();
       service.pendingSave = Completer<bool>();
@@ -186,14 +179,13 @@ void main() {
     );
   });
 
-  test('refreshing activity preserves a previously confirmed tag', () async {
+  test('opening the picker preserves an existing tag', () async {
     reader.tag = ProfileTag.dogLover;
     await start();
-    service.activity = mixed;
-    await container.read(profileTagViewModelProvider.notifier).retry();
-    expect(container.read(profileTagViewModelProvider).activity?.suggestions, [
-      ProfileTag.spotter,
-    ]);
+    expect(
+      container.read(profileTagViewModelProvider).availableTags,
+      ProfileTag.values,
+    );
     expect(
       container.read(profileViewModelProvider).requireValue.profileTag,
       ProfileTag.dogLover,
@@ -201,14 +193,16 @@ void main() {
     expect(service.writes, isEmpty);
   });
 
-  test('a failed activity load can be retried', () async {
-    service.throwsOnLoad = true;
+  test('a failed save can be retried with the same selection', () async {
+    service.succeeds = false;
     await start();
+    final vm = container.read(profileTagViewModelProvider.notifier);
+    expect(await vm.confirm(ProfileTag.spotter), isFalse);
     expect(container.read(profileTagViewModelProvider).errorMessage, isNotNull);
-    service.throwsOnLoad = false;
-    await container.read(profileTagViewModelProvider.notifier).retry();
-    expect(container.read(profileTagViewModelProvider).activity, dogs);
+    service.succeeds = true;
+    expect(await vm.confirm(ProfileTag.spotter), isTrue);
     expect(container.read(profileTagViewModelProvider).errorMessage, isNull);
+    expect(service.writes, [ProfileTag.spotter, ProfileTag.spotter]);
   });
 
   test('suspension after opening blocks confirmation and removal', () async {
@@ -245,23 +239,17 @@ void main() {
     expect(profile.profileTag, isNull);
   });
 
-  test(
-    'a stale activity request cannot replace newer account suggestions',
-    () async {
-      final accounts = StreamController<String?>();
-      addTearDown(accounts.close);
-      service.pendingLoad = Completer<ProfileTagActivity>();
-      final oldLoad = service.pendingLoad!;
-      final starting = start(accounts: accounts.stream);
-      accounts.add('user-a');
-      await starting;
-      service.pendingLoad = null;
-      service.activity = mixed;
-      accounts.add('user-b');
-      await settle();
-      oldLoad.complete(dogs);
-      await settle();
-      expect(container.read(profileTagViewModelProvider).activity, mixed);
-    },
-  );
+  test('signing out blocks tag changes and removal', () async {
+    final accounts = StreamController<String?>();
+    addTearDown(accounts.close);
+    final starting = start(accounts: accounts.stream);
+    accounts.add('user-a');
+    await starting;
+    accounts.add(null);
+    await settle();
+    final vm = container.read(profileTagViewModelProvider.notifier);
+    expect(await vm.confirm(ProfileTag.dogLover), isFalse);
+    expect(await vm.remove(), isFalse);
+    expect(service.writes, isEmpty);
+  });
 }
