@@ -100,6 +100,7 @@ class AiIdentification {
     this.invasiveMatch,
     this.aiCategory = ReportCategory.otherWildlifeIncident,
     this.animalCount = 1,
+    this.backupKeyUse,
   });
 
   /// The most guesses the app shows (and the database accepts).
@@ -139,6 +140,13 @@ class AiIdentification {
   /// How many boxed animals the analysis covers. With one, [possibleSpecies]
   /// holds up to three guesses for it; with more, one best guess per animal.
   final int animalCount;
+
+  /// Set when the main key failed and the backup key produced this result
+  /// ([provider] and [model] are then the backup's). Shown as a note on the
+  /// result; not saved.
+  final BackupKeyUse? backupKeyUse;
+
+  bool get usedBackupKey => backupKeyUse != null;
 
   bool get coversSeveralAnimals => animalCount > 1;
 
@@ -220,21 +228,31 @@ class AiIdentification {
   }
 
   AiIdentification withInvasiveMatch(SpeciesReferenceMatch? match) =>
-      AiIdentification(
-        animalPresent: animalPresent,
-        possibleSpecies: possibleSpecies,
-        visibleCondition: visibleCondition,
-        severity: severity,
-        severityReason: severityReason,
-        whatToDo: whatToDo,
-        provider: provider,
-        model: model,
-        promptVersion: promptVersion,
-        photoSubject: photoSubject,
-        invasiveMatch: match,
-        aiCategory: aiCategory,
-        animalCount: animalCount,
-      );
+      _copy(invasiveMatch: match, backupKeyUse: backupKeyUse);
+
+  /// The same result, marked as produced by the backup key because of [use].
+  AiIdentification withBackupKeyUse(BackupKeyUse use) =>
+      _copy(invasiveMatch: invasiveMatch, backupKeyUse: use);
+
+  AiIdentification _copy({
+    required SpeciesReferenceMatch? invasiveMatch,
+    required BackupKeyUse? backupKeyUse,
+  }) => AiIdentification(
+    animalPresent: animalPresent,
+    possibleSpecies: possibleSpecies,
+    visibleCondition: visibleCondition,
+    severity: severity,
+    severityReason: severityReason,
+    whatToDo: whatToDo,
+    provider: provider,
+    model: model,
+    promptVersion: promptVersion,
+    photoSubject: photoSubject,
+    invasiveMatch: invasiveMatch,
+    aiCategory: aiCategory,
+    animalCount: animalCount,
+    backupKeyUse: backupKeyUse,
+  );
 
   /// Parses the JSON object the AI was asked to reply with, about the
   /// animals in [boxes].
@@ -312,6 +330,28 @@ class AiIdentification {
     }
     return subject.replaceAll(RegExp(r'[.!]+$'), '');
   }
+}
+
+/// Why the backup key was used instead of the main key.
+class BackupKeyUse {
+  const BackupKeyUse({required this.mainFailure, required this.mainProvider});
+
+  /// What went wrong with the main key: [IdentificationFailure.invalidKey],
+  /// [IdentificationFailure.rateLimited] or
+  /// [IdentificationFailure.unavailable].
+  final IdentificationFailure mainFailure;
+
+  /// The provider of the main key that failed.
+  final AiProvider mainProvider;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BackupKeyUse &&
+      other.mainFailure == mainFailure &&
+      other.mainProvider == mainProvider;
+
+  @override
+  int get hashCode => Object.hash(mainFailure, mainProvider);
 }
 
 /// Why an identification could not be completed.

@@ -17,6 +17,7 @@ const _reply =
 
 void main() {
   late FakeKeyStorage keys;
+  late FakeBackupKeyStorage backups;
   late FakeAiPhotoService photos;
   late Map<AiProvider, FakeVisionClient> clients;
   late FakeSpeciesReference references;
@@ -25,6 +26,7 @@ void main() {
 
   setUp(() {
     keys = FakeKeyStorage();
+    backups = FakeBackupKeyStorage();
     photos = FakeAiPhotoService();
     clients = {
       for (final provider in AiProvider.values)
@@ -37,6 +39,7 @@ void main() {
     preferences = FakePreferencesService();
     service = SpeciesIdentificationService(
       keys: keys,
+      backupKeys: backups,
       photos: photos,
       clients: clients,
       references: references,
@@ -160,6 +163,180 @@ void main() {
       clients[AiProvider.gemini]!.failure = key;
       await expectLater(identify(), failsWith(value));
     }
+  });
+
+  group('backup key', () {
+    setUp(() {
+      keys.keys[(_user, AiProvider.gemini)] = 'main-gemini';
+      backups.backups[_user] = (AiProvider.groq, 'backup-groq');
+    });
+
+    Matcher failsFrom(IdentificationFailure failure, AiProvider provider) =>
+        throwsA(
+          isA<IdentificationException>()
+              .having((e) => e.failure, 'failure', failure)
+              .having((e) => e.provider, 'provider', provider),
+        );
+
+    for (final (failure, expected) in [
+      (AiVisionFailure.invalidKey, IdentificationFailure.invalidKey),
+      (AiVisionFailure.rateLimited, IdentificationFailure.rateLimited),
+      (AiVisionFailure.unavailable, IdentificationFailure.unavailable),
+    ]) {
+      test(
+        'is tried once when the main key fails with ${failure.name}',
+        () async {
+          clients[AiProvider.gemini]!.failure = failure;
+
+          final result = await identify();
+
+          expect(clients[AiProvider.gemini]!.keysUsed, ['main-gemini']);
+          expect(clients[AiProvider.groq]!.keysUsed, ['backup-groq']);
+          // The photo is prepared once and the same one goes to the backup.
+          expect(photos.prepared, ['photo.jpg']);
+          expect(
+            clients[AiProvider.groq]!.imagesSent.single,
+            clients[AiProvider.gemini]!.imagesSent.single,
+          );
+          expect(
+            clients[AiProvider.groq]!.instructionsSent.single,
+            clients[AiProvider.gemini]!.instructionsSent.single,
+          );
+          expect(result.provider, AiProvider.groq);
+          expect(result.model, 'groq-m');
+          expect(result.usedBackupKey, isTrue);
+          expect(
+            result.backupKeyUse,
+            BackupKeyUse(
+              mainFailure: expected,
+              mainProvider: AiProvider.gemini,
+            ),
+          );
+        },
+      );
+    }
+
+    for (final failure in [
+      AiVisionFailure.network,
+      AiVisionFailure.badResponse,
+    ]) {
+      test(
+        'is not tried when the main call fails with ${failure.name}',
+        () async {
+          clients[AiProvider.gemini]!.failure = failure;
+          await expectLater(
+            identify(),
+            throwsA(isA<IdentificationException>()),
+          );
+          expect(clients[AiProvider.groq]!.keysUsed, isEmpty);
+        },
+      );
+    }
+
+    test('is not used when the main key works', () async {
+      final result = await identify();
+      expect(result.provider, AiProvider.gemini);
+      expect(result.usedBackupKey, isFalse);
+      expect(clients[AiProvider.groq]!.keysUsed, isEmpty);
+    });
+
+    test('is not tried for an unreadable photo', () async {
+      photos.fails = true;
+      await expectLater(
+        identify(),
+        failsWith(IdentificationFailure.unreadablePhoto),
+      );
+      expect(clients[AiProvider.groq]!.keysUsed, isEmpty);
+    });
+
+    test('does not stand in for a missing main key', () async {
+      keys.keys.clear();
+      await expectLater(identify(), failsWith(IdentificationFailure.noKey));
+      expect(clients[AiProvider.groq]!.keysUsed, isEmpty);
+    });
+
+    test('can be a second key for the same provider', () async {
+      backups.backups[_user] = (AiProvider.gemini, 'backup-gemini');
+      clients[AiProvider.gemini]!.failByKey['main-gemini'] =
+          AiVisionFailure.rateLimited;
+
+      final result = await identify();
+
+      expect(clients[AiProvider.gemini]!.keysUsed, [
+        'main-gemini',
+        'backup-gemini',
+      ]);
+      expect(result.provider, AiProvider.gemini);
+      expect(result.backupKeyUse!.mainProvider, AiProvider.gemini);
+    });
+
+    test("uses the model picked for the backup's provider", () async {
+      preferences.saved[_user] = const AiPreferences(
+        provider: AiProvider.gemini,
+        models: {AiProvider.gemini: 'g-picked', AiProvider.groq: 'q-picked'},
+      );
+      clients[AiProvider.gemini]!.failure = AiVisionFailure.rateLimited;
+
+      final result = await identify();
+
+      expect(clients[AiProvider.gemini]!.modelsUsed, ['g-picked']);
+      expect(clients[AiProvider.groq]!.modelsUsed, ['q-picked']);
+      expect(result.model, 'q-picked');
+    });
+
+    test("when both fail, the main key's failure is reported", () async {
+      clients[AiProvider.gemini]!.failure = AiVisionFailure.rateLimited;
+      clients[AiProvider.groq]!.failure = AiVisionFailure.invalidKey;
+
+      await expectLater(
+        identify(),
+        failsFrom(IdentificationFailure.rateLimited, AiProvider.gemini),
+      );
+      expect(clients[AiProvider.groq]!.keysUsed, ['backup-groq']);
+    });
+
+    test('an unreadable backup store still reports the main failure', () async {
+      backups.readError = StateError('keystore locked');
+      clients[AiProvider.gemini]!.failure = AiVisionFailure.unavailable;
+
+      await expectLater(
+        identify(),
+        failsFrom(IdentificationFailure.unavailable, AiProvider.gemini),
+      );
+    });
+
+    test('without a backup, failures are unchanged', () async {
+      backups.backups.clear();
+      clients[AiProvider.gemini]!.failure = AiVisionFailure.invalidKey;
+      await expectLater(
+        identify(),
+        failsFrom(IdentificationFailure.invalidKey, AiProvider.gemini),
+      );
+    });
+
+    test('the invasive hint keeps the backup note', () async {
+      references.match = sampleInvasiveMatch;
+      clients[AiProvider.gemini]!.failure = AiVisionFailure.rateLimited;
+
+      final result = await identify();
+
+      expect(result.possibleInvasive, isTrue);
+      expect(result.usedBackupKey, isTrue);
+    });
+
+    test('finding the animals falls back too', () async {
+      clients[AiProvider.gemini]!.failure = AiVisionFailure.invalidKey;
+      clients[AiProvider.groq]!.reply =
+          '{"animals": [{"name": "turtle", "box_2d": [100, 100, 600, 500]}]}';
+
+      final boxes = await service.findAnimals(
+        userId: _user,
+        photoPath: 'photo.jpg',
+      );
+
+      expect(boxes, hasLength(1));
+      expect(clients[AiProvider.groq]!.keysUsed, ['backup-groq']);
+    });
   });
 
   test('a reply that is not JSON is a bad response', () async {

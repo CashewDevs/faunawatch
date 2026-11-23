@@ -282,6 +282,12 @@ Under **Backup key** you can add one extra key, for any provider (it can even
 be a second key for the same provider). Use **Test backup** to check it. It
 uses the model picked for its provider, or that provider's default.
 
+FaunaLens tries the backup once when your main key is rejected, out of quota
+or busy, or its provider is down, and the AI Result then says the backup was
+used. It is not tried when you're offline or the photo can't be read, and it
+doesn't replace a missing main key. If both keys fail, you see the main key's
+error.
+
 ## Community map and FaunaGuard
 
 The map shows approved reports at the approximate coordinates returned by

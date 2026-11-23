@@ -266,7 +266,14 @@ A user's AI API key is runtime user data, not application configuration.
   from the per-provider keys; `deleteAllKeys` removes it too. It uses the
   model picked for its provider (else that provider's default), is saved only
   after the AI Keys Agreement for its provider, and has its own "Test backup".
-  Only services read the key itself.
+  Only services read the key itself. `SpeciesIdentificationService._ask`
+  tries it once, with the same prepared photo and instructions, only when the
+  main call fails with `invalidKey`, `rateLimited` or `unavailable` (never for
+  `network`, `badResponse`, an unreadable photo, or a missing main key). The
+  result then carries `AiIdentification.backupKeyUse` (main failure and main
+  provider; not saved) and the AI Result screen shows a short note; its
+  `provider`/`model` are the backup's. If the backup also fails, the main
+  failure is thrown.
 - Photos sent to a provider are resized and have EXIF (including GPS)
   removed first (`AiPhotoService`). The possible-invasive hint comes only
   from the curated `species_reference` table, never from the AI.
