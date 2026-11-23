@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../fauna_lens/ai_fakes.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
-import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
+import 'package:faunawatch/features/profile/services/posts_privacy_service.dart';
+import 'package:faunawatch/features/profile/viewmodels/posts_privacy_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
@@ -32,13 +33,18 @@ void main() {
       expect(find.text('Change password'), findsOneWidget);
       expect(find.text('Update your sign-in password'), findsOneWidget);
       expect(find.text('PRIVACY'), findsOneWidget);
-      expect(find.text('Show approximate location'), findsOneWidget);
+      expect(find.text('Private posts'), findsOneWidget);
       expect(
-        find.text('Other users see a nearby area, not your exact spot'),
+        find.text(
+          'Only you can see your posts on your profile. '
+          'They still appear in the Feed and on the map.',
+        ),
         findsOneWidget,
       );
-      expect(find.text('Hide my name on reports'), findsOneWidget);
-      expect(find.text('Post as "Anonymous spotter"'), findsOneWidget);
+      expect(find.byKey(const ValueKey('settings_location_note')), findsOne);
+      expect(find.textContaining('about 100 m'), findsOneWidget);
+      expect(find.text('Show approximate location'), findsNothing);
+      expect(find.text('Hide my name on reports'), findsNothing);
       expect(
         tester.getTopLeft(find.text('PRIVACY')).dy,
         greaterThan(tester.getBottomLeft(find.text('Change password')).dy),
@@ -47,41 +53,77 @@ void main() {
       expect(find.text('Sign Out'), findsNothing);
     });
 
-    testWidgets('toggling Privacy switches updates SettingsViewModel', (
-      tester,
-    ) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    group('Private posts', () {
+      late _FakePostsPrivacy privacy;
+      setUp(() => privacy = _FakePostsPrivacy());
 
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: SettingsView()),
+      Widget buildSignedIn() => ProviderScope(
+        overrides: [
+          currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
+          postsPrivacyServiceProvider.overrideWithValue(privacy),
+          aiApiKeyStorageServiceProvider.overrideWithValue(_FakeKeyStorage()),
+          aiPreferencesServiceProvider.overrideWithValue(
+            FakePreferencesService(),
+          ),
+        ],
+        child: const MaterialApp(home: SettingsView()),
+      );
+
+      Switch privateSwitch(WidgetTester tester) => tester.widget<Switch>(
+        find.descendant(
+          of: find.byKey(const ValueKey('settings_private_posts')),
+          matching: find.byType(Switch),
         ),
       );
 
-      final switches = find.byType(Switch);
-      expect(
-        container.read(settingsViewModelProvider).locationPrivacyEnabled,
-        isTrue,
-      );
-      expect(
-        container.read(settingsViewModelProvider).hideNameOnReports,
-        isFalse,
-      );
+      testWidgets('shows the saved setting and saves a change', (tester) async {
+        privacy.saved = true;
+        await tester.pumpWidget(buildSignedIn());
+        await tester.pumpAndSettle();
+        expect(privateSwitch(tester).value, isTrue);
 
-      await tester.tap(switches.at(0));
-      await tester.tap(switches.at(1));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byType(Switch).first);
+        await tester.pumpAndSettle();
+        expect(privacy.saves, [false]);
+        expect(privateSwitch(tester).value, isFalse);
+      });
 
-      expect(
-        container.read(settingsViewModelProvider).locationPrivacyEnabled,
-        isFalse,
-      );
-      expect(
-        container.read(settingsViewModelProvider).hideNameOnReports,
-        isTrue,
-      );
+      testWidgets('a failed save flips the switch back and says why', (
+        tester,
+      ) async {
+        privacy.saveError = StateError('offline');
+        await tester.pumpWidget(buildSignedIn());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(Switch).first);
+        await tester.pumpAndSettle();
+        expect(privateSwitch(tester).value, isFalse);
+        expect(
+          find.text(PostsPrivacyViewModel.saveFailedMessage),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('a failed load disables the switch until a retry works', (
+        tester,
+      ) async {
+        privacy.loadError = StateError('offline');
+        await tester.pumpWidget(buildSignedIn());
+        await tester.pumpAndSettle();
+        expect(privateSwitch(tester).onChanged, isNull);
+        expect(
+          find.text('Could not load this setting. Tap to try again.'),
+          findsOneWidget,
+        );
+
+        privacy
+          ..loadError = null
+          ..saved = true;
+        await tester.tap(find.text('Private posts'));
+        await tester.pumpAndSettle();
+        expect(privateSwitch(tester).onChanged, isNotNull);
+        expect(privateSwitch(tester).value, isTrue);
+      });
     });
 
     testWidgets('tapping Change password opens ChangePasswordView', (
@@ -103,6 +145,7 @@ void main() {
       return ProviderScope(
         overrides: [
           currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
+          postsPrivacyServiceProvider.overrideWithValue(_FakePostsPrivacy()),
           aiApiKeyStorageServiceProvider.overrideWithValue(keyStorage),
           aiPreferencesServiceProvider.overrideWithValue(
             FakePreferencesService(),
@@ -258,6 +301,25 @@ class _FakeKeyStorage implements AiApiKeyStorageService {
 
   @override
   Future<void> deleteAllKeys(String userId) async => saved.clear();
+}
+
+class _FakePostsPrivacy implements PostsPrivacyService {
+  bool saved = false;
+  Object? loadError, saveError;
+  final saves = <bool>[];
+
+  @override
+  Future<bool> load() async {
+    if (loadError != null) throw loadError!;
+    return saved;
+  }
+
+  @override
+  Future<bool> save(bool isPrivate) async {
+    if (saveError != null) throw saveError!;
+    saves.add(isPrivate);
+    return saved = isPrivate;
+  }
 }
 
 class _FakeWindowSecurity implements WindowSecurityService {

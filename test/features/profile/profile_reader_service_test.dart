@@ -13,27 +13,35 @@ void main() {
   late List<Map<String, Object?>> rows;
   late List<Uri> requests;
   late List<Map<String, dynamic>> updates;
-  late bool rejectBioColumn;
+  late bool rejectBioColumn, rejectPostsPrivateColumn;
   setUp(() async {
     rows = [];
     requests = [];
     updates = [];
     rejectBioColumn = false;
+    rejectPostsPrivateColumn = false;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final url = 'http://127.0.0.1:${server.port}';
     server.listen((request) async {
       requests.add(request.uri);
       request.response.headers.contentType = ContentType.json;
-      if (rejectBioColumn &&
-          request.method == 'GET' &&
-          (request.uri.queryParameters['select']?.contains('bio') ?? false)) {
+      final select = request.uri.queryParameters['select'] ?? '';
+      // Like Postgres, report the first missing column in the select list.
+      final missing = request.method != 'GET'
+          ? null
+          : rejectBioColumn && select.contains('bio')
+          ? 'bio'
+          : rejectPostsPrivateColumn && select.contains('posts_private')
+          ? 'posts_private'
+          : null;
+      if (missing != null) {
         request.response.statusCode = HttpStatus.badRequest;
         request.response.write(
           jsonEncode({
             'code': '42703',
             'details': null,
             'hint': null,
-            'message': 'column profiles.bio does not exist',
+            'message': 'column profiles.$missing does not exist',
           }),
         );
         await request.response.close();
@@ -114,6 +122,55 @@ void main() {
       expect(requests.last.queryParameters['select'], isNot(contains('bio')));
     },
   );
+
+  test('reads whether the account turned on Private posts', () async {
+    rows = [
+      {'display_name': 'Tester', 'posts_private': true},
+    ];
+    expect((await service.loadProfile('user-a')).postsPrivate, isTrue);
+    expect(
+      requests.single.queryParameters['select'],
+      contains('posts_private'),
+    );
+
+    rows = [
+      {'display_name': 'Tester', 'posts_private': false},
+    ];
+    expect((await service.loadProfile('user-a')).postsPrivate, isFalse);
+  });
+
+  test(
+    'reads profiles when the Private posts migration is not applied',
+    () async {
+      rejectPostsPrivateColumn = true;
+      rows = [
+        {'display_name': 'Tester', 'bio': 'Bird watcher'},
+      ];
+      final profile = await service.loadProfile('user-a');
+      expect(profile.bio, 'Bird watcher');
+      expect(profile.postsPrivate, isFalse);
+      expect(requests.length, 2);
+      expect(
+        requests.last.queryParameters['select'],
+        allOf(contains('bio'), isNot(contains('posts_private'))),
+      );
+    },
+  );
+
+  test('reads profiles missing both newer columns', () async {
+    rejectBioColumn = true;
+    rejectPostsPrivateColumn = true;
+    rows = [
+      {'display_name': 'Tester'},
+    ];
+    final profile = await service.loadProfile('user-a');
+    expect(profile.username, 'Tester');
+    expect(requests.length, 3);
+    expect(
+      requests.last.queryParameters['select'],
+      allOf(isNot(contains('bio')), isNot(contains('posts_private'))),
+    );
+  });
 
   test(
     'saves display name and bio to the authenticated user and validates input',

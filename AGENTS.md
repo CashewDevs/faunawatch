@@ -608,6 +608,22 @@ public gallery viewer swipes only that account's approved posts and returns to
 the existing grid position. It reuses `GalleryPostViewModel` for full photos,
 likes and comments; public references can never load pending or declined owner reports.
 
+Private posts (Settings › Privacy): `profiles.posts_private`, saved only through
+`set_posts_private(boolean)` (security definer, own row and column only,
+allowed while suspended because `profiles_update_own` blocks suspended users).
+`public_profile_gallery()` returns no rows to visitors of a private account;
+the owner and `is_admin()` still get them. Feed and map RPCs are deliberately
+unchanged. In the app, `ProfileData.postsPrivate` comes from
+`SupabaseProfileReaderService` (which drops `bio`/`posts_private` from the
+select on older databases), `PublicProfileViewModel.postsHidden` skips the
+posts request and `PublicProfileScreen` shows a lock notice instead of the
+gallery. The switch is `PostsPrivacyViewModel` / `PostsPrivacyService`
+(`lib/features/profile/`): loads on open, saves at once, flips back with a
+SnackBar on failure, disabled with tap-to-retry if loading fails. Tests that
+render `SettingsView` signed in must override `postsPrivacyServiceProvider`.
+There is no location-privacy switch; public locations are always rounded by
+the server. Apply `20261123150000_add_private_posts.sql` by hand.
+
 Apply `20261121233000_create_public_profile_gallery.sql` manually after
 `20261112100000_create_community_feed.sql` and its prerequisites. Agents must
 not apply hosted changes. This adds one gallery RPC and an index, no table or

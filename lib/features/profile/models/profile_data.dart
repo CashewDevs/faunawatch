@@ -8,6 +8,7 @@ class ProfileData {
     this.customImagePath,
     this.bannerAsset,
     this.bannerColorValue,
+    this.postsPrivate = false,
   });
 
   final String username;
@@ -18,6 +19,11 @@ class ProfileData {
   final String? bannerAsset;
   final int? bannerColorValue;
 
+  /// The owner turned on Settings › Privacy › Private posts: visitors to
+  /// their profile see a notice instead of their posts (the server returns
+  /// none). Their posts still appear in the Feed and on the map.
+  final bool postsPrivate;
+
   ProfileData copyWith({
     String? username,
     String? bio,
@@ -25,6 +31,7 @@ class ProfileData {
     String? customImagePath,
     String? bannerAsset,
     int? bannerColorValue,
+    bool? postsPrivate,
     bool clearPresetAvatar = false,
     bool clearCustomImage = false,
     bool clearBannerAsset = false,
@@ -47,6 +54,7 @@ class ProfileData {
       bannerColorValue: clearBannerColor
           ? null
           : (bannerColorValue ?? this.bannerColorValue),
+      postsPrivate: postsPrivate ?? this.postsPrivate,
     );
   }
 }

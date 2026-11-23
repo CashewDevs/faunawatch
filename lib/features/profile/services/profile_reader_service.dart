@@ -12,14 +12,28 @@ abstract interface class ProfileReaderService {
 class SupabaseProfileReaderService implements ProfileReaderService {
   const SupabaseProfileReaderService(this._client);
 
-  static const _profileColumnsWithBio =
-      'username, full_name, display_name, bio, avatar_path, banner_asset, banner_color';
-  static const _profileColumnsWithoutBio =
-      'username, full_name, display_name, avatar_path, banner_asset, banner_color';
+  static const _profileColumns = [
+    'username',
+    'full_name',
+    'display_name',
+    'bio',
+    'avatar_path',
+    'banner_asset',
+    'banner_color',
+    'posts_private',
+  ];
+
+  /// Columns added by later migrations. When a database doesn't have one
+  /// yet, the profile is read without it (bio empty, posts not private).
+  static const _newerColumns = {'bio', 'posts_private'};
 
   final SupabaseClient _client;
 
-  static bool _isMissingBioColumn(PostgrestException error) {
+  /// The newer column [error] says is missing, if any.
+  static String? _missingNewerColumn(
+    PostgrestException error,
+    List<String> columns,
+  ) {
     final code = error.code ?? '';
     final message = error.message.toLowerCase();
     final hasMissingColumnSignal =
@@ -29,7 +43,11 @@ class SupabaseProfileReaderService implements ProfileReaderService {
         message.contains('pgrst204') ||
         message.contains('does not exist') ||
         message.contains('schema cache');
-    return hasMissingColumnSignal && message.contains('bio');
+    if (!hasMissingColumnSignal) return null;
+    return columns
+        .where(_newerColumns.contains)
+        .where(message.contains)
+        .firstOrNull;
   }
 
   @override
@@ -37,19 +55,19 @@ class SupabaseProfileReaderService implements ProfileReaderService {
       await findProfile(userId) ?? const ProfileData();
 
   Future<Map<String, dynamic>?> _fetchProfileRow(String userId) async {
-    try {
-      return await _client
-          .from('profiles')
-          .select(_profileColumnsWithBio)
-          .eq('id', userId)
-          .maybeSingle();
-    } on PostgrestException catch (error) {
-      if (!_isMissingBioColumn(error)) rethrow;
-      return await _client
-          .from('profiles')
-          .select(_profileColumnsWithoutBio)
-          .eq('id', userId)
-          .maybeSingle();
+    final columns = [..._profileColumns];
+    while (true) {
+      try {
+        return await _client
+            .from('profiles')
+            .select(columns.join(', '))
+            .eq('id', userId)
+            .maybeSingle();
+      } on PostgrestException catch (error) {
+        final missing = _missingNewerColumn(error, columns);
+        if (missing == null) rethrow;
+        columns.remove(missing);
+      }
     }
   }
 
@@ -89,6 +107,7 @@ class SupabaseProfileReaderService implements ProfileReaderService {
       avatarUrl: avatarUrl,
       bannerAsset: row['banner_asset'] as String?,
       bannerColorValue: (row['banner_color'] as num?)?.toInt(),
+      postsPrivate: row['posts_private'] == true,
     );
   }
 }

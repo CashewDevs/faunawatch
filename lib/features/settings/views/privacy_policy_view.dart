@@ -73,9 +73,12 @@ class PrivacyPolicyView extends StatelessWidget {
                 title: 'Photos and wildlife reports',
                 body:
                     'Photos and details you submit in approved wildlife reports '
-                    'are visible to other FaunaWatch community members. Before '
-                    'sending photos to an AI provider or private chat, '
-                    'FaunaWatch strips EXIF and GPS metadata.',
+                    'are visible to other FaunaWatch community members. If you '
+                    'turn on "Private posts" in Settings, other people can no '
+                    'longer browse your posts on your profile, but your '
+                    'approved reports still appear in the Feed and on the '
+                    'map. Before sending photos to an AI provider or private '
+                    'chat, FaunaWatch strips EXIF and GPS metadata.',
               ),
               const SizedBox(height: 14),
               _PolicyCard(
@@ -83,9 +86,9 @@ class PrivacyPolicyView extends StatelessWidget {
                 title: 'Location privacy',
                 body:
                     'Location data is used to map wildlife sightings and warn '
-                    'nearby users. When "Show approximate location" is enabled '
-                    'in Settings, other users see a nearby area instead of '
-                    'your exact spot.',
+                    'nearby users. Other users always see a nearby area '
+                    '(about 100 m) instead of your exact spot. Only you and '
+                    'FaunaWatch admins can see the exact location.',
               ),
               const SizedBox(height: 14),
               _PolicyCard(

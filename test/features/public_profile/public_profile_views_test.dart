@@ -402,6 +402,62 @@ void main() {
     expect(find.text('No public posts yet.'), findsOneWidget);
   });
 
+  testWidgets(
+    'a private account shows visitors a notice instead of its gallery',
+    (tester) async {
+      public.profile = public.profile!.copyWith(postsPrivate: true);
+      await pump(tester, const PublicProfileScreen(userId: 'other'));
+
+      expect(
+        find.byKey(const ValueKey('public_profile_posts_private')),
+        findsOneWidget,
+      );
+      expect(find.text("This account's posts are private"), findsOneWidget);
+      expect(find.text('You can still send them a message.'), findsOneWidget);
+      expect(find.text('Forest Ranger'), findsOneWidget);
+      expect(find.text('Message'), findsOneWidget);
+      expect(find.byType(GalleryHeader), findsNothing);
+      expect(find.byType(GalleryCard), findsNothing);
+      // Nothing is even asked for: the server would return no posts anyway.
+      expect(public.postRequests, isEmpty);
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 300));
+      await tester.pumpAndSettle();
+      expect(public.postRequests, isEmpty);
+      expect(find.text("This account's posts are private"), findsOneWidget);
+    },
+  );
+
+  testWidgets('the owner still sees their own posts while private', (
+    tester,
+  ) async {
+    public.profile = public.profile!.copyWith(postsPrivate: true);
+    public.posts = [publicPost('mine', authorId: 'viewer')];
+    await pump(tester, const PublicProfileScreen(userId: 'viewer'));
+
+    expect(find.text("This account's posts are private"), findsNothing);
+    expect(find.byType(GalleryCard), findsOneWidget);
+    expect(public.postRequests.single.userId, 'viewer');
+  });
+
+  testWidgets('the private notice fits a narrow dark screen with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    public.profile = public.profile!.copyWith(postsPrivate: true);
+    await pump(
+      tester,
+      const PublicProfileScreen(userId: 'other'),
+      dark: true,
+      scale: 2,
+    );
+    expect(find.text("This account's posts are private"), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('public profile fits a narrow viewport with large text', (
     tester,
   ) async {
