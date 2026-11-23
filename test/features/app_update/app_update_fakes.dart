@@ -6,6 +6,8 @@ import 'package:faunawatch/features/app_update/models/app_version.dart';
 import 'package:faunawatch/features/app_update/services/app_release_service.dart';
 import 'package:faunawatch/features/app_update/services/app_update_installer.dart';
 import 'package:faunawatch/features/app_update/services/installed_version_service.dart';
+import 'package:faunawatch/features/app_update/services/update_reminder_service.dart';
+import 'package:faunawatch/features/app_update/models/update_reminder.dart';
 
 class FakeInstalledVersionService implements InstalledVersionService {
   FakeInstalledVersionService(this.version);
@@ -117,3 +119,30 @@ AppRelease testRelease({
   notes: notes,
   apkUrl: apkUrl,
 );
+
+class FakeUpdateReminderService implements UpdateReminderService {
+  FakeUpdateReminderService([this.reminder = const UpdateReminder()]);
+
+  UpdateReminder reminder;
+  final List<AppVersion> dismissedSaves = [];
+  int checkSaves = 0;
+
+  @override
+  Future<UpdateReminder> load() async => reminder;
+
+  @override
+  Future<void> saveCheck(DateTime time, AppVersion? found) async {
+    checkSaves++;
+    reminder = reminder.checkedAt(time, found);
+  }
+
+  @override
+  Future<void> saveDismissed(AppVersion version) async {
+    dismissedSaves.add(version);
+    reminder = UpdateReminder(
+      lastCheckedAt: reminder.lastCheckedAt,
+      lastFound: reminder.lastFound,
+      dismissed: version,
+    );
+  }
+}

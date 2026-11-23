@@ -5,6 +5,7 @@ import 'package:faunawatch/features/app_update/models/app_version.dart';
 import 'package:faunawatch/features/app_update/services/app_release_service.dart';
 import 'package:faunawatch/features/app_update/services/app_update_installer.dart';
 import 'package:faunawatch/features/app_update/services/installed_version_service.dart';
+import 'package:faunawatch/features/app_update/services/update_reminder_service.dart';
 import 'package:faunawatch/features/app_update/viewmodels/app_update_viewmodel.dart';
 import 'package:faunawatch/features/app_update/views/widgets/app_version_rows.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,8 @@ void main() {
   late FakeAppReleaseService releases;
   late FakeExternalLinkService links;
   late FakeAppUpdateInstaller installer;
+  late FakeUpdateReminderService reminders;
+  var now = DateTime(2026, 11, 23, 12);
 
   Widget buildRows({
     AppVersion? version = const AppVersion(1, 0, 0, build: 2),
@@ -31,6 +34,8 @@ void main() {
         externalLinkServiceProvider.overrideWithValue(links),
         selfUpdateSupportedProvider.overrideWithValue(supported),
         appUpdateInstallerProvider.overrideWithValue(installer),
+        updateReminderServiceProvider.overrideWithValue(reminders),
+        appUpdateClockProvider.overrideWithValue(() => now),
       ],
       child: const MaterialApp(home: Scaffold(body: AppVersionRows())),
     );
@@ -40,6 +45,8 @@ void main() {
     releases = FakeAppReleaseService();
     links = FakeExternalLinkService();
     installer = FakeAppUpdateInstaller();
+    reminders = FakeUpdateReminderService();
+    now = DateTime(2026, 11, 23, 12);
   });
 
   testWidgets('shows the installed version and Check for updates', (

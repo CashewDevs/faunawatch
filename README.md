@@ -26,6 +26,72 @@ or replace an already failed browser graphics context.
 
 Reference: [Flutter web initialization](https://docs.flutter.dev/platform-integration/web/initialization#canvaskit-options).
 
+## Release a new Android version
+
+Testers and users install FaunaWatch from this repository's GitHub Releases,
+outside the Play Store. The app finds new releases by itself: it checks GitHub
+when it opens (at most every 6 hours) and shows a "FaunaWatch 1.0.0 (5) is
+ready" banner at the top of the Feed. Settings › Check for updates checks at
+any time. Update downloads the new version and opens Android's installer; data
+and sign-in are kept. iPhones cannot install apps this way (use TestFlight).
+
+### Before the first release
+
+- **One builder.** Android only installs an update when it is signed with the
+  same key as the app already on the phone. Release builds are currently signed
+  with the builder's own computer key, `%USERPROFILE%\.android\debug.keystore`
+  (Windows). Always build releases on the same computer, and keep a private
+  backup of that file (never commit it). If it is lost, everyone must uninstall
+  and reinstall once.
+- **The public link** always downloads the newest version; share it or turn it
+  into a QR code:
+  <https://github.com/CashewDevs/faunawatch/releases/latest/download/faunawatch.apk>
+  First-time installs must allow "Install unknown apps" for their browser, and
+  Play Protect may warn about an unknown developer ("Install anyway").
+
+### Every release
+
+1. **Raise the build number** (the number after `+`) in `pubspec.yaml`, e.g.
+   `version: 1.0.0+4` → `version: 1.0.0+5`. It must be higher than the last
+   release, or phones refuse the update. Change the part before `+` too when
+   it is a bigger release (`1.1.0+6`).
+2. **Build** on the builder's computer, from the code being released:
+   ```bash
+   flutter build apk --release --dart-define-from-file=dart_defines.json
+   ```
+3. **Rename** `build/app/outputs/flutter-apk/app-release.apk` to exactly
+   `faunawatch.apk`. The app and the public link look for that name.
+4. **Publish** at <https://github.com/CashewDevs/faunawatch/releases/new>:
+   - **Tag:** `v` + the full version from `pubspec.yaml`, e.g. `v1.0.0+5`
+     ("Create new tag on publish"). The app reads the version from the tag.
+   - **Target:** the branch with this code (usually `main`).
+   - **Title:** e.g. `FaunaWatch 1.0.0 (5)`.
+   - **Notes:** short, plain sentences. They appear in the app under
+     "What's new".
+   - **Attach** `faunawatch.apk` in the "Attach binaries" box (not the
+     description box) and wait for the upload to finish.
+   - **Release label:** Latest. The app skips pre-releases and drafts.
+5. **Commit** the `pubspec.yaml` version change so the next release starts
+   from it.
+
+To check what the app will see:
+<https://api.github.com/repos/CashewDevs/faunawatch/releases/latest> must show
+your tag and a `faunawatch.apk` asset.
+
+### Testing an update
+
+A phone only sees an update when the release's build number is higher than the
+installed one. To test, install a build with a lower number (e.g.
+`flutter build apk --release --build-number=4 ...` then `adb install -r`), then
+publish the higher one. Android cannot put a lower number back over a higher
+one without uninstalling (which signs the user out and erases saved AI keys).
+To see the one-time permission step again, turn off Settings › Apps ›
+FaunaWatch › Install unknown apps.
+
+> **Google Play:** Play does not allow apps that install their own updates.
+> Before any Play Store build, remove `REQUEST_INSTALL_PACKAGES` from
+> `AndroidManifest.xml` and the update banner and button.
+
 ## Enable push notifications
 
 Push notifications (Firebase Cloud Messaging) are built in but stay **off**

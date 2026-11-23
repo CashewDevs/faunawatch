@@ -5,6 +5,7 @@ import 'package:faunawatch/features/app_update/models/app_version.dart';
 import 'package:faunawatch/features/app_update/services/app_release_service.dart';
 import 'package:faunawatch/features/app_update/services/app_update_installer.dart';
 import 'package:faunawatch/features/app_update/services/installed_version_service.dart';
+import 'package:faunawatch/features/app_update/services/update_reminder_service.dart';
 import 'package:faunawatch/features/app_update/viewmodels/app_update_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,8 @@ void main() {
   late FakeAppReleaseService releases;
   late FakeExternalLinkService links;
   late FakeAppUpdateInstaller installer;
+  late FakeUpdateReminderService reminders;
+  var now = DateTime(2026, 11, 23, 12);
 
   Future<ProviderContainer> containerWith({
     AppVersion? version = installed,
@@ -31,6 +34,8 @@ void main() {
         externalLinkServiceProvider.overrideWithValue(links),
         selfUpdateSupportedProvider.overrideWithValue(supported),
         appUpdateInstallerProvider.overrideWithValue(installer),
+        updateReminderServiceProvider.overrideWithValue(reminders),
+        appUpdateClockProvider.overrideWithValue(() => now),
       ],
     );
     addTearDown(container.dispose);
@@ -47,6 +52,8 @@ void main() {
     releases = FakeAppReleaseService();
     links = FakeExternalLinkService();
     installer = FakeAppUpdateInstaller();
+    reminders = FakeUpdateReminderService();
+    now = DateTime(2026, 11, 23, 12);
   });
 
   test('loads the installed version without checking GitHub', () async {
