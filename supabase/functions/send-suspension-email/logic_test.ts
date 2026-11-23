@@ -13,6 +13,7 @@ import {
   emailKind,
   escapeHtml,
   formatDate,
+  LOGO_URL,
   reactivatedEmail,
   type SanctionRecord,
   suspendedEmail,
@@ -157,6 +158,28 @@ Deno.test("reactivated email", () => {
   assertEquals(email.subject, "Your FaunaWatch account is active again");
   assertStringIncludes(email.text, "An admin lifted the suspension");
   assertStringIncludes(email.text, "send messages again");
+});
+
+Deno.test("both emails use the FaunaWatch layout", () => {
+  assertEquals(
+    LOGO_URL,
+    "https://faunawatch-admin.vercel.app/email/faunawatch-logo.png",
+  );
+  for (const email of [suspendedEmail(sevenDays, options), reactivatedEmail(options)]) {
+    // The logo on the blue header, and the footer.
+    assertStringIncludes(email.html, `<img src="${LOGO_URL}"`);
+    assertStringIncludes(email.html, `alt="FaunaWatch"`);
+    assertStringIncludes(email.html, "background:#1a5dc9");
+    assertStringIncludes(email.html, "Mapping life, one sighting at a time.");
+    // The subject is the page title and the heading.
+    assertStringIncludes(email.html, `<title>${email.subject}</title>`);
+    assertStringIncludes(email.html, `">${email.subject}</h1>`);
+  }
+  // The inbox preview line is the first sentence of the email.
+  assertStringIncludes(
+    reactivatedEmail(options).html,
+    `opacity:0;">An admin lifted the suspension on your FaunaWatch account.</div>`,
+  );
 });
 
 Deno.test("Brevo request", () => {

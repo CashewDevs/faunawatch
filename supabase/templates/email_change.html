@@ -1,0 +1,35 @@
+{{/* Change email address. Layout shared with the other files in this folder; see README.md. */}}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Confirm your new FaunaWatch email</title>
+</head>
+<body style="margin:0;padding:0;background:#eef3fb;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Confirm the change to your FaunaWatch email address.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef3fb;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;font-family:'DM Sans',Arial,Helvetica,sans-serif;">
+<tr><td align="center" style="background:#1a5dc9;padding:28px 24px 24px;">
+<img src="https://faunawatch-admin.vercel.app/email/faunawatch-logo.png" width="168" height="119" alt="FaunaWatch" style="display:block;border:0;width:168px;height:auto;color:#fece01;font-size:28px;font-weight:bold;">
+</td></tr>
+<tr><td style="padding:32px 32px 8px;color:#334155;font-size:15px;line-height:1.55;">
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#0f1a3c;">Confirm your new email</h1>
+<p style="margin:0 0 24px;">Someone asked to change the email of a FaunaWatch account from <strong style="color:#0f1a3c;">{{ .Email }}</strong> to <strong style="color:#0f1a3c;">{{ .NewEmail }}</strong>.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;"><tr><td style="background:#ffd400;border:2px solid #0f1a3c;border-radius:12px;">
+<a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 28px;color:#0f1a3c;font-size:16px;font-weight:bold;text-decoration:none;">Confirm the change</a>
+</td></tr></table>
+<p style="margin:0 0 16px;">To keep the account safe, both the old and the new address get this email. The change happens once it is confirmed from both.</p>
+<p style="margin:0 0 16px;">Didn't ask for this? Don't click the button, and change your FaunaWatch password.</p>
+<p style="margin:0 0 24px;font-size:13px;color:#64748b;">If the button doesn't work, copy this link into your browser:<br><a href="{{ .ConfirmationURL }}" style="color:#1a5dc9;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+</td></tr>
+<tr><td style="padding:16px 32px 24px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;line-height:1.5;">
+FaunaWatch · Mapping life, one sighting at a time.<br>This is an automatic email about your FaunaWatch account.
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

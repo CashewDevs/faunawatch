@@ -43,7 +43,10 @@ file_size_limit = "5MiB"
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:3000"
-additional_redirect_urls = ["http://localhost:5173/reset-password**"]
+additional_redirect_urls = [
+  "http://localhost:5173/reset-password**",
+  "com.faunawatch.app://login-callback/",
+]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
@@ -55,13 +58,24 @@ enabled = true
 double_confirm_changes = true
 enable_confirmations = false
 
-# Off so local sends the same email as hosted. Free-plan projects on Supabase's
-# built-in email can't use custom templates (since 2026-06-03). When hosted has
-# custom SMTP, uncomment this and paste the file into
-# Dashboard > Authentication > Emails > Reset password.
-# [auth.email.template.recovery]
-# subject = "Reset your FaunaWatch password"
-# content_path = "./supabase/templates/recovery.html"
+# The branded emails (see supabase/templates/README.md). Hosted sends through
+# Brevo (custom SMTP), so it uses the same files: paste each one into
+# Dashboard > Authentication > Emails > Templates whenever it changes.
+[auth.email.template.recovery]
+subject = "Reset your FaunaWatch password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.invite]
+subject = "You're invited to FaunaWatch Admin"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.confirmation]
+subject = "Confirm your FaunaWatch email"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new FaunaWatch email"
+content_path = "./supabase/templates/email_change.html"
 
 [auth.sms]
 enabled = false
