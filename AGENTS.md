@@ -1116,6 +1116,18 @@ it early; none when it simply ends. It reuses send-push's `WEBHOOK_SECRET`
 `supabase/functions/send-suspension-email/README.md`. No app change or
 migration is needed.
 
+All FaunaWatch emails share one design: blue header with the yellow fox and
+"FaunaWatch" logo, white card, yellow button. Supabase Auth's emails (reset
+password, invite, confirm sign-up, change email) are the files in
+`supabase/templates/` (used locally through `config.toml`; pasted by hand into
+Dashboard > Authentication > Emails > Templates for hosted, which sends
+through Brevo's SMTP relay because custom SMTP is required for templates).
+The suspension emails build the same layout in `logic.ts`. The logo is
+loaded from the admin site
+(`https://faunawatch-admin.vercel.app/email/faunawatch-logo.png`). Rules and
+the reset link's two forms (app vs. admin site) are in
+`supabase/templates/README.md`.
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.

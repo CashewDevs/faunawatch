@@ -174,31 +174,62 @@ function render(
     "The FaunaWatch team",
   ].join("\n");
 
-  const p = (inner: string) =>
-    `<p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#0f172a">${inner}</p>`;
+  const p = (inner: string) => `<p style="margin:0 0 16px;">${inner}</p>`;
   const rowHtml = rows
     .map((row) =>
-      `<tr><td style="padding:8px 0;vertical-align:top">` +
-      `<div style="font-size:12px;font-weight:700;color:#64748b">${escapeHtml(row.label)}</div>` +
-      `<div style="font-size:15px;line-height:1.45;color:#0f172a;white-space:pre-wrap">${escapeHtml(row.value)}</div>` +
+      `<tr><td style="padding:10px 16px;vertical-align:top">` +
+      `<div style="font-size:12px;font-weight:bold;color:#1a5dc9">${escapeHtml(row.label)}</div>` +
+      `<div style="font-size:15px;line-height:1.45;color:#0f1a3c;white-space:pre-wrap">${escapeHtml(row.value)}</div>` +
       `</td></tr>`
     )
     .join("");
-  const html = [
-    `<!doctype html><html><body style="margin:0;padding:24px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif">`,
-    `<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;padding:28px">`,
-    `<h1 style="margin:0 0 16px;font-size:20px;color:#0f172a">${escapeHtml(subject)}</h1>`,
+  const body = [
+    `<h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#0f1a3c;">${escapeHtml(subject)}</h1>`,
     p(escapeHtml(greeting)),
     p(escapeHtml(intro)),
     rows.length
-      ? `<table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 16px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">${rowHtml}</table>`
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;background:#eef3fb;border-radius:12px;">${rowHtml}</table>`
       : "",
     ...paragraphs.map((text) => p(escapeHtml(text))),
     p("The FaunaWatch team"),
-    `</div></body></html>`,
   ].join("");
 
-  return { subject, text, html };
+  return { subject, text, html: layout(subject, intro, body) };
+}
+
+/**
+ * Where the emails load the logo from: the admin site's public folder.
+ * Shared with the Supabase Auth emails in supabase/templates/.
+ */
+export const LOGO_URL =
+  "https://faunawatch-admin.vercel.app/email/faunawatch-logo.png";
+
+/**
+ * The FaunaWatch email layout, the same as supabase/templates/*.html: blue
+ * header with the logo, white card, footer. [preview] is the line inboxes
+ * show after the subject; [body] is HTML that is already escaped.
+ */
+function layout(title: string, preview: string, body: string): string {
+  return [
+    `<!doctype html><html lang="en"><head><meta charset="utf-8">`,
+    `<meta name="viewport" content="width=device-width, initial-scale=1">`,
+    `<meta name="color-scheme" content="light">`,
+    `<title>${escapeHtml(title)}</title></head>`,
+    `<body style="margin:0;padding:0;background:#eef3fb;">`,
+    `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preview)}</div>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef3fb;">`,
+    `<tr><td align="center" style="padding:24px 12px;">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;font-family:'DM Sans',Arial,Helvetica,sans-serif;">`,
+    `<tr><td align="center" style="background:#1a5dc9;padding:28px 24px 24px;">`,
+    `<img src="${LOGO_URL}" width="168" height="119" alt="FaunaWatch" style="display:block;border:0;width:168px;height:auto;color:#fece01;font-size:28px;font-weight:bold;">`,
+    `</td></tr>`,
+    `<tr><td style="padding:32px 32px 8px;color:#334155;font-size:15px;line-height:1.55;">`,
+    body,
+    `</td></tr>`,
+    `<tr><td style="padding:16px 32px 24px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;line-height:1.5;">`,
+    `FaunaWatch · Mapping life, one sighting at a time.<br>This is an automatic email about your FaunaWatch account.`,
+    `</td></tr></table></td></tr></table></body></html>`,
+  ].join("");
 }
 
 /** The "your account has been suspended" email. */
