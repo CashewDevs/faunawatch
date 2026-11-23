@@ -12,7 +12,6 @@ import 'package:faunawatch/features/messages/views/widgets/message_tile.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_filter_chips.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_header.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_search_bar.dart';
-import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
 
 /// Screen displaying the conversation message threads with search, pull-to-refresh,
 /// a New Chat pill beside the search bar, and All/Unread filters.
@@ -167,12 +166,6 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
                         final thread = filteredThreads[index];
                         return MessageTile(
                           thread: thread,
-                          onProfileTap: thread.otherUserId?.isNotEmpty == true
-                              ? () => openPublicProfile(
-                                  context,
-                                  thread.otherUserId!,
-                                )
-                              : null,
                           onTap: () async {
                             await Navigator.of(context).push(
                               MaterialPageRoute<void>(
