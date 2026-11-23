@@ -96,3 +96,11 @@ verify_jwt = false
 # Same for send-suspension-email (Database Webhook on user_sanctions).
 [functions.send-suspension-email]
 verify_jwt = false
+
+# Same for send-account-deletion-email (Database Webhook on account_deletions)
+# and purge-deleted-accounts (hourly Supabase Cron job).
+[functions.send-account-deletion-email]
+verify_jwt = false
+
+[functions.purge-deleted-accounts]
+verify_jwt = false

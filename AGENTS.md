@@ -1128,6 +1128,31 @@ loaded from the admin site
 the reset link's two forms (app vs. admin site) are in
 `supabase/templates/README.md`.
 
+Delete account (Settings) waits 7 days before deleting anything.
+`public.account_deletions` holds one row per account that asked
+(`delete_after`; `cancelled_at` set when the user keeps the account). The app
+calls `request_account_deletion(p_confirmation)` (the word "Delete", any case;
+refused for admins; removes the account's push tokens),
+`cancel_account_deletion()` and `my_account_deletion()`. While an account is
+waiting, `is_pending_deletion()` hides it from everyone except the owner and
+admins: profiles select policy, `is_comment_visible()`, `community_feed()`
+(and so `public_profile_gallery()`), `community_reports()`,
+`list_chat_threads()`, `open_chat()`, `send_chat_message()` (migration
+`20261124090000_add_account_deletion.sql`). In the app,
+`lib/features/account_deletion/` (Model → Service → ViewModel → View):
+`DeleteAccountDialog` (in `profile/views/widgets/`) needs "Delete" typed, then
+removes this phone's AI keys and signs out on all devices
+(`SignOutScope.global`). `AccountDeletionGate` wraps `SuspensionGate` in
+`MaterialApp.builder`; while the account is waiting it shows only
+`ScheduledDeletionView` (date, Keep my account, Sign out; Sign out only once
+the date has passed). Emails use the shared design: the Edge Function
+`send-account-deletion-email` (Database Webhook on `account_deletions` INSERT
+and UPDATE) sends "will be deleted" and "restored"; `purge-deleted-accounts`
+(Supabase Cron, hourly) removes the account's files
+(`account_storage_objects()`), deletes the sign-in account (everything else
+cascades) and sends "deleted". Both reuse the suspension emails' secrets;
+setup is in their READMEs.
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.
