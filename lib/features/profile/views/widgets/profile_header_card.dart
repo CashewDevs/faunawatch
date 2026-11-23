@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
+import 'package:faunawatch/features/profile/views/widgets/profile_tag_badge.dart';
 
 /// Top section of the Profile screen displaying the user's chosen banner,
 /// overlapping circular avatar with username and bio to its right, optional
@@ -17,6 +18,7 @@ class ProfileHeaderCard extends StatelessWidget {
     this.onOpenMenu,
     this.onBack,
     this.onMessage,
+    this.onManageTag,
     this.isOpeningMessage = false,
   });
 
@@ -24,6 +26,7 @@ class ProfileHeaderCard extends StatelessWidget {
   final VoidCallback? onOpenMenu;
   final VoidCallback? onBack;
   final VoidCallback? onMessage;
+  final VoidCallback? onManageTag;
   final bool isOpeningMessage;
 
   Widget _buildAvatar() {
@@ -171,6 +174,25 @@ class ProfileHeaderCard extends StatelessWidget {
                                           ),
                                         ),
                                       ],
+                                      if (profile.profileTag != null) ...[
+                                        const SizedBox(height: 8),
+                                        ProfileTagBadge(
+                                          tag: profile.profileTag!,
+                                          onTap: onManageTag,
+                                        ),
+                                      ] else if (onManageTag != null)
+                                        TextButton(
+                                          key: const ValueKey(
+                                            'add_profile_tag',
+                                          ),
+                                          onPressed: onManageTag,
+                                          style: TextButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                            minimumSize: const Size(0, 44),
+                                            alignment: Alignment.centerLeft,
+                                          ),
+                                          child: const Text('Add profile tag'),
+                                        ),
                                     ],
                                   ),
                                 ),

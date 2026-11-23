@@ -1065,6 +1065,27 @@ New-account onboarding must persist the entered bio through `ProfileService`
 when the username/bio step's Continue succeeds, before advancing to profile
 picture setup. Later avatar and banner saves must preserve that bio.
 
+Profile tags use Model → Service → ViewModel → View in `lib/features/profile/`.
+`ProfileTagActivity` suggests tags after three APPROVED reports: Dog Lover or
+Cat Lover at a share of at least 60%, otherwise Spotter. A mixed-animal report
+counts once per type and can qualify both suggestions; the user confirms one.
+Unposted scans are not stored or counted. The owner taps Add profile tag below
+the bio (or their existing tag) to open `ProfileTagSheet`; only an explicit Use
+action saves `profiles.profile_tag`. Loading/refreshing never assigns a tag,
+and later activity never replaces a confirmed tag. The owner can remove it.
+Public profiles/previews render only the confirmed tag, regardless of Private
+posts. `SupabaseProfileTagService` reads only caller-scoped aggregate counts
+and writes only the captured account's profile_tag column. Existing profile
+RLS blocks suspended updates, and the ViewModel checks suspension on save too.
+The sheet discards stale account requests; an explicit pending save stays
+alive if the sheet closes. `ProfileReaderService` tolerates older databases
+without the tag column. Apply `20261123170000_add_profile_tags.sql` manually;
+agents must not apply hosted changes. It preserves RLS and counts known
+domestic dog/cat common/scientific names, taking explicit report species
+first, otherwise only the latest completed analysis's first guess. SQL QA:
+`node test/features/profile/profile_tag_security_test.cjs` (the same ignored
+PGlite runtime as the public gallery). No new dependency or onboarding step.
+
 Suspensions (`user_sanctions`) have a reason `category` (`suspension_category`:
 spam, misleading_reports, inappropriate_content, harassment, hate_or_threats,
 scam_or_impersonation, other; null for older rows) and a `level`

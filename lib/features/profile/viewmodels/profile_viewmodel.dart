@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/image_picker_service.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
+import 'package:faunawatch/features/profile/models/profile_tag.dart';
 import 'package:faunawatch/features/profile/services/profile_reader_service.dart';
 import 'package:faunawatch/features/profile/services/profile_storage_service.dart';
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
@@ -58,6 +59,15 @@ class ProfileViewModel extends AsyncNotifier<ProfileData> {
 
   void restoreProfile(ProfileData profile) {
     state = AsyncData(profile);
+  }
+
+  /// Called only after the dedicated tag service confirms persistence.
+  void updateProfileTag(ProfileTag? tag) {
+    final profile = state.asData?.value;
+    if (profile == null) return;
+    state = AsyncData(
+      profile.copyWith(profileTag: tag, clearProfileTag: tag == null),
+    );
   }
 
   Future<bool> save() async {

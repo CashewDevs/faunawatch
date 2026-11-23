@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
+import 'package:faunawatch/features/profile/models/profile_tag.dart';
 import 'package:faunawatch/features/public_profile/services/public_profile_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -114,6 +115,7 @@ void main() {
       {
         'username': 'Forest Ranger',
         'bio': 'Watching canopy birds',
+        'profile_tag': 'spotter',
         'avatar_path': 'preset:panda',
         'banner_asset': AppAssets.bannerDay,
         'banner_color': null,
@@ -122,13 +124,14 @@ void main() {
     final profile = await service.fetchProfile('other');
     expect(profile!.username, 'Forest Ranger');
     expect(profile.bio, 'Watching canopy birds');
+    expect(profile.profileTag, ProfileTag.spotter);
     expect(profile.presetAvatar, AppAssets.avatarPanda);
     expect(profile.bannerAsset, AppAssets.bannerDay);
     final query = requests.single.url.queryParameters;
     expect(query['id'], 'eq.other');
     expect(
       query['select'],
-      'username,full_name,display_name,bio,avatar_path,banner_asset,banner_color,posts_private',
+      'username,full_name,display_name,bio,avatar_path,banner_asset,banner_color,posts_private,profile_tag',
     );
     profiles = [];
     expect(await service.fetchProfile('gone'), isNull);

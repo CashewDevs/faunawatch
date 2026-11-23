@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/auth/services/auth_service.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
+import 'package:faunawatch/features/profile/models/profile_tag.dart';
 
 abstract interface class ProfileReaderService {
   Future<ProfileData> loadProfile(String userId);
@@ -21,11 +22,12 @@ class SupabaseProfileReaderService implements ProfileReaderService {
     'banner_asset',
     'banner_color',
     'posts_private',
+    'profile_tag',
   ];
 
   /// Columns added by later migrations. When a database doesn't have one
   /// yet, the profile is read without it (bio empty, posts not private).
-  static const _newerColumns = {'bio', 'posts_private'};
+  static const _newerColumns = {'bio', 'posts_private', 'profile_tag'};
 
   final SupabaseClient _client;
 
@@ -103,6 +105,7 @@ class SupabaseProfileReaderService implements ProfileReaderService {
     return ProfileData(
       username: name ?? '',
       bio: (row['bio'] as String?)?.trim() ?? '',
+      profileTag: ProfileTag.fromValue(row['profile_tag']),
       presetAvatar: preset,
       avatarUrl: avatarUrl,
       bannerAsset: row['banner_asset'] as String?,

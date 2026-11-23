@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/profile/services/profile_reader_service.dart';
+import 'package:faunawatch/features/profile/models/profile_tag.dart';
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
 
 void main() {
@@ -13,13 +14,14 @@ void main() {
   late List<Map<String, Object?>> rows;
   late List<Uri> requests;
   late List<Map<String, dynamic>> updates;
-  late bool rejectBioColumn, rejectPostsPrivateColumn;
+  late bool rejectBioColumn, rejectPostsPrivateColumn, rejectProfileTagColumn;
   setUp(() async {
     rows = [];
     requests = [];
     updates = [];
     rejectBioColumn = false;
     rejectPostsPrivateColumn = false;
+    rejectProfileTagColumn = false;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final url = 'http://127.0.0.1:${server.port}';
     server.listen((request) async {
@@ -33,6 +35,8 @@ void main() {
           ? 'bio'
           : rejectPostsPrivateColumn && select.contains('posts_private')
           ? 'posts_private'
+          : rejectProfileTagColumn && select.contains('profile_tag')
+          ? 'profile_tag'
           : null;
       if (missing != null) {
         request.response.statusCode = HttpStatus.badRequest;
@@ -103,6 +107,38 @@ void main() {
       ];
       profile = await service.loadProfile('user-a');
       expect(profile.bio, isEmpty);
+    },
+  );
+
+  test('reads confirmed profile tags and hides unknown values', () async {
+    rows = [
+      {'display_name': 'Tester', 'profile_tag': 'dog_lover'},
+    ];
+    expect(
+      (await service.loadProfile('user-a')).profileTag,
+      ProfileTag.dogLover,
+    );
+    rows = [
+      {'profile_tag': 'unknown'},
+    ];
+    expect((await service.loadProfile('user-a')).profileTag, isNull);
+  });
+
+  test(
+    'older databases still load profiles without the tag migration',
+    () async {
+      rejectProfileTagColumn = true;
+      rows = [
+        {'display_name': 'Tester', 'bio': 'Bird watcher'},
+      ];
+      final profile = await service.loadProfile('user-a');
+      expect(profile.bio, 'Bird watcher');
+      expect(profile.profileTag, isNull);
+      expect(requests, hasLength(2));
+      expect(
+        requests.last.queryParameters['select'],
+        isNot(contains('profile_tag')),
+      );
     },
   );
 

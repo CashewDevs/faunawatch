@@ -1,8 +1,11 @@
+import 'package:faunawatch/features/profile/models/profile_tag.dart';
+
 /// Immutable domain model representing a user's profile information.
 class ProfileData {
   const ProfileData({
     this.username = '',
     this.bio = '',
+    this.profileTag,
     this.avatarUrl,
     this.presetAvatar,
     this.customImagePath,
@@ -13,6 +16,7 @@ class ProfileData {
 
   final String username;
   final String bio;
+  final ProfileTag? profileTag;
   final String? avatarUrl;
   final String? presetAvatar;
   final String? customImagePath;
@@ -27,6 +31,8 @@ class ProfileData {
   ProfileData copyWith({
     String? username,
     String? bio,
+    ProfileTag? profileTag,
+    bool clearProfileTag = false,
     String? presetAvatar,
     String? customImagePath,
     String? bannerAsset,
@@ -44,6 +50,7 @@ class ProfileData {
           : avatarUrl,
       username: username ?? this.username,
       bio: bio ?? this.bio,
+      profileTag: clearProfileTag ? null : (profileTag ?? this.profileTag),
       presetAvatar: clearPresetAvatar
           ? null
           : (presetAvatar ?? this.presetAvatar),

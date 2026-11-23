@@ -9,6 +9,7 @@ import 'package:faunawatch/features/profile/views/widgets/profile_header_card.da
 import 'package:faunawatch/features/profile/views/widgets/profile_preferences_drawer.dart';
 import 'package:faunawatch/features/profile/views/widgets/sign_out_dialog.dart';
 import 'package:faunawatch/features/profile/views/widgets/theme_picker_sheet.dart';
+import 'package:faunawatch/features/profile/views/widgets/profile_tag_sheet.dart';
 import 'package:faunawatch/features/suspension/models/account_suspension.dart';
 import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 
@@ -30,6 +31,11 @@ class ProfileView extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => const ThemePickerSheet(),
     );
+  }
+
+  void _openProfileTags(BuildContext context, WidgetRef ref) {
+    if (blockedBySuspension(context, ref, SuspendedAction.editProfile)) return;
+    ProfileTagSheet.show(context);
   }
 
   void _openSettings(BuildContext context) {
@@ -135,6 +141,7 @@ class ProfileView extends ConsumerWidget {
           header: ProfileHeaderCard(
             profile: profile,
             onOpenMenu: () => _openProfileMenu(context, ref),
+            onManageTag: () => _openProfileTags(context, ref),
           ),
         ),
       ),

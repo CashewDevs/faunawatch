@@ -248,6 +248,32 @@ After applying it, open **Edit Profile**, enter the bio and **Save Changes**
 again. The saved bio appears below the name on your profile, public profiles
 and profile previews. The app does not apply this migration automatically.
 
+**Profile tags:** **Add profile tag** below your bio opens activity-based
+suggestions. After three approved reports, Dog Lover or Cat Lover is suggested
+when at least 60% include that animal; otherwise the suggestion is Spotter.
+Choose **Use Dog Lover**, **Use Cat Lover**, or **Use Spotter** to display one
+public tag below your bio. Opening or dismissing suggestions never assigns a
+tag. Tap your displayed tag to change or remove it; new activity does not
+replace a tag you already confirmed. Other profiles and previews show only
+the confirmed tag, including when the account's posts are private.
+
+Apply
+[`20261123170000_add_profile_tags.sql`](supabase/migrations/20261123170000_add_profile_tags.sql)
+manually in Supabase's SQL editor. It adds nullable `profiles.profile_tag` and
+the caller-only `my_profile_tag_activity()` count query, preserving existing
+RLS. Reports count once per animal type, regardless of photo count. Recognized
+domestic dog/cat names and scientific names are used; explicit report species
+win over AI, and only the latest completed analysis's first guess is used
+when no species was entered. Unknown names count toward the total but not
+dog/cat counts. Unposted scans are not stored or counted. Mixed-animal reports
+may qualify both suggestions, but the owner confirms only one tag.
+
+The local PostgreSQL check uses the same ignored PGlite runtime as the gallery:
+
+```powershell
+node test/features/profile/profile_tag_security_test.cjs
+```
+
 Before using the public gallery, you or the backend owner must run
 [`20261121233000_create_public_profile_gallery.sql`](supabase/migrations/20261121233000_create_public_profile_gallery.sql)
 in the Supabase SQL editor, after `20261112100000_create_community_feed.sql`

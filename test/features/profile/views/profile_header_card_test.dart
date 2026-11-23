@@ -1,6 +1,7 @@
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
+import 'package:faunawatch/features/profile/models/profile_tag.dart';
 import 'package:faunawatch/features/profile/views/widgets/profile_header_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -93,6 +94,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'visitors see the confirmed tag below bio without owner controls',
+    (tester) async {
+      await pumpHeader(
+        tester,
+        data: profile.copyWith(profileTag: ProfileTag.dogLover),
+        onMessage: () {},
+      );
+      expect(find.text('Dog Lover'), findsOneWidget);
+      expect(find.text('Add profile tag'), findsNothing);
+      expect(find.byTooltip('Edit profile tag'), findsNothing);
+      expect(
+        tester.getRect(find.text('Dog Lover')).top,
+        greaterThan(tester.getRect(find.text(profile.bio)).bottom),
+      );
+    },
+  );
+
   for (final dark in [false, true]) {
     testWidgets(
       'public identity stays readable on a narrow ${dark ? 'dark' : 'light'} screen with large text',
@@ -105,6 +124,7 @@ void main() {
           tester,
           dark: dark,
           scale: 2,
+          data: profile.copyWith(profileTag: ProfileTag.dogLover),
           onMessage: () => messages++,
         );
 
@@ -124,7 +144,12 @@ void main() {
         final header = tester.getRect(find.byType(ProfileHeaderCard));
         expect(message.center.dx, greaterThan(header.center.dx));
         expect(message.right, lessThan(header.right));
-        for (final text in [profile.username, profile.bio, 'Message']) {
+        for (final text in [
+          profile.username,
+          profile.bio,
+          'Message',
+          'Dog Lover',
+        ]) {
           final paragraph = tester.renderObject<RenderParagraph>(
             find.text(text),
           );
