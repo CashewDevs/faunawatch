@@ -13,6 +13,8 @@ class PillButton extends StatelessWidget {
     required this.onPressed,
     this.isPrimary = true,
     this.isLoading = false,
+    this.primaryBorder,
+    this.primaryBorderWidth = 1.0,
     this.secondaryFill,
     this.secondaryBorder,
     this.secondaryText,
@@ -24,6 +26,10 @@ class PillButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isPrimary;
   final bool isLoading;
+
+  /// Optional custom border for the primary style.
+  final Color? primaryBorder;
+  final double primaryBorderWidth;
 
   /// Colours of the secondary (outlined) style, for screens that follow the
   /// app's dark mode. They default to the original white outline.
@@ -58,9 +64,10 @@ class PillButton extends StatelessWidget {
               : null,
           border: Border.all(
             color: isPrimary
-                ? AppColors.consentButtonBorder
+                ? primaryBorder ?? AppColors.consentButtonBorder
                 : secondaryBorder ??
                       AppColors.consentMutedText.withValues(alpha: 0.5),
+            width: isPrimary ? primaryBorderWidth : 1.0,
           ),
           boxShadow: isPrimary && onPressed != null
               ? [

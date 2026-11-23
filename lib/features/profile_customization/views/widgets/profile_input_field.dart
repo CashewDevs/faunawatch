@@ -34,6 +34,8 @@ class ProfileInputField extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: TextField(
             maxLength: maxLength,
+            textAlign: TextAlign.center,
+            textAlignVertical: TextAlignVertical.center,
             textInputAction: textInputAction,
             cursorColor: AppColors.profileTitleNavy,
             style: GoogleFonts.dmSans(
