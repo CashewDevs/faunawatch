@@ -1,6 +1,6 @@
 import 'package:faunawatch/core/constants/app_colors.dart';
-import 'package:faunawatch/features/app_update/models/app_release.dart';
 import 'package:faunawatch/features/app_update/viewmodels/app_update_viewmodel.dart';
+import 'package:faunawatch/features/app_update/views/widgets/update_available_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,8 +18,9 @@ class AppVersionRows extends ConsumerWidget {
       await viewModel.checkForUpdates();
     }
     if (!context.mounted) return;
-    final latest = ref.read(appUpdateViewModelProvider).latest;
-    if (latest != null) await showUpdateAvailableDialog(context, latest);
+    if (ref.read(appUpdateViewModelProvider).latest != null) {
+      await showUpdateAvailableDialog(context);
+    }
   }
 
   @override
@@ -150,6 +151,12 @@ class AppVersionRows extends ConsumerWidget {
   }
 
   static String _statusText(AppUpdateState state) {
+    if (state.isDownloading) {
+      final progress = state.downloadProgress;
+      return progress == null
+          ? 'Downloading…'
+          : 'Downloading… ${(progress * 100).floor()}%';
+    }
     return switch (state.status) {
       UpdateCheckStatus.idle => 'See if a newer version is out',
       UpdateCheckStatus.checking => 'Checking…',
@@ -159,79 +166,4 @@ class AppVersionRows extends ConsumerWidget {
       UpdateCheckStatus.failed => "Couldn't check. Tap to try again.",
     };
   }
-}
-
-/// Tells the user a newer version is out, with its release notes, and offers
-/// its download page.
-Future<void> showUpdateAvailableDialog(
-  BuildContext context,
-  AppRelease release,
-) {
-  return showDialog<void>(
-    context: context,
-    builder: (dialogContext) => Consumer(
-      builder: (context, ref, _) {
-        final installed = ref.watch(appUpdateViewModelProvider).installed;
-        final bodyStyle = GoogleFonts.dmSans(fontSize: 14, height: 1.4);
-        return AlertDialog(
-          title: Text(
-            'Update available',
-            style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
-          ),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 320),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Version ${release.version.label} is ready.'
-                    '${installed == null ? '' : ' You have ${installed.label}.'}',
-                    style: bodyStyle,
-                  ),
-                  if (release.notes != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      "What's new",
-                      style: GoogleFonts.dmSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(release.notes!, style: bodyStyle),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Later'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final messenger = ScaffoldMessenger.maybeOf(dialogContext);
-                final opened = await ref
-                    .read(appUpdateViewModelProvider.notifier)
-                    .openReleasePage();
-                if (!dialogContext.mounted) return;
-                Navigator.of(dialogContext).pop();
-                if (!opened) {
-                  messenger?.showSnackBar(
-                    const SnackBar(
-                      content: Text("Couldn't open the download page."),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Open download page'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
 }

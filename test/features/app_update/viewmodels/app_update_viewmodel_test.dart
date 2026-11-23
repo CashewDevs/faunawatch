@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:faunawatch/core/services/external_link_service.dart';
 import 'package:faunawatch/features/app_update/models/app_version.dart';
 import 'package:faunawatch/features/app_update/services/app_release_service.dart';
+import 'package:faunawatch/features/app_update/services/app_update_installer.dart';
 import 'package:faunawatch/features/app_update/services/installed_version_service.dart';
 import 'package:faunawatch/features/app_update/viewmodels/app_update_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ const installed = AppVersion(1, 0, 0, build: 2);
 void main() {
   late FakeAppReleaseService releases;
   late FakeExternalLinkService links;
+  late FakeAppUpdateInstaller installer;
 
   Future<ProviderContainer> containerWith({
     AppVersion? version = installed,
@@ -28,6 +30,7 @@ void main() {
         appReleaseServiceProvider.overrideWithValue(releases),
         externalLinkServiceProvider.overrideWithValue(links),
         selfUpdateSupportedProvider.overrideWithValue(supported),
+        appUpdateInstallerProvider.overrideWithValue(installer),
       ],
     );
     addTearDown(container.dispose);
@@ -43,6 +46,7 @@ void main() {
   setUp(() {
     releases = FakeAppReleaseService();
     links = FakeExternalLinkService();
+    installer = FakeAppUpdateInstaller();
   });
 
   test('loads the installed version without checking GitHub', () async {
@@ -158,5 +162,161 @@ void main() {
     await viewModel(container).checkForUpdates();
     expect(await viewModel(container).openReleasePage(), isTrue);
     expect(links.opened, [release.pageUrl]);
+  });
+
+  group('installing', () {
+    AppUpdateState stateOf(ProviderContainer container) =>
+        container.read(appUpdateViewModelProvider);
+
+    Future<ProviderContainer> withNewerRelease({Uri? apkUrl}) async {
+      releases.release = testRelease(apkUrl: apkUrl ?? testApkUrl);
+      final container = await containerWith();
+      await viewModel(container).checkForUpdates();
+      return container;
+    }
+
+    test('clears old downloads when it starts, only where supported', () async {
+      await containerWith();
+      expect(installer.clears, 1);
+
+      installer = FakeAppUpdateInstaller();
+      await containerWith(supported: false);
+      expect(installer.clears, 0);
+    });
+
+    test('downloads the apk and opens the installer', () async {
+      final container = await withNewerRelease();
+      expect(stateOf(container).canUpdateInApp, isTrue);
+
+      await viewModel(container).startUpdate();
+
+      expect(installer.downloads, [testApkUrl]);
+      expect(installer.installs, [FakeAppUpdateInstaller.downloadedPath]);
+      final state = stateOf(container);
+      expect(state.installStatus, UpdateInstallStatus.installing);
+      expect(state.downloadedPath, FakeAppUpdateInstaller.downloadedPath);
+    });
+
+    test('does nothing for a release without an apk', () async {
+      releases.release = testRelease();
+      final container = await containerWith();
+      await viewModel(container).checkForUpdates();
+      expect(stateOf(container).canUpdateInApp, isFalse);
+
+      await viewModel(container).startUpdate();
+
+      expect(installer.downloads, isEmpty);
+      expect(stateOf(container).installStatus, UpdateInstallStatus.idle);
+    });
+
+    test('shows download progress and can be cancelled', () async {
+      installer.gate = Completer<void>();
+      final container = await withNewerRelease();
+
+      final update = viewModel(container).startUpdate();
+      await Future<void>.delayed(Duration.zero);
+      expect(stateOf(container).installStatus, UpdateInstallStatus.downloading);
+      expect(stateOf(container).downloadProgress, 0.5);
+
+      // A second tap does not start another download.
+      await viewModel(container).startUpdate();
+      expect(installer.downloads, hasLength(1));
+
+      viewModel(container).cancelDownload();
+      await update;
+
+      final state = stateOf(container);
+      expect(state.installStatus, UpdateInstallStatus.idle);
+      expect(state.downloadProgress, isNull);
+      expect(state.downloadedPath, isNull);
+      expect(installer.installs, isEmpty);
+    });
+
+    test('a failed download can be tried again', () async {
+      installer.downloadError = const AppUpdateInstallException(
+        AppUpdateInstallFailure.downloadFailed,
+        'offline',
+      );
+      final container = await withNewerRelease();
+
+      await viewModel(container).startUpdate();
+      expect(stateOf(container).installStatus, UpdateInstallStatus.failed);
+      expect(
+        stateOf(container).installFailure,
+        AppUpdateInstallFailure.downloadFailed,
+      );
+
+      installer.downloadError = null;
+      await viewModel(container).startUpdate();
+      expect(stateOf(container).installStatus, UpdateInstallStatus.installing);
+      expect(stateOf(container).installFailure, isNull);
+    });
+
+    test('asks for permission first, without downloading again', () async {
+      installer.allowed = false;
+      final container = await withNewerRelease();
+
+      await viewModel(container).startUpdate();
+      expect(
+        stateOf(container).installStatus,
+        UpdateInstallStatus.needsPermission,
+      );
+      expect(installer.installs, isEmpty);
+
+      await viewModel(container).openInstallSettings();
+      expect(installer.settingsOpened, 1);
+
+      // Still not allowed: keep asking.
+      await viewModel(container).installDownloaded();
+      expect(
+        stateOf(container).installStatus,
+        UpdateInstallStatus.needsPermission,
+      );
+
+      installer.allowed = true;
+      await viewModel(container).installDownloaded();
+      expect(stateOf(container).installStatus, UpdateInstallStatus.installing);
+      expect(installer.downloads, hasLength(1));
+      expect(installer.installs, [FakeAppUpdateInstaller.downloadedPath]);
+    });
+
+    test('an installer that cannot open is reported and retried', () async {
+      installer.installError = const AppUpdateInstallException(
+        AppUpdateInstallFailure.installFailed,
+        'no installer',
+      );
+      final container = await withNewerRelease();
+
+      await viewModel(container).startUpdate();
+      expect(
+        stateOf(container).installFailure,
+        AppUpdateInstallFailure.installFailed,
+      );
+
+      installer.installError = null;
+      await viewModel(container).startUpdate();
+      expect(stateOf(container).installStatus, UpdateInstallStatus.installing);
+      expect(installer.downloads, hasLength(1));
+    });
+
+    test('a new check starts over and is ignored while downloading', () async {
+      installer.gate = Completer<void>();
+      final container = await withNewerRelease();
+
+      final update = viewModel(container).startUpdate();
+      await Future<void>.delayed(Duration.zero);
+      await viewModel(container).checkForUpdates();
+      expect(releases.calls, 1);
+
+      installer.gate!.complete();
+      await update;
+      expect(stateOf(container).installStatus, UpdateInstallStatus.installing);
+
+      await viewModel(container).checkForUpdates();
+      final state = stateOf(container);
+      expect(releases.calls, 2);
+      expect(state.installStatus, UpdateInstallStatus.idle);
+      expect(state.downloadedPath, isNull);
+    });
   });
 }
