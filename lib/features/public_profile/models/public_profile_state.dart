@@ -14,6 +14,7 @@ class PublicProfileState {
     this.postsHaveError = false,
     this.isLoadingMore = false,
     this.hasMore = false,
+    this.isOpeningChat = false,
     this.message,
   });
 
@@ -21,7 +22,7 @@ class PublicProfileState {
   final List<FeedPost> posts;
   final ReportCategory? category;
   final bool isLoading, hasError, isLoadingPosts, postsHaveError;
-  final bool isLoadingMore, hasMore;
+  final bool isLoadingMore, hasMore, isOpeningChat;
   final String? message;
 
   PublicProfileState copyWith({
@@ -35,6 +36,7 @@ class PublicProfileState {
     bool? postsHaveError,
     bool? isLoadingMore,
     bool? hasMore,
+    bool? isOpeningChat,
     String? message,
     bool clearMessage = false,
   }) => PublicProfileState(
@@ -47,6 +49,7 @@ class PublicProfileState {
     postsHaveError: postsHaveError ?? this.postsHaveError,
     isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     hasMore: hasMore ?? this.hasMore,
+    isOpeningChat: isOpeningChat ?? this.isOpeningChat,
     message: clearMessage ? null : message ?? this.message,
   );
 }

@@ -6,6 +6,7 @@ import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_load_more.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_skeleton.dart';
+import 'package:faunawatch/features/messages/views/chat_conversation_view.dart';
 import 'package:faunawatch/features/profile/views/widgets/profile_header_card.dart';
 import 'package:faunawatch/features/public_profile/viewmodels/public_profile_viewmodel.dart';
 import 'package:faunawatch/features/public_profile/views/screens/public_gallery_post_viewer.dart';
@@ -18,6 +19,17 @@ class PublicProfileScreen extends ConsumerWidget {
   const PublicProfileScreen({super.key, required this.userId});
   final String userId;
 
+  Future<void> _openMessage(
+    BuildContext context,
+    PublicProfileViewModel vm,
+  ) async {
+    final thread = await vm.openPrivateChat();
+    if (!context.mounted || thread == null) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => ChatConversationView(thread: thread)),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = publicProfileViewModelProvider(userId);
@@ -26,7 +38,9 @@ class PublicProfileScreen extends ConsumerWidget {
     final colors = AppPaletteColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final profile = state.profile;
-    final signedIn = ref.watch(currentUserIdProvider).valueOrNull != null;
+    final viewerId = ref.watch(currentUserIdProvider).valueOrNull;
+    final signedIn = viewerId != null;
+    final canMessage = signedIn && viewerId != userId;
     final items = vm.items;
     ref.listen(provider.select((state) => state.message), (_, message) {
       if (message == null) return;
@@ -36,13 +50,56 @@ class PublicProfileScreen extends ConsumerWidget {
       vm.clearMessage();
     });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          profile?.username.isNotEmpty == true ? profile!.username : 'Profile',
-          style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+    Widget withFloatingBack(Widget child) => Stack(
+      children: [
+        child,
+        Positioned(
+          top: 8,
+          left: 12,
+          child: SafeArea(
+            bottom: false,
+            child: Tooltip(
+              message: 'Back',
+              child: Material(
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: 0.92),
+                elevation: 2,
+                shape: const StadiumBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => Navigator.of(context).maybePop(),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.arrow_back_rounded,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Back',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
+      ],
+    );
+
+    return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -61,15 +118,19 @@ class PublicProfileScreen extends ConsumerWidget {
           ),
         ),
         child: !signedIn
-            ? const _ProfileNotice(title: 'Sign in to view this profile.')
+            ? withFloatingBack(
+                const _ProfileNotice(title: 'Sign in to view this profile.'),
+              )
             : state.isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? withFloatingBack(const Center(child: CircularProgressIndicator()))
             : profile == null
-            ? _ProfileNotice(
-                title: state.hasError
-                    ? 'Could not load this profile.'
-                    : 'This profile is no longer available.',
-                onRetry: state.hasError ? vm.refresh : null,
+            ? withFloatingBack(
+                _ProfileNotice(
+                  title: state.hasError
+                      ? 'Could not load this profile.'
+                      : 'This profile is no longer available.',
+                  onRetry: state.hasError ? vm.refresh : null,
+                ),
               )
             : RefreshIndicator(
                 onRefresh: vm.refresh,
@@ -93,6 +154,11 @@ class PublicProfileScreen extends ConsumerWidget {
                                   username: FeedPost.fallbackAuthorName,
                                 )
                               : profile,
+                          onBack: () => Navigator.of(context).maybePop(),
+                          onMessage: canMessage
+                              ? () => _openMessage(context, vm)
+                              : null,
+                          isOpeningMessage: state.isOpeningChat,
                         ),
                       ),
                       SliverToBoxAdapter(
