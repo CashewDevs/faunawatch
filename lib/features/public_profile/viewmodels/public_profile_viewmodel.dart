@@ -4,6 +4,9 @@ import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/gallery/models/gallery_item.dart';
 import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart'
     show formatGalleryDate;
+import 'package:faunawatch/features/messages/models/chat_user.dart';
+import 'package:faunawatch/features/messages/models/message_thread.dart';
+import 'package:faunawatch/features/messages/services/messages_service.dart';
 import 'package:faunawatch/features/public_profile/models/public_profile_state.dart';
 import 'package:faunawatch/features/public_profile/services/public_profile_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -152,6 +155,42 @@ class PublicProfileViewModel
         imageUrl: post.photoUrls.firstOrNull,
       ),
   ];
+
+  /// Opens or creates a private one-to-one chat thread with this profile user.
+  Future<MessageThread?> openPrivateChat() async {
+    final profile = state.profile;
+    final viewerId = ref.read(currentUserIdProvider).valueOrNull;
+    if (profile == null ||
+        viewerId == null ||
+        viewerId == arg ||
+        state.isOpeningChat) {
+      return null;
+    }
+    final generation = _generation;
+    state = state.copyWith(isOpeningChat: true, clearMessage: true);
+    try {
+      final user = ChatUser(
+        id: arg,
+        name: profile.username.isNotEmpty
+            ? profile.username
+            : FeedPost.fallbackAuthorName,
+        avatarAsset: profile.presetAvatar,
+        avatarUrl: profile.avatarUrl,
+      );
+      final thread = await ref.read(messagesServiceProvider).openChat(user);
+      if (generation != _generation) return null;
+      state = state.copyWith(isOpeningChat: false);
+      return thread;
+    } catch (_) {
+      if (generation == _generation) {
+        state = state.copyWith(
+          isOpeningChat: false,
+          message: 'Could not start this chat. Please try again.',
+        );
+      }
+      return null;
+    }
+  }
 
   void clearMessage() => state = state.copyWith(clearMessage: true);
 }

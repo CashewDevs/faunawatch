@@ -7,6 +7,7 @@ import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_header.dart';
 import 'package:faunawatch/features/messages/models/chat_message.dart';
+import 'package:faunawatch/features/messages/models/chat_user.dart';
 import 'package:faunawatch/features/messages/models/message_thread.dart';
 import 'package:faunawatch/features/messages/services/messages_service.dart';
 import 'package:faunawatch/features/messages/views/chat_conversation_view.dart';
@@ -37,8 +38,23 @@ class _Messages extends FakeMessagesService {
     isUnread: true,
   );
   int reads = 0;
+  String? openedUserId;
   @override
   Future<List<MessageThread>> fetchMessageThreads() async => [thread];
+  @override
+  Future<MessageThread> openChat(ChatUser user) async {
+    openedUserId = user.id;
+    return MessageThread(
+      id: 'thread-${user.id}',
+      senderName: user.name,
+      lastMessage: '',
+      timestamp: '',
+      otherUserId: user.id,
+      avatarAsset: user.avatarAsset,
+      avatarUrl: user.avatarUrl,
+    );
+  }
+
   @override
   Future<List<ChatMessage>> fetchChatMessages(
     String threadId, {
@@ -113,14 +129,35 @@ void main() {
           const PublicProfileScreen(userId: 'other'),
           dark: dark,
         );
+        expect(find.byType(AppBar), findsNothing);
         expect(find.byType(ProfileHeaderCard), findsOneWidget);
         expect(find.byType(GalleryHeader), findsOneWidget);
         expect(find.byType(GalleryCard), findsOneWidget);
         expect(find.text('Public Gallery'), findsOneWidget);
-        expect(find.text('Forest Ranger'), findsNWidgets(2));
+        expect(find.text('Forest Ranger'), findsOneWidget);
+        expect(find.text('Back'), findsOneWidget);
+        expect(find.text('Message'), findsOneWidget);
         expect(find.byTooltip('Profile & preferences'), findsNothing);
         expect(find.text('Edit Profile'), findsNothing);
         expect(find.text('Pending'), findsNothing);
+        // Back pill sits at the top left of the banner; Message button sits right of username.
+        final headerRect = tester.getRect(find.byType(ProfileHeaderCard));
+        final backRect = tester.getRect(find.text('Back'));
+        expect(backRect.top, lessThan(headerRect.top + 80));
+        expect(backRect.left, lessThan(headerRect.center.dx));
+        final messageButton = find.byKey(
+          const ValueKey('public_profile_message_button'),
+        );
+        final msgMaterial = tester.widget<Material>(messageButton);
+        expect(msgMaterial.color, const Color(0xFFFECE01));
+        expect(
+          tester.widget<Text>(find.text('Message')).style?.color,
+          const Color(0xFF1A5DC9),
+        );
+        expect(
+          tester.getRect(messageButton).left,
+          greaterThan(tester.getRect(find.text('Forest Ranger')).right),
+        );
         final title = tester.widget<Text>(find.text('Public Gallery'));
         expect(
           title.style!.fontFamily,
@@ -130,6 +167,19 @@ void main() {
       },
     );
   }
+
+  testWidgets('tapping Message opens the private chat conversation', (
+    tester,
+  ) async {
+    await pump(tester, const PublicProfileScreen(userId: 'other'));
+
+    await tester.tap(find.text('Message'));
+    await tester.pumpAndSettle();
+
+    expect(messages.openedUserId, 'other');
+    expect(find.byType(ChatConversationView), findsOneWidget);
+    expect(find.text('Forest Ranger'), findsOneWidget);
+  });
 
   for (final avatar in [false, true]) {
     testWidgets(
@@ -324,7 +374,7 @@ void main() {
   ) async {
     public.postsError = StateError('offline');
     await pump(tester, const PublicProfileScreen(userId: 'other'));
-    expect(find.text('Forest Ranger'), findsNWidgets(2));
+    expect(find.text('Forest Ranger'), findsOneWidget);
     expect(find.text('Could not load this gallery.'), findsOneWidget);
     public.postsError = null;
     public.posts = [];
