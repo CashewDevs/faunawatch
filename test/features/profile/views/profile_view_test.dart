@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:faunawatch/features/suspension/services/suspension_service.dart';
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
@@ -38,6 +39,10 @@ void main() {
   }) {
     return ProviderScope(
       overrides: [
+        // Signed in but not suspended; the real service needs Supabase.
+        suspensionServiceProvider.overrideWithValue(
+          const SignedOutSuspensionService(),
+        ),
         galleryServiceProvider.overrideWithValue(
           gallery ?? FakeGalleryService(),
         ),

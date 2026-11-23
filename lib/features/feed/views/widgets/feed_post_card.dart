@@ -8,6 +8,8 @@ import 'package:faunawatch/features/feed/views/widgets/post_image_carousel.dart'
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/feed/views/screens/post_photo_viewer.dart';
 import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 
 /// A full-bleed post: edge-to-edge photos with an action rail floating over
 /// their lower right, and a full-width caption below them. Each photo is
@@ -38,9 +40,14 @@ class FeedPostCard extends ConsumerWidget {
     final openAuthor = post.authorId.isEmpty
         ? null
         : onAuthorTap ?? () => openPublicProfile(context, post.authorId);
-    final like =
+    final toggleLike =
         onLike ??
         () => ref.read(feedViewModelProvider.notifier).toggleLike(post.id);
+    void like() {
+      if (blockedBySuspension(context, ref, SuspendedAction.like)) return;
+      toggleLike();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

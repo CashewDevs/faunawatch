@@ -1037,6 +1037,27 @@ it simply ends), so the app hears about it through the live notifications
 stream. Apply `20261123120000_add_account_notification_types.sql` first, let it
 finish, then `20261123120100_add_suspension_levels.sql`.
 
+In the app, suspensions live in `lib/features/suspension/` (Model → Service →
+ViewModel → View). `SupabaseSuspensionService` reads `my_active_suspension()`
+and opens its own Realtime channel on the user's `notifications` INSERTs,
+reacting only to `account_suspended` / `account_reactivated`.
+`AccountSuspensionViewModel` (state: `AccountSuspension?`) re-checks on
+sign-in, on that signal, at the suspension's end time (timer capped at 12 h),
+on resume, and on "Check again"; a failed check keeps the last known state.
+`SuspensionGate` wraps the navigator through `MaterialApp.builder`: while the
+suspension is `locked` it shows only `SuspendedView` (reason, the admin's
+message, end, Check again, Sign out) in its own navigator, so pushed screens
+are unreachable; when it ends the app's navigator restarts at the splash.
+`SuspendedView`'s Sign out really ends the Supabase session
+(`AuthService.signOut`, after removing the push token). For `restricted`,
+`SuspensionBanner` sits under the update banner on the Feed, the comment and
+chat input bars are replaced by `SuspendedInputNote`, and "+" (new post),
+likes (`FeedPostCard`, so Feed, My Gallery and report details), New chat,
+the public profile's Message and Edit profile call `blockedBySuspension`,
+which explains with a snackbar instead of trying. Widget tests that reach
+these without Supabase override `suspensionServiceProvider` with
+`SignedOutSuspensionService`.
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.
