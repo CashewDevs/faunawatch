@@ -1195,6 +1195,17 @@ arrives before the Google page has opened. Password rules (8+ characters, a
 letter and a number) are in `lib/data/models/password_rules.dart`, shared with
 Change Password.
 
+Admins are managed from the admin site (no app change). Migration
+`20261124150000_add_admin_management.sql` adds `admin_list_admins()` and
+`admin_remove_admin()` (callable by admins; never yourself, never the last
+active admin; an invitation is cancelled instead), `public.former_admins`
+(removed admins keep their account and their name on past decisions), and two
+service-role-only helpers for the Edge Function `manage-admins`, which
+invites, resends and cancels invitations through Supabase Auth's admin API
+(email through Brevo). An email that already has an app account is never made
+an admin; inviting a former admin's email restores access. Details in
+`supabase/functions/manage-admins/README.md`.
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.
