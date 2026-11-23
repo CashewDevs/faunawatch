@@ -7,8 +7,8 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
 
 /// Top section of the Profile screen displaying the user's chosen banner,
-/// overlapping circular avatar, username, bio, optional top-left Back pill,
-/// optional Message button beside the avatar, optional menu button, and divider.
+/// overlapping circular avatar with username and bio to its right, optional
+/// Back and menu buttons, optional Message button below the bio, and divider.
 class ProfileHeaderCard extends StatelessWidget {
   const ProfileHeaderCard({
     super.key,
@@ -59,8 +59,8 @@ class ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const double bannerHeight = 165.0;
-    const double avatarSize = 88.0;
-    const double avatarOverlap = avatarSize / 2;
+    const double avatarSize = 104.0;
+    const double avatarOverlap = 36.0;
     final scheme = Theme.of(context).colorScheme;
     final hasBio = profile.bio.trim().isNotEmpty;
 
@@ -88,63 +88,58 @@ class ProfileHeaderCard extends StatelessWidget {
                               : AppColors.profileDefaultBanner,
                         ),
                 ),
-                // Leave room for the avatar, then give identity the full width.
+                // Keep the name and bio together to the right of the avatar.
                 Container(
                   width: double.infinity,
+                  constraints: const BoxConstraints(
+                    minHeight: avatarSize - avatarOverlap + 18,
+                  ),
                   color: scheme.surface,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-                  child: Column(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (onMessage != null)
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            minHeight: avatarOverlap + 12,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 10, bottom: 8),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: avatarSize + 12),
-                                Expanded(
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: _ProfileMessageButton(
-                                      isLoading: isOpeningMessage,
-                                      onTap: onMessage!,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      const SizedBox(width: avatarSize + 18),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.username.isNotEmpty
+                                  ? profile.username
+                                  : 'Profile',
+                              style: GoogleFonts.dmSans(
+                                color: scheme.onSurface,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                                height: 1.2,
+                              ),
                             ),
-                          ),
-                        )
-                      else
-                        const SizedBox(height: avatarOverlap + 12),
-                      Text(
-                        profile.username.isNotEmpty
-                            ? profile.username
-                            : 'Profile',
-                        style: GoogleFonts.dmSans(
-                          color: scheme.onSurface,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.4,
-                          height: 1.2,
+                            if (hasBio) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                profile.bio,
+                                style: GoogleFonts.dmSans(
+                                  color: scheme.onSurfaceVariant,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                            if (onMessage != null) ...[
+                              const SizedBox(height: 12),
+                              _ProfileMessageButton(
+                                isLoading: isOpeningMessage,
+                                onTap: onMessage!,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (hasBio) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          profile.bio,
-                          style: GoogleFonts.dmSans(
-                            color: scheme.onSurfaceVariant,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -286,7 +281,7 @@ class _ProfileMessageButton extends StatelessWidget {
           child: InkWell(
             onTap: isLoading ? null : onTap,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

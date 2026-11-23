@@ -39,7 +39,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('name and bio align below the overlapping avatar', (
+  testWidgets('name and bio align beside the overlapping avatar', (
     tester,
   ) async {
     await pumpHeader(tester);
@@ -49,8 +49,9 @@ void main() {
     );
     final name = tester.getRect(find.text(profile.username));
     final bio = tester.getRect(find.text(profile.bio));
-    expect(name.top, greaterThan(avatar.bottom));
-    expect(name.left, avatar.left);
+    expect(name.top, greaterThan(avatar.top));
+    expect(name.top, lessThan(avatar.bottom));
+    expect(name.left, greaterThan(avatar.right));
     expect(bio.top, greaterThan(name.bottom));
     expect(bio.left, name.left);
     expect(tester.takeException(), isNull);
@@ -76,8 +77,14 @@ void main() {
         final message = tester.getRect(
           find.byKey(const ValueKey('public_profile_message_button')),
         );
-        expect(name.top, greaterThan(message.bottom));
+        final avatar = tester.getRect(
+          find.byKey(const ValueKey('profile_header_avatar')),
+        );
+        expect(name.left, greaterThan(avatar.right));
         expect(bio.top, greaterThan(name.bottom));
+        expect(bio.left, name.left);
+        expect(message.top, greaterThan(bio.bottom));
+        expect(message.left, name.left);
         for (final text in [profile.username, profile.bio, 'Message']) {
           final paragraph = tester.renderObject<RenderParagraph>(
             find.text(text),
