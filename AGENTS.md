@@ -581,9 +581,16 @@ Scrolling or "Load older posts" loads more. While a filter's first page loads
 for less motion. No dependency or migration is added.
 
 Public account profiles live in `lib/features/public_profile/`
-(Model → Service → ViewModel → View). A post author's name/avatar and the
-conversation header name/avatar open a separate
-`PublicProfileScreen`. In For You, tapping the signed-in user's own name/avatar
+(Model → Service → ViewModel → View). In For You and on the map pin card, a
+post author's name/avatar opens `ProfilePreviewSheet`, a bottom sheet with the
+account's banner, picture, name and bio, Message and "View full profile"
+(`ProfilePreviewViewModel` loads only the profile, never posts). Both buttons
+close the sheet before opening the chat or `PublicProfileScreen`, so Back
+returns to the post or pin card. Elsewhere (the conversation header, other
+`FeedPostCard` screens) the name/avatar opens `PublicProfileScreen` directly.
+Both Message buttons read `canMessageProvider(userId)`; add any new messaging
+rule (for example restricted accounts) there. In For You and on the map,
+tapping the signed-in user's own name/avatar
 selects the existing Profile shell destination instead. In the chat list, the
 name, avatar and message preview all open the conversation. Opening a profile
 from the conversation pauses its active/read state until Back, preserving the

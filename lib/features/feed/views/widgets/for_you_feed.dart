@@ -7,6 +7,7 @@ import 'package:faunawatch/features/community_map/viewmodels/community_map_viewm
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
+import 'package:faunawatch/features/public_profile/views/widgets/profile_preview_sheet.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 /// The For You tab: approved reports, one full-screen post at a time. Swipe up
@@ -128,11 +129,13 @@ class _ForYouFeedState extends ConsumerState<ForYouFeed> {
                 key: ValueKey(post.id),
                 post: post,
                 backgroundColor: widget.backgroundColor,
+                // Your own avatar/name goes to your Profile tab; anyone
+                // else's opens a quick preview of their profile.
                 onAuthorTap: post.authorId == currentUserId
                     ? () => ref
                           .read(shellViewModelProvider.notifier)
                           .selectDestination(ShellDestination.profile)
-                    : null,
+                    : () => ProfilePreviewSheet.show(context, post.authorId),
                 onLocation: post.hasMapLocation
                     ? () => ref
                           .read(communityMapViewModelProvider.notifier)

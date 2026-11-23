@@ -224,10 +224,13 @@ and [mobile deep linking](https://supabase.com/docs/guides/auth/native-mobile-de
 
 ## Community profiles and public galleries
 
-Tap an author's name or avatar in For You or the conversation header to open
-that account's public profile. In the chat list, tapping the name, avatar or
-message preview opens the conversation. Tapping your own
-name or avatar in For You switches to your existing Profile tab. Public profiles
+Tap an author's name or avatar in For You, or the author's name on a map pin's
+card, to slide up a quick profile preview: their banner, picture, name and bio,
+with **Message** and **View full profile** buttons. Tapping the name or avatar
+in the conversation header opens the full public profile directly. In the chat
+list, tapping the name, avatar or message preview opens the conversation.
+Tapping your own name or avatar in For You or on the map switches to your
+existing Profile tab. Public profiles
 use the existing banner, avatar, DM Sans typography and themed three-column gallery.
 Only approved posts appear; the owner's pending posts and preferences stay
 in their own Profile tab. Category filters, pull to refresh and older-page
