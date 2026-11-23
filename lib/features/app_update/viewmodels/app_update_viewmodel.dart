@@ -42,6 +42,7 @@ class AppUpdateState {
     this.downloadProgress,
     this.downloadedPath,
     this.installFailure,
+    this.permissionStillMissing = false,
   });
 
   /// The installed version, or null while loading or when it is unknown.
@@ -63,6 +64,10 @@ class AppUpdateState {
 
   /// Why the last download or install failed.
   final AppUpdateInstallFailure? installFailure;
+
+  /// The permission was checked again (e.g. after a visit to Android
+  /// settings) and is still not given.
+  final bool permissionStillMissing;
 
   /// Whether "Check for updates" is offered.
   bool get canCheck => selfUpdateSupported && installed != null;
@@ -87,6 +92,7 @@ class AppUpdateState {
     AppUpdateInstallFailure? installFailure,
     bool clearInstallFailure = false,
     bool clearInstall = false,
+    bool? permissionStillMissing,
   }) {
     return AppUpdateState(
       installed: installed ?? this.installed,
@@ -105,6 +111,11 @@ class AppUpdateState {
       installFailure: clearInstall || clearInstallFailure
           ? null
           : installFailure ?? this.installFailure,
+      // Only meaningful while the permission is being asked for.
+      permissionStillMissing:
+          !clearInstall &&
+          (permissionStillMissing ??
+              (installStatus == null && this.permissionStillMissing)),
     );
   }
 }
@@ -243,8 +254,16 @@ class AppUpdateViewModel extends Notifier<AppUpdateState> {
   Future<void> openInstallSettings() => _installer.openInstallSettings();
 
   /// Opens the installer again for the downloaded update, e.g. after the
-  /// user allowed installs or closed Android's installer.
+  /// user closed Android's installer.
   Future<void> installDownloaded() => _install();
+
+  /// Checks the permission again while it is being asked for (called when
+  /// the user comes back to the app, e.g. from Android settings): opens the
+  /// installer when it was given, otherwise says it is still missing.
+  Future<void> recheckInstallPermission() async {
+    if (state.installStatus != UpdateInstallStatus.needsPermission) return;
+    await _install();
+  }
 
   Future<void> _install() async {
     final path = state.downloadedPath;
@@ -254,6 +273,9 @@ class AppUpdateViewModel extends Notifier<AppUpdateState> {
         state = state.copyWith(
           installStatus: UpdateInstallStatus.needsPermission,
           clearInstallFailure: true,
+          // Asking a second time means the user went to settings and back.
+          permissionStillMissing:
+              state.installStatus == UpdateInstallStatus.needsPermission,
         );
       }
       return;
