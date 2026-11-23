@@ -169,12 +169,7 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
     final busy = state.isBusy;
     final isDark = theme.brightness == Brightness.dark;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        8,
-        20,
-        MediaQuery.paddingOf(context).bottom + 28,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
