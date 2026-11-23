@@ -930,8 +930,8 @@ version (`AppVersion.label`, e.g. "1.0.0 (2)") read by
 `PlatformInstalledVersionService` through the `faunawatch/app_info` channel in
 `MainActivity.kt` (`package_info_plus` cannot be used, see Tech Stack), and, on
 Android only (`selfUpdateSupportedProvider`; iPhones cannot install apps from
-outside the App Store/TestFlight), a "Check for updates" row. Checking happens only
-when tapped (no automatic check yet): `GitHubAppReleaseService` reads
+outside the App Store/TestFlight), a "Check for updates" row that checks when
+tapped: `GitHubAppReleaseService` reads
 `GET /repos/CashewDevs/faunawatch/releases/latest` without sign-in (drafts and
 pre-releases are skipped; 404 means nothing released yet), and
 `AppUpdateViewModel` compares name, then build number. A newer release opens the
@@ -958,6 +958,24 @@ self-updating apps: remove the permission and the Update button from any Play
 Store build. Updates only install over the existing app when every release is
 built on the same computer (same signing key) with a higher build number. The
 ViewModel keeps the result for the app session. No migration.
+The app also checks by itself: `AppUpdateBanner`, the first child of `FeedView`
+(above `ForYouFeed`, so under `ShellHeader`), calls
+`AppUpdateViewModel.autoCheck` once per session. It asks GitHub only when the
+saved `UpdateReminder` is due (`checkInterval`, 6 hours, or a clock set back);
+otherwise, and when offline, it reuses the last answer. The reminder (last check
+time, newest version found, the version whose banner was closed) is per device
+in the secure store through `SecureUpdateReminderService`
+(`faunawatch.update.last_checked_at` / `last_found` / `dismissed`); manual checks
+update it too. A newer version that was not closed shows "FaunaWatch 1.0.0 (5) is
+ready — Update | ✕" (`AppUpdateState.notice`); ✕ (`dismissNotice`) hides it for
+that version only, so an even newer one shows again. Update runs
+`loadNewerRelease` (fetching the details when the banner came from a saved
+answer) and opens the same "Update available" box; if nothing is newer after all
+the banner disappears ("FaunaWatch is up to date."), and if GitHub can't be
+reached a snackbar says so. The banner takes no space when hidden, animates
+in/out (instantly with reduced motion), and needs no time injection beyond
+`appUpdateClockProvider`. Release steps for the team are in README ("Release a
+new Android version").
 
 Appearance palettes (Apollo, Forest, Ocean, Sunset, Arctic and Meadow) are selected
 in Profile > Change Theme. Apollo is the default and retains the original blue
