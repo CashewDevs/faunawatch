@@ -259,6 +259,14 @@ A user's AI API key is runtime user data, not application configuration.
 - The chosen provider and model (`AiPreferences`) are not secret but are
   stored per user in the same secure store as the keys, under
   `faunawatch.ai_pref.<userId>.*`.
+- Keys are added in two places: the first-time "Power up FaunaLens" screen
+  (`AiKeySetupView`, onboarding only) and Settings › AI Integration, where the
+  "API key" row opens a small key pop-up (`AiKeyDialog`, opened through
+  `editAiProviderKey`) for the selected provider: add, replace or remove its
+  key. FaunaLens "Add an AI key" buttons open AI Integration. Every save goes
+  through the AI Keys Agreement sheet (`showAiKeysAgreementSheet`) first.
+  The pop-up and the agreement use the AI Integration look
+  (`AiSettingsStyle`) and follow dark mode.
 - One optional backup key (Settings › AI Integration › Backup key,
   `AiBackupKeyView`) can be for any provider, including a second key for the
   main provider. `AiBackupKeyStorageService` keeps it in the same secure store
@@ -281,10 +289,11 @@ A user's AI API key is runtime user data, not application configuration.
 ## Security
 
 Screenshots are blocked (Android `FLAG_SECURE` through `WindowSecurityService`)
-only while an AI key screen is open: `AiKeySetupView` (onboarding and Settings ›
-AI Integration › manage keys) and `AiBackupKeyView` (Settings › AI Integration ›
-Backup key). Each turns the block on and off itself. Every other screen,
-including the Profile tab, allows screenshots.
+only while an AI key can be typed: `AiKeySetupView` (onboarding), the key
+pop-up from Settings › AI Integration › API key (`editAiProviderKey` turns the
+block on before it opens and off when it closes), and `AiBackupKeyView`
+(Settings › AI Integration › Backup key). Each turns the block on and off
+itself. Every other screen, including the Profile tab, allows screenshots.
 
 Treat all API keys, tokens, passwords, credentials, and private user data
 as secrets. Never commit them. Before adding a new config file, check

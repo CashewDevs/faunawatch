@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/services/ai/ai_vision_client.dart';
+import 'package:faunawatch/core/services/external_link_service.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/settings/models/ai_preferences.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
@@ -11,6 +12,7 @@ import 'package:faunawatch/features/settings/services/ai_preferences_service.dar
 import 'package:faunawatch/features/settings/views/ai_backup_key_view.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
+import 'package:faunawatch/features/settings/views/widgets/ai_key_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,8 +26,12 @@ void main() {
   late FakeBackupKeyStorage backups;
   late Map<AiProvider, FakeVisionClient> clients;
   late FakePreferencesService preferences;
+  late _FakeWindowSecurity windowSecurity;
+  late _FakeLinks links;
 
   setUp(() {
+    windowSecurity = _FakeWindowSecurity();
+    links = _FakeLinks();
     keys = FakeKeyStorage();
     backups = FakeBackupKeyStorage();
     clients = {
@@ -54,7 +60,8 @@ void main() {
               testImage: () async => Uint8List.fromList([1]),
             ),
           ),
-          windowSecurityServiceProvider.overrideWithValue(_NoWindowSecurity()),
+          windowSecurityServiceProvider.overrideWithValue(windowSecurity),
+          externalLinkServiceProvider.overrideWithValue(links),
         ],
         child: const MaterialApp(home: AiIntegrationView()),
       ),
@@ -181,21 +188,114 @@ void main() {
     );
   });
 
-  testWidgets('the API key row opens the key manager and picks up new keys', (
-    tester,
-  ) async {
-    await pump(tester);
-    expect(find.text('Not added. Tap to add a Gemini key.'), findsOneWidget);
+  group('API key pop-up', () {
+    Future<void> openKeyPopUp(WidgetTester tester) async {
+      await tester.tap(find.text('API key'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AiKeyDialog), findsOneWidget);
+    }
 
-    await tester.tap(find.text('API key'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AiKeySetupView), findsOneWidget);
+    testWidgets('saves a typed key only after agreeing', (tester) async {
+      await pump(tester);
+      expect(find.text('Not added. Tap to add a Gemini key.'), findsOneWidget);
 
-    keys.keys[(_user, AiProvider.gemini)] = 'new';
-    await tester.tap(find.text('Done'));
-    await tester.pumpAndSettle();
+      await openKeyPopUp(tester);
+      expect(find.text('Gemini API key'), findsOneWidget);
+      expect(find.byType(AiKeySetupView), findsNothing);
+      expect(windowSecurity.isSecure, isTrue);
 
-    expect(find.text('Configured'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'new-key');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(find.text('Before we save your Gemini key'), findsOneWidget);
+      expect(keys.keys, isEmpty);
+
+      await tester.tap(find.text('I agree to the AI Keys Agreement'));
+      await tester.pump();
+      await tester.tap(find.text('Agree & save key'));
+      await tester.pumpAndSettle();
+
+      expect(keys.keys[(_user, AiProvider.gemini)], 'new-key');
+      expect(find.byType(AiKeyDialog), findsNothing);
+      expect(find.text('Configured'), findsOneWidget);
+      expect(find.text('Gemini key saved.'), findsOneWidget);
+      expect(windowSecurity.isSecure, isFalse);
+    });
+
+    testWidgets('declining the agreement keeps the pop-up and typed key', (
+      tester,
+    ) async {
+      await pump(tester);
+      await openKeyPopUp(tester);
+      await tester.enterText(find.byType(TextField), 'typed-key');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
+
+      expect(keys.keys, isEmpty);
+      expect(find.byType(AiKeyDialog), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'typed-key',
+      );
+    });
+
+    testWidgets('Save waits for a typed key and Cancel closes', (tester) async {
+      await pump(tester);
+      await openKeyPopUp(tester);
+
+      final save = find.widgetWithText(FilledButton, 'Save');
+      expect(tester.widget<FilledButton>(save).onPressed, isNull);
+      expect(find.text('Remove'), findsNothing);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AiKeyDialog), findsNothing);
+      expect(windowSecurity.isSecure, isFalse);
+    });
+
+    testWidgets('removes a saved key after confirming', (tester) async {
+      keys.keys[(_user, AiProvider.gemini)] = 'saved-secret';
+      await pump(tester);
+      await openKeyPopUp(tester);
+
+      expect(
+        find.text('A key is saved. Paste a new one to replace it.'),
+        findsOneWidget,
+      );
+      expect(find.text('saved-secret'), findsNothing);
+
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remove Gemini key?'), findsOneWidget);
+      await tester.tap(find.text('Cancel').last);
+      await tester.pumpAndSettle();
+      expect(keys.keys, isNotEmpty);
+      expect(find.byType(AiKeyDialog), findsOneWidget);
+
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.pumpAndSettle();
+
+      expect(keys.keys, isEmpty);
+      expect(find.byType(AiKeyDialog), findsNothing);
+      expect(find.text('Not added. Tap to add a Gemini key.'), findsOneWidget);
+    });
+
+    testWidgets('the key link opens the provider page', (tester) async {
+      await pump(tester);
+      await openKeyPopUp(tester);
+
+      await tester.tap(find.text('Where do I get a Gemini key?'));
+      await tester.pump();
+
+      expect(links.opened, [AiProvider.gemini.keyConsoleUri]);
+    });
   });
 
   group('backup key', () {
@@ -263,10 +363,22 @@ void main() {
   });
 }
 
-class _NoWindowSecurity implements WindowSecurityService {
-  @override
-  Future<void> enableSecure() async {}
+class _FakeWindowSecurity implements WindowSecurityService {
+  bool isSecure = false;
 
   @override
-  Future<void> disableSecure() async {}
+  Future<void> enableSecure() async => isSecure = true;
+
+  @override
+  Future<void> disableSecure() async => isSecure = false;
+}
+
+class _FakeLinks implements ExternalLinkService {
+  final List<Uri> opened = [];
+
+  @override
+  Future<bool> open(Uri uri) async {
+    opened.add(uri);
+    return true;
+  }
 }

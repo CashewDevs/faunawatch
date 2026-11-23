@@ -13,7 +13,8 @@ import 'package:faunawatch/features/fauna_lens/views/widgets/boxed_photo.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
-import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
+import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
+import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +55,13 @@ void main() {
           currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
           speciesIdentificationServiceProvider.overrideWithValue(service),
           aiApiKeyStorageServiceProvider.overrideWithValue(keys),
+          // "Add an AI key" opens Settings › AI Integration.
+          aiBackupKeyStorageServiceProvider.overrideWithValue(
+            FakeBackupKeyStorage(),
+          ),
+          aiPreferencesServiceProvider.overrideWithValue(
+            FakePreferencesService(),
+          ),
           windowSecurityServiceProvider.overrideWithValue(_NoWindowSecurity()),
         ],
         child: MaterialApp(
@@ -334,11 +342,11 @@ void main() {
     expect(find.text('Add an AI key first'), findsOneWidget);
     await tester.tap(find.text('Add an AI key'));
     await tester.pumpAndSettle();
-    expect(find.byType(AiKeySetupView), findsOneWidget);
+    expect(find.byType(AiIntegrationView), findsOneWidget);
 
     service.failure = null;
     keys.keys[('user-a', AiProvider.gemini)] = 'new-key';
-    await tester.tap(find.text('Done'));
+    await tester.tap(find.byTooltip('Back').last);
     await tester.pumpAndSettle();
 
     expect(service.photoPaths, hasLength(2));

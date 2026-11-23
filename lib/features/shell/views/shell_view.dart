@@ -95,7 +95,7 @@ class _ShellViewState extends ConsumerState<ShellView>
     });
 
     // Screenshots are allowed on every tab, Profile included. Only the AI key
-    // screen (AiKeySetupView) blocks them, while it is open.
+    // screens and the key pop-up block them, while they are open.
 
     // A push tapped while the app is open in the background.
     ref.listen(pushViewModelProvider.select((push) => push.pendingTarget), (

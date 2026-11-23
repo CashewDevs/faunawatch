@@ -7,22 +7,27 @@ import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_integration_service.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_integration_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/ai_backup_key_view.dart';
-import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
+import 'package:faunawatch/features/settings/views/widgets/ai_key_editor.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_model_picker_sheet.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_provider_picker_sheet.dart';
 
-/// "AI Integration": choose the provider and model FaunaLens uses, reach the
-/// key manager, and test that the key and model work.
+/// "AI Integration": choose the provider and model FaunaLens uses, add or
+/// replace its key in a small pop-up, and test that the key and model work.
+/// FaunaLens also opens it when there is no key yet.
 class AiIntegrationView extends ConsumerWidget {
   const AiIntegrationView({super.key});
 
   static const _ready = Color(0xFF15803D);
   static const _readyDark = Color(0xFF4ADE80);
 
-  Future<void> _openKeys(BuildContext context, WidgetRef ref) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const AiKeySetupView.manage()),
-    );
+  /// Opens the key pop-up for [provider], then picks up a saved or removed
+  /// key.
+  Future<void> _editKey(
+    BuildContext context,
+    WidgetRef ref,
+    AiProvider provider,
+  ) async {
+    await editAiProviderKey(context, ref, provider);
     await ref.read(aiIntegrationViewModelProvider.notifier).refreshKeys();
   }
 
@@ -48,7 +53,7 @@ class AiIntegrationView extends ConsumerWidget {
     var state = ref.read(aiIntegrationViewModelProvider).valueOrNull;
     if (state == null) return;
     if (!state.providerHasKey) {
-      await _openKeys(context, ref);
+      await _editKey(context, ref, state.provider);
       return;
     }
     if (state.availableModels == null) {
@@ -152,7 +157,7 @@ class AiIntegrationView extends ConsumerWidget {
                                 : 'Not added. Tap to add a '
                                       '${state.provider.displayName} key.',
                             isDark: isDark,
-                            onTap: () => _openKeys(context, ref),
+                            onTap: () => _editKey(context, ref, state.provider),
                           ),
                           _Row(
                             icon: Icons.tune_rounded,
