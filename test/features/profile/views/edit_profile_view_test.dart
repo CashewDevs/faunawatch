@@ -219,6 +219,50 @@ void main() {
       final updated = container.read(profileViewModelProvider).requireValue;
       expect(updated.customImagePath, '/tmp/custom_avatar.jpg');
       expect(updated.presetAvatar, isNull);
+      expect(writer.savedCustomImagePath, '/tmp/custom_avatar.jpg');
+    });
+
+    testWidgets('editing bio persists through ProfileService on Save Changes', (
+      tester,
+    ) async {
+      final writer = FakeProfileService();
+      final container = await pumpEditor(tester, writer: writer);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('edit_profile_bio_field')),
+        'Owl tracker',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save Changes'));
+      await tester.pumpAndSettle();
+
+      expect(writer.savedUsername, 'username');
+      expect(writer.savedBio, 'Owl tracker');
+      expect(
+        container.read(profileViewModelProvider).requireValue.bio,
+        'Owl tracker',
+      );
+    });
+
+    testWidgets('failed save restores previous profile state', (tester) async {
+      final writer = FakeProfileService()..succeeds = false;
+      final container = await pumpEditor(tester, writer: writer);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('edit_profile_bio_field')),
+        'Unsaved bio',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save Changes'));
+      await tester.pumpAndSettle();
+
+      expect(container.read(profileViewModelProvider).requireValue.bio, 'bio');
+      expect(
+        find.text('Unable to save profile. Please try again.'),
+        findsOneWidget,
+      );
     });
   });
 }

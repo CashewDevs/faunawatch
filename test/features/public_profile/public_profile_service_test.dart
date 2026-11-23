@@ -113,6 +113,7 @@ void main() {
     profiles = [
       {
         'username': 'Forest Ranger',
+        'bio': 'Watching canopy birds',
         'avatar_path': 'preset:panda',
         'banner_asset': AppAssets.bannerDay,
         'banner_color': null,
@@ -120,13 +121,14 @@ void main() {
     ];
     final profile = await service.fetchProfile('other');
     expect(profile!.username, 'Forest Ranger');
+    expect(profile.bio, 'Watching canopy birds');
     expect(profile.presetAvatar, AppAssets.avatarPanda);
     expect(profile.bannerAsset, AppAssets.bannerDay);
     final query = requests.single.url.queryParameters;
     expect(query['id'], 'eq.other');
     expect(
       query['select'],
-      'username,full_name,display_name,avatar_path,banner_asset,banner_color',
+      'username,full_name,display_name,bio,avatar_path,banner_asset,banner_color',
     );
     profiles = [];
     expect(await service.fetchProfile('gone'), isNull);

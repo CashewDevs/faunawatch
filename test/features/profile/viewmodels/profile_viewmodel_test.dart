@@ -105,10 +105,17 @@ void main() {
         isA<ProfileStorageService>(),
       );
       expect(await notifier.save(), isTrue);
+      expect(writer.savedUsername, 'nature_watcher');
+      expect(writer.savedBio, 'Wildlife enthusiast');
       expect(writer.savedBanner, AppAssets.bannerNight);
       expect(writer.savedColor, isNull);
-      notifier.updateProfile(bannerColorValue: 0xFFBCE7B4, clearBanner: true);
+      notifier.updateProfile(
+        presetAvatar: AppAssets.avatarBunny,
+        bannerColorValue: 0xFFBCE7B4,
+        clearBanner: true,
+      );
       expect(await notifier.save(), isTrue);
+      expect(writer.savedPresetAvatar, AppAssets.avatarBunny);
       expect(writer.savedBanner, isNull);
       expect(writer.savedColor, 0xFFBCE7B4);
       writer.succeeds = false;

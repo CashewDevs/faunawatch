@@ -13,15 +13,32 @@ void main() {
   late List<Map<String, Object?>> rows;
   late List<Uri> requests;
   late List<Map<String, dynamic>> updates;
+  late bool rejectBioColumn;
   setUp(() async {
     rows = [];
     requests = [];
     updates = [];
+    rejectBioColumn = false;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final url = 'http://127.0.0.1:${server.port}';
     server.listen((request) async {
       requests.add(request.uri);
       request.response.headers.contentType = ContentType.json;
+      if (rejectBioColumn &&
+          request.method == 'GET' &&
+          (request.uri.queryParameters['select']?.contains('bio') ?? false)) {
+        request.response.statusCode = HttpStatus.badRequest;
+        request.response.write(
+          jsonEncode({
+            'code': '42703',
+            'details': null,
+            'hint': null,
+            'message': 'column profiles.bio does not exist',
+          }),
+        );
+        await request.response.close();
+        return;
+      }
       if (request.method == 'PATCH') {
         updates.add(
           jsonDecode(await utf8.decoder.bind(request).join())
@@ -63,6 +80,91 @@ void main() {
     client = SupabaseClient(url, 'test-anon-key');
     service = SupabaseProfileReaderService(client);
   });
+
+  test(
+    'loads a saved bio and trims whitespace, defaulting null to empty',
+    () async {
+      rows = [
+        {'display_name': 'Tester', 'bio': '  Forest bird spotter  '},
+      ];
+      var profile = await service.loadProfile('user-a');
+      expect(profile.bio, 'Forest bird spotter');
+
+      rows = [
+        {'display_name': 'Tester', 'bio': null},
+      ];
+      profile = await service.loadProfile('user-a');
+      expect(profile.bio, isEmpty);
+    },
+  );
+
+  test(
+    'falls back to legacy columns when profiles.bio migration is not applied',
+    () async {
+      rejectBioColumn = true;
+      rows = [
+        {'display_name': 'Tester', 'avatar_path': AppAssets.avatarBunny},
+      ];
+      final profile = await service.loadProfile('user-a');
+      expect(profile.username, 'Tester');
+      expect(profile.presetAvatar, AppAssets.avatarBunny);
+      expect(profile.bio, isEmpty);
+      expect(requests.length, 2);
+      expect(requests.first.queryParameters['select'], contains('bio'));
+      expect(requests.last.queryParameters['select'], isNot(contains('bio')));
+    },
+  );
+
+  test(
+    'saves display name and bio to the authenticated user and validates input',
+    () async {
+      final writer = SupabaseProfileService(client);
+      expect(
+        await writer.saveProfile(username: 'Tester', bio: 'Bird watcher'),
+        isFalse,
+      );
+      expect(requests, isEmpty);
+
+      await client.auth.signInWithPassword(
+        email: 'test@example.com',
+        password: 'test-password',
+      );
+      requests.clear();
+      rows = [
+        {'id': 'user-a'},
+      ];
+
+      expect(
+        await writer.saveProfile(
+          username: '  Tester  ',
+          bio: '  Bird watcher  ',
+        ),
+        isTrue,
+      );
+      expect(updates.last, {'display_name': 'Tester', 'bio': 'Bird watcher'});
+      expect(requests.last.queryParameters['id'], 'eq.user-a');
+
+      // Clearing bio writes null so existing bio can be removed cleanly.
+      expect(await writer.saveProfile(username: 'Tester', bio: '   '), isTrue);
+      expect(updates.last, {'display_name': 'Tester', 'bio': null});
+
+      // Rejects blank username or bio exceeding 50 characters without a request.
+      final countBeforeInvalid = requests.length;
+      expect(await writer.saveProfile(username: '   ', bio: 'ok'), isFalse);
+      expect(
+        await writer.saveProfile(username: 'Tester', bio: 'a' * 51),
+        isFalse,
+      );
+      expect(requests.length, countBeforeInvalid);
+
+      // Returns false when no row was updated.
+      rows = [];
+      expect(
+        await writer.saveProfile(username: 'Tester', bio: 'Bird watcher'),
+        isFalse,
+      );
+    },
+  );
 
   test(
     'loads a saved banner preset or ARGB color, with nulls for older profiles',

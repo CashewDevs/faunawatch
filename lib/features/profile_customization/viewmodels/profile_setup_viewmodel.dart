@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
 import 'package:faunawatch/features/profile_customization/models/profile_setup_state.dart';
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
 
@@ -37,6 +38,9 @@ class ProfileSetupViewModel extends Notifier<ProfileSetupState> {
         username: state.username.trim(),
         bio: state.bio.trim(),
       );
+      if (success) {
+        ref.invalidate(profileViewModelProvider);
+      }
       state = state.copyWith(isSubmitting: false);
       return success;
     } catch (e) {

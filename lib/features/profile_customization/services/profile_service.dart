@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/features/auth/services/auth_service.dart';
+import 'package:faunawatch/features/profile_customization/models/profile_setup_state.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 
 /// Service contract for saving and managing user profile setup data.
 abstract interface class ProfileService {
-  /// Updates [display_name] in the signed-in user's profiles row.
+  /// Updates [display_name] and [bio] in the signed-in user's profiles row.
   Future<bool> saveProfile({required String username, required String bio});
 
   /// Saves the profile picture.
@@ -44,12 +45,20 @@ class SupabaseProfileService implements ProfileService {
   }) async {
     final userId = _userId;
     if (userId == null) return false;
+    final trimmedUsername = username.trim();
+    final trimmedBio = bio.trim();
+    if (trimmedUsername.isEmpty) return false;
+    if (trimmedBio.length > ProfileSetupState.maxBioLength) return false;
 
-    await _client
+    final rows = await _client
         .from('profiles')
-        .update({'display_name': username.trim()})
-        .eq('id', userId);
-    return true;
+        .update({
+          'display_name': trimmedUsername,
+          'bio': trimmedBio.isEmpty ? null : trimmedBio,
+        })
+        .eq('id', userId)
+        .select('id');
+    return rows.isNotEmpty;
   }
 
   @override
