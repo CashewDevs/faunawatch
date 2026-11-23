@@ -124,7 +124,6 @@ class FakeUpdateReminderService implements UpdateReminderService {
   FakeUpdateReminderService([this.reminder = const UpdateReminder()]);
 
   UpdateReminder reminder;
-  final List<AppVersion> dismissedSaves = [];
   int checkSaves = 0;
 
   @override
@@ -133,16 +132,6 @@ class FakeUpdateReminderService implements UpdateReminderService {
   @override
   Future<void> saveCheck(DateTime time, AppVersion? found) async {
     checkSaves++;
-    reminder = reminder.checkedAt(time, found);
-  }
-
-  @override
-  Future<void> saveDismissed(AppVersion version) async {
-    dismissedSaves.add(version);
-    reminder = UpdateReminder(
-      lastCheckedAt: reminder.lastCheckedAt,
-      lastFound: reminder.lastFound,
-      dismissed: version,
-    );
+    reminder = UpdateReminder(lastCheckedAt: time, lastFound: found);
   }
 }

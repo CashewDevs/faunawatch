@@ -6,7 +6,6 @@ void main() {
   final noon = DateTime(2026, 11, 23, 12);
   const installed = AppVersion(1, 0, 0, build: 4);
   const v5 = AppVersion(1, 0, 0, build: 5);
-  const v6 = AppVersion(1, 0, 0, build: 6);
 
   group('UpdateReminder.isDue', () {
     test('is due when GitHub was never asked', () {
@@ -31,7 +30,7 @@ void main() {
   });
 
   group('UpdateReminder.noticeFor', () {
-    test('offers a newer version that was not closed', () {
+    test('offers a newer version', () {
       expect(const UpdateReminder(lastFound: v5).noticeFor(installed), v5);
     });
 
@@ -41,28 +40,7 @@ void main() {
         const UpdateReminder(lastFound: installed).noticeFor(installed),
         isNull,
       );
+      expect(const UpdateReminder(lastFound: v5).noticeFor(v5), isNull);
     });
-
-    test('does not offer a version whose banner was closed', () {
-      expect(
-        const UpdateReminder(lastFound: v5, dismissed: v5).noticeFor(installed),
-        isNull,
-      );
-    });
-
-    test('offers an even newer version after one was closed', () {
-      expect(
-        const UpdateReminder(lastFound: v6, dismissed: v5).noticeFor(installed),
-        v6,
-      );
-    });
-  });
-
-  test('checkedAt keeps the closed version', () {
-    final reminder = const UpdateReminder(dismissed: v5).checkedAt(noon, v6);
-
-    expect(reminder.lastCheckedAt, noon);
-    expect(reminder.lastFound, v6);
-    expect(reminder.dismissed, v5);
   });
 }

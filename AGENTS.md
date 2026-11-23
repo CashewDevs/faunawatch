@@ -963,19 +963,28 @@ The app also checks by itself: `AppUpdateBanner`, the first child of `FeedView`
 `AppUpdateViewModel.autoCheck` once per session. It asks GitHub only when the
 saved `UpdateReminder` is due (`checkInterval`, 6 hours, or a clock set back);
 otherwise, and when offline, it reuses the last answer. The reminder (last check
-time, newest version found, the version whose banner was closed) is per device
-in the secure store through `SecureUpdateReminderService`
-(`faunawatch.update.last_checked_at` / `last_found` / `dismissed`); manual checks
-update it too. A newer version that was not closed shows "FaunaWatch 1.0.0 (5) is
-ready — Update | ✕" (`AppUpdateState.notice`); ✕ (`dismissNotice`) hides it for
-that version only, so an even newer one shows again. Update runs
+time and newest version found) is per device in the secure store through
+`SecureUpdateReminderService` (`faunawatch.update.last_checked_at` /
+`last_found`); manual checks update it too. A newer version (`AppUpdateState.notice`)
+shows a large card on every launch until the user updates (decided 2026-11-23,
+so a reflex tap can't hide an update for good): a blue gradient from the
+palette's `shellHeaderBlue` with fixed lightness so white text stays readable,
+"New version available", "FaunaWatch 1.0.0 (5) is ready", the first line of the
+release notes when the details are loaded (`AppUpdateState.noticeHeadline` from
+`AppRelease.notesHeadline`, list marker removed), a full-width "Update now" and a
+quieter "Not now". "Not now" (`dismissNotice`) only hides it in memory until the
+app is opened again; nothing is saved (an older `faunawatch.update.dismissed`
+value on a device is ignored). Motion: about 0.45 s after the version is found
+the card slides down from under the header with a soft overshoot
+(`Curves.easeOutBack`) while its height and opacity grow (it pushes the Feed
+down), then the arrow bobs twice; "Not now" slides it back up in about 0.3 s.
+All of it is instant when the device asks for less motion. Update now runs
 `loadNewerRelease` (fetching the details when the banner came from a saved
 answer) and opens the same "Update available" box; if nothing is newer after all
 the banner disappears ("FaunaWatch is up to date."), and if GitHub can't be
-reached a snackbar says so. The banner takes no space when hidden, animates
-in/out (instantly with reduced motion), and needs no time injection beyond
-`appUpdateClockProvider`. Release steps for the team are in README ("Release a
-new Android version").
+reached a snackbar says so. The banner takes no space when hidden. Release steps
+and the "many changes, one release" rule are in README ("Release a new Android
+version").
 
 Appearance palettes (Apollo, Forest, Ocean, Sunset, Arctic and Meadow) are selected
 in Profile > Change Theme. Apollo is the default and retains the original blue

@@ -37,21 +37,18 @@ void main() {
 
     expect(reminder.lastCheckedAt, isNull);
     expect(reminder.lastFound, isNull);
-    expect(reminder.dismissed, isNull);
   });
 
-  test('saves a check and a closed banner, and reads them back', () async {
+  test('saves a check and reads it back', () async {
     final store = _MemoryStore();
     final service = SecureUpdateReminderService(storage: store);
 
     await service.saveCheck(noon, v5);
-    await service.saveDismissed(v5);
 
     expect(store.values[SecureUpdateReminderService.lastFoundKey], '1.0.0+5');
     final reminder = await SecureUpdateReminderService(storage: store).load();
     expect(reminder.lastCheckedAt, noon);
     expect(reminder.lastFound, v5);
-    expect(reminder.dismissed, v5);
   });
 
   test('a check that found no release forgets the last version', () async {
@@ -77,6 +74,5 @@ void main() {
     store.fail = true;
     expect((await service.load()).lastCheckedAt, isNull);
     await service.saveCheck(noon, v5);
-    await service.saveDismissed(v5);
   });
 }

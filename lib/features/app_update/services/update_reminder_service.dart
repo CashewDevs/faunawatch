@@ -10,9 +10,6 @@ abstract interface class UpdateReminderService {
 
   /// Remembers a finished check at [time] that found [found].
   Future<void> saveCheck(DateTime time, AppVersion? found);
-
-  /// Remembers that the banner for [version] was closed.
-  Future<void> saveDismissed(AppVersion version);
 }
 
 /// Keeps the reminder in the secure store already used for other local
@@ -23,7 +20,6 @@ class SecureUpdateReminderService implements UpdateReminderService {
 
   static const lastCheckedKey = 'faunawatch.update.last_checked_at';
   static const lastFoundKey = 'faunawatch.update.last_found';
-  static const dismissedKey = 'faunawatch.update.dismissed';
 
   final SecureKeyValueStore _storage;
 
@@ -32,11 +28,9 @@ class SecureUpdateReminderService implements UpdateReminderService {
     try {
       final checked = await _storage.read(lastCheckedKey);
       final found = await _storage.read(lastFoundKey);
-      final dismissed = await _storage.read(dismissedKey);
       return UpdateReminder(
         lastCheckedAt: checked == null ? null : DateTime.tryParse(checked),
         lastFound: found == null ? null : AppVersion.tryParse(found),
-        dismissed: dismissed == null ? null : AppVersion.tryParse(dismissed),
       );
     } catch (_) {
       return const UpdateReminder();
@@ -54,15 +48,6 @@ class SecureUpdateReminderService implements UpdateReminderService {
       }
     } catch (_) {
       // The next launch then simply checks again.
-    }
-  }
-
-  @override
-  Future<void> saveDismissed(AppVersion version) async {
-    try {
-      await _storage.write(dismissedKey, version.toString());
-    } catch (_) {
-      // The banner then comes back after a restart.
     }
   }
 }

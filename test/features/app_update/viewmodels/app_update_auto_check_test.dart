@@ -111,18 +111,43 @@ void main() {
     expect(stateOf(container).notice, v6);
   });
 
-  test('stays hidden for a closed version, shows an even newer one', () async {
-    reminders.reminder = const UpdateReminder(dismissed: v5);
+  test('Not now hides it only until the app opens again', () async {
     releases.release = testRelease(version: v5);
     var container = containerWith();
     await viewModel(container).autoCheck();
+
+    viewModel(container).dismissNotice();
+    expect(stateOf(container).notice, isNull);
+    // Still hidden for the rest of this session.
+    await viewModel(container).autoCheck();
     expect(stateOf(container).notice, isNull);
 
-    now = now.add(const Duration(hours: 7));
-    releases.release = testRelease(version: v6);
+    // The next app launch (a new ViewModel) shows it again, without asking
+    // GitHub inside the six hours.
     container = containerWith();
     await viewModel(container).autoCheck();
-    expect(stateOf(container).notice, v6);
+    expect(stateOf(container).notice, v5);
+    expect(releases.calls, 1);
+  });
+
+  test('the banner headline comes from the loaded release notes', () async {
+    releases.release = testRelease(
+      version: v5,
+      notes: '- Faster map\n- New banner',
+    );
+    final container = containerWith();
+    await viewModel(container).autoCheck();
+
+    expect(stateOf(container).noticeHeadline, 'Faster map');
+  });
+
+  test('no headline when the banner comes from a saved answer', () async {
+    reminders.reminder = UpdateReminder(lastCheckedAt: now, lastFound: v5);
+    final container = containerWith();
+    await viewModel(container).autoCheck();
+
+    expect(stateOf(container).notice, v5);
+    expect(stateOf(container).noticeHeadline, isNull);
   });
 
   test('offline: stays quiet and falls back to the last answer', () async {
@@ -157,17 +182,6 @@ void main() {
 
     expect(releases.calls, 0);
     expect(reminders.checkSaves, 0);
-  });
-
-  test('closing the banner hides it and remembers the version', () async {
-    reminders.reminder = UpdateReminder(lastCheckedAt: now, lastFound: v5);
-    final container = containerWith();
-    await viewModel(container).autoCheck();
-
-    await viewModel(container).dismissNotice();
-
-    expect(stateOf(container).notice, isNull);
-    expect(reminders.dismissedSaves, [v5]);
   });
 
   test('loadNewerRelease loads the details behind the banner', () async {
