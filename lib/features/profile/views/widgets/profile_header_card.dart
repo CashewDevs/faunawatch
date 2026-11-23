@@ -172,10 +172,12 @@ class ProfileHeaderCard extends StatelessWidget {
                     onPressed: onOpenMenu,
                     icon: const Icon(Icons.menu_rounded),
                     style: IconButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surface.withValues(alpha: 0.95),
-                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                      backgroundColor: const Color(0xFF1A5DC9),
+                      foregroundColor: const Color(0xFFFECE01),
+                      side: const BorderSide(
+                        color: Color(0xFFFECE01),
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
