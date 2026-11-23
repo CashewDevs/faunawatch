@@ -54,6 +54,24 @@ void main() {
     expect(next.models, {AiProvider.groq: 'q'});
   });
 
+  test('withBackupModel is kept apart from the main models', () {
+    final picked = const AiPreferences(
+      provider: AiProvider.gemini,
+      models: {AiProvider.groq: 'main'},
+    ).withBackupModel(AiProvider.groq, ' backup ');
+    expect(picked.backupModels, {AiProvider.groq: 'backup'});
+    expect(picked.models, {AiProvider.groq: 'main'});
+    expect(picked.provider, AiProvider.gemini);
+
+    // Changing the main choices keeps the backup's.
+    final next = picked
+        .withModel(AiProvider.groq, 'other')
+        .withProvider(AiProvider.groq);
+    expect(next.backupModels, {AiProvider.groq: 'backup'});
+
+    expect(next.withBackupModel(AiProvider.groq, null).backupModels, isEmpty);
+  });
+
   test('AiProvider.tryParse reads stored names', () {
     expect(AiProvider.tryParse('openRouter'), AiProvider.openRouter);
     expect(AiProvider.tryParse('unknown'), isNull);

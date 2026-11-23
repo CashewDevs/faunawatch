@@ -35,6 +35,27 @@ void main() {
     expect(store.values.keys, everyElement(startsWith('faunawatch.ai_pref.')));
   });
 
+  test('saves and loads the backup models apart from the main ones', () async {
+    await service.save(
+      'user-a',
+      const AiPreferences(
+        models: {AiProvider.groq: 'main'},
+        backupModels: {AiProvider.groq: 'backup'},
+      ),
+    );
+
+    final loaded = await service.load('user-a');
+    expect(loaded.models, {AiProvider.groq: 'main'});
+    expect(loaded.backupModels, {AiProvider.groq: 'backup'});
+    expect(
+      store.values.keys,
+      contains('faunawatch.ai_pref.user-a.backup_model.groq'),
+    );
+
+    await service.save('user-a', const AiPreferences());
+    expect(store.values, isEmpty);
+  });
+
   test('saving removes cleared choices', () async {
     await service.save(
       'user-a',

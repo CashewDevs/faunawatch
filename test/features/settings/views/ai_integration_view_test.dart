@@ -9,7 +9,6 @@ import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/services/ai_integration_service.dart';
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
-import 'package:faunawatch/features/settings/views/ai_backup_key_view.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_key_dialog.dart';
@@ -299,13 +298,30 @@ void main() {
   });
 
   group('backup key', () {
-    testWidgets('without a backup shows only the setup row', (tester) async {
+    Future<void> showBackup(WidgetTester tester) async {
+      await tester.scrollUntilVisible(find.text('Backup API key'), 200);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> agree(WidgetTester tester) async {
+      await tester.tap(find.text('I agree to the AI Keys Agreement'));
+      await tester.pump();
+      await tester.tap(find.text('Agree & save key'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('without a backup shows the provider and key rows only', (
+      tester,
+    ) async {
       keys.keys[(_user, AiProvider.gemini)] = 'k';
       await pump(tester);
-      await tester.scrollUntilVisible(find.text('Backup key'), 200);
+      await showBackup(tester);
 
       expect(find.text('BACKUP KEY'), findsOneWidget);
-      expect(find.text('Not set up. Tap to add one.'), findsOneWidget);
+      expect(find.text('Backup provider'), findsOneWidget);
+      expect(find.text('Not set up'), findsOneWidget);
+      expect(find.text('Not added. Tap to add a backup key.'), findsOneWidget);
+      expect(find.text('Backup model'), findsNothing);
       expect(find.text('Test backup'), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -318,7 +334,8 @@ void main() {
       await pump(tester);
       await tester.scrollUntilVisible(find.text('Test backup'), 200);
 
-      expect(find.text('Groq · groq-default'), findsOneWidget);
+      expect(find.text('Groq'), findsOneWidget);
+      expect(find.text('groq-default (default)'), findsOneWidget);
       await tester.tap(find.text('Test backup'));
       await tester.pumpAndSettle();
 
@@ -344,21 +361,118 @@ void main() {
       );
     });
 
-    testWidgets('the backup row opens the backup screen and picks up a key', (
+    testWidgets('picking a provider opens the key pop-up and saves a backup', (
       tester,
     ) async {
       await pump(tester);
-      await tester.scrollUntilVisible(find.text('Backup key'), 200);
-      await tester.tap(find.text('Backup key'));
-      await tester.pumpAndSettle();
-      expect(find.byType(AiBackupKeyView), findsOneWidget);
+      await showBackup(tester);
 
+      await tester.tap(find.text('Backup provider'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Groq'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Groq backup key'), findsOneWidget);
+      expect(windowSecurity.isSecure, isTrue);
+      await tester.enterText(find.byType(TextField), 'gsk-backup');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(find.text('Before we save your Groq key'), findsOneWidget);
+      await agree(tester);
+
+      expect(backups.backups[_user], (AiProvider.groq, 'gsk-backup'));
+      expect(keys.keys, isEmpty);
+      expect(find.byType(AiKeyDialog), findsNothing);
+      expect(windowSecurity.isSecure, isFalse);
+      expect(find.text('Groq backup key saved.'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Test backup'), 200);
+      expect(find.text('Backup model'), findsOneWidget);
+    });
+
+    testWidgets('the Backup API key row picks a provider first when empty', (
+      tester,
+    ) async {
+      await pump(tester);
+      await showBackup(tester);
+
+      await tester.tap(find.text('Backup API key'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Backup provider'), findsNWidgets(2));
+      expect(find.byType(AiKeyDialog), findsNothing);
+    });
+
+    testWidgets(
+      'another provider warns it replaces the backup; Cancel keeps it',
+      (tester) async {
+        backups.backups[_user] = (AiProvider.gemini, 'gemini-backup');
+        await pump(tester);
+        await showBackup(tester);
+
+        await tester.tap(find.text('Backup provider'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('OpenRouter'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Saving replaces your Gemini backup key.'),
+          findsOneWidget,
+        );
+        expect(find.text('Remove'), findsNothing);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+
+        expect(backups.backups[_user], (AiProvider.gemini, 'gemini-backup'));
+      },
+    );
+
+    testWidgets('removes the backup after confirming', (tester) async {
       backups.backups[_user] = (AiProvider.gemini, 'gemini-backup');
-      await tester.tap(find.text('Done'));
+      await pump(tester);
+      await showBackup(tester);
+
+      await tester.tap(find.text('Backup API key'));
+      await tester.pumpAndSettle();
+      expect(find.text('Gemini backup key'), findsOneWidget);
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remove backup key?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AiBackupKeyView), findsNothing);
-      expect(find.text('Gemini · gemini-default'), findsOneWidget);
+      expect(backups.backups, isEmpty);
+      expect(find.text('Backup key removed.'), findsOneWidget);
+      expect(find.text('Not set up'), findsOneWidget);
+      expect(find.text('Test backup'), findsNothing);
+    });
+
+    testWidgets('the backup model is loaded with the backup key and saved', (
+      tester,
+    ) async {
+      keys.keys[(_user, AiProvider.gemini)] = 'k';
+      backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+      clients[AiProvider.groq]!.models = const [
+        AiModelOption(id: 'groq/vision', name: 'Groq Vision'),
+      ];
+      await pump(tester);
+      await tester.scrollUntilVisible(find.text('Test backup'), 200);
+
+      await tester.tap(find.byTooltip('Refresh backup models'));
+      await tester.pumpAndSettle();
+      expect(clients[AiProvider.groq]!.keysUsed, ['groq-backup']);
+
+      await tester.tap(find.text('Backup model'));
+      await tester.pumpAndSettle();
+      expect(find.text('Groq models'), findsOneWidget);
+      await tester.tap(find.text('Groq Vision'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('groq/vision'), findsOneWidget);
+      expect(preferences.saved[_user]!.backupModels, {
+        AiProvider.groq: 'groq/vision',
+      });
+      expect(preferences.saved[_user]!.models, isEmpty);
     });
   });
 }

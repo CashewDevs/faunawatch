@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 
 /// Lets the user choose an AI provider. Resolves to null when dismissed.
+/// [selected] may be null when nothing is chosen yet.
 Future<AiProvider?> showAiProviderPickerSheet(
   BuildContext context, {
-  required AiProvider selected,
+  required AiProvider? selected,
   required Map<AiProvider, bool> hasKey,
+  String title = 'AI provider',
 }) {
   return showModalBottomSheet<AiProvider>(
     context: context,
@@ -20,7 +22,7 @@ Future<AiProvider?> showAiProviderPickerSheet(
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
             child: Text(
-              'AI provider',
+              title,
               style: GoogleFonts.dmSans(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,

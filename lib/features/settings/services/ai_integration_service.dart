@@ -57,18 +57,38 @@ class AiIntegrationService {
   Future<AiProvider?> backupProvider(String userId) =>
       _backupKeys.readProvider(userId);
 
+  /// Saves [apiKey] for [provider] as the backup, replacing any earlier one.
+  Future<void> saveBackupKey({
+    required String userId,
+    required AiProvider provider,
+    required String apiKey,
+  }) => _backupKeys.save(userId, provider, apiKey);
+
+  Future<void> removeBackupKey(String userId) => _backupKeys.delete(userId);
+
+  /// Lists the backup provider's models, asked with the backup key.
+  Future<List<AiModelOption>> listBackupModels(String userId) async {
+    final (provider, key) = await _requireBackup(userId);
+    return _guard(() => _clients[provider]!.listModels(apiKey: key));
+  }
+
   /// Sends the small test photo to [model] with the backup key. Completes
   /// normally when the backup key works.
   Future<void> testBackup({
     required String userId,
     required String model,
   }) async {
+    final (provider, key) = await _requireBackup(userId);
+    await _sendTest(provider, key, model);
+  }
+
+  Future<(AiProvider, String)> _requireBackup(String userId) async {
     final provider = await _backupKeys.readProvider(userId);
     final key = await _backupKeys.readKey(userId);
     if (provider == null || key == null || key.isEmpty) {
       throw const AiIntegrationException(AiIntegrationFailure.noKey);
     }
-    await _sendTest(provider, key, model);
+    return (provider, key);
   }
 
   /// The model [provider] uses when the user hasn't picked one.

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
+import 'package:faunawatch/features/settings/viewmodels/ai_integration_viewmodel.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_key_dialog.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_keys_agreement_sheet.dart';
@@ -78,6 +79,79 @@ Future<void> editAiProviderKey(
     );
   } finally {
     await viewModel.disableWindowSecurity();
+  }
+}
+
+/// Opens the key pop-up for the backup key, saved for [provider]. When the
+/// current backup is for another provider, the pop-up says that saving
+/// replaces it, and Cancel keeps it. Remove is offered only for the current
+/// backup's own provider. Screenshots are blocked while the pop-up is open.
+Future<void> editAiBackupKey(
+  BuildContext context,
+  WidgetRef ref,
+  AiProvider provider,
+) async {
+  final keySettings = ref.read(aiKeySettingsViewModelProvider.notifier);
+  final viewModel = ref.read(aiIntegrationViewModelProvider.notifier);
+  final current = ref.read(aiIntegrationViewModelProvider).valueOrNull;
+  if (current == null) return;
+  final backup = current.backupProvider;
+
+  final name = provider.displayName;
+  final messages = AiKeyMessages(context);
+  Future<void> openLink(Uri uri) async {
+    if (!await keySettings.openExternalLink(uri)) {
+      messages.show("Couldn't open the link. Please try again.");
+    }
+  }
+
+  await keySettings.enableWindowSecurity();
+  try {
+    if (!context.mounted) return;
+    await showAiKeyDialog(
+      context,
+      provider: provider,
+      hasKey: backup == provider,
+      title: '$name backup key',
+      note: backup == null || backup == provider
+          ? null
+          : 'Saving replaces your ${backup.displayName} backup key.',
+      onGetKey: () => openLink(provider.keyConsoleUri),
+      onSave: (apiKey) async {
+        final agreed = await confirmAiKeysAgreement(
+          context,
+          provider,
+          onOpenTerms: () => openLink(provider.termsUri),
+        );
+        if (!agreed) return false;
+        final saved = await viewModel.saveBackupKey(provider, apiKey);
+        messages.show(
+          saved
+              ? '$name backup key saved.'
+              : 'Could not save the backup key. Please try again.',
+        );
+        return saved;
+      },
+      onRemove: () async {
+        final confirmed = await confirmAiKeyRemoval(
+          context,
+          title: 'Remove backup key?',
+          message:
+              'FaunaLens will only use your main key. Your $name backup key '
+              'is deleted from this phone.',
+        );
+        if (!confirmed) return false;
+        final removed = await viewModel.removeBackupKey();
+        messages.show(
+          removed
+              ? 'Backup key removed.'
+              : 'Could not remove the backup key. Please try again.',
+        );
+        return removed;
+      },
+    );
+  } finally {
+    await keySettings.disableWindowSecurity();
   }
 }
 

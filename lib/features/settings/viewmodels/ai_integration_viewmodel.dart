@@ -20,6 +20,9 @@ class AiIntegrationState {
     this.testStatus = AiTestStatus.idle,
     this.testFailure,
     this.backupProvider,
+    this.backupAvailableModels,
+    this.isLoadingBackupModels = false,
+    this.backupModelsFailure,
     this.backupTestStatus = AiTestStatus.idle,
     this.backupTestFailure,
   });
@@ -30,16 +33,27 @@ class AiIntegrationState {
 
   /// The backup key's provider, or null when there is no backup key.
   final AiProvider? backupProvider;
+
+  /// The backup provider's models (listed with the backup key), or null
+  /// until loaded.
+  final List<AiModelOption>? backupAvailableModels;
+  final bool isLoadingBackupModels;
+  final AiIntegrationFailure? backupModelsFailure;
   final AiTestStatus backupTestStatus;
   final AiIntegrationFailure? backupTestFailure;
 
   bool get hasBackup => backupProvider != null;
 
-  /// The model the backup uses: the one picked for its provider, else that
-  /// provider's default.
+  /// The model the backup uses: the backup's own choice for its provider,
+  /// else that provider's default.
   String? get backupModel => backupProvider == null
       ? null
-      : preferences.models[backupProvider] ?? defaultModels[backupProvider]!;
+      : preferences.backupModels[backupProvider] ??
+            defaultModels[backupProvider]!;
+
+  bool get usesDefaultBackupModel =>
+      backupProvider != null &&
+      !preferences.backupModels.containsKey(backupProvider);
 
   bool get isTestingBackup => backupTestStatus == AiTestStatus.testing;
 
@@ -74,11 +88,17 @@ class AiIntegrationState {
     bool clearTest = false,
     AiProvider? backupProvider,
     bool clearBackup = false,
+    List<AiModelOption>? backupAvailableModels,
+    bool clearBackupModels = false,
+    bool? isLoadingBackupModels,
+    AiIntegrationFailure? backupModelsFailure,
+    bool clearBackupModelsFailure = false,
     AiTestStatus? backupTestStatus,
     AiIntegrationFailure? backupTestFailure,
     bool clearBackupTest = false,
   }) {
     final resetBackupTest = clearBackup || clearBackupTest;
+    final resetBackupModels = clearBackup || clearBackupModels;
     return AiIntegrationState(
       preferences: preferences ?? this.preferences,
       hasKey: hasKey ?? this.hasKey,
@@ -98,6 +118,15 @@ class AiIntegrationState {
       backupProvider: clearBackup
           ? null
           : backupProvider ?? this.backupProvider,
+      backupAvailableModels: resetBackupModels
+          ? null
+          : backupAvailableModels ?? this.backupAvailableModels,
+      isLoadingBackupModels:
+          isLoadingBackupModels ??
+          (resetBackupModels ? false : this.isLoadingBackupModels),
+      backupModelsFailure: resetBackupModels || clearBackupModelsFailure
+          ? null
+          : backupModelsFailure ?? this.backupModelsFailure,
       backupTestStatus:
           backupTestStatus ??
           (resetBackupTest ? AiTestStatus.idle : this.backupTestStatus),
@@ -109,7 +138,8 @@ class AiIntegrationState {
 }
 
 /// Chooses the AI provider and model, loads the provider's models and tests
-/// the connection. Keys are handled entirely by the service layer.
+/// the connection; does the same for the backup key, and saves or removes
+/// it. Keys are read only by the service layer.
 class AiIntegrationViewModel extends AsyncNotifier<AiIntegrationState> {
   String? _userId;
 
@@ -117,8 +147,8 @@ class AiIntegrationViewModel extends AsyncNotifier<AiIntegrationState> {
   // test for the previous choice can't overwrite the new one.
   int _generation = 0;
 
-  // Bumped whenever the backup key changes, so a slow backup test can't
-  // report on the previous key.
+  // Bumped whenever the backup key or its model changes, so a slow backup
+  // model list or test can't report on the previous one.
   int _backupGeneration = 0;
 
   AiIntegrationService get _service => ref.read(aiIntegrationServiceProvider);
@@ -126,6 +156,7 @@ class AiIntegrationViewModel extends AsyncNotifier<AiIntegrationState> {
   @override
   Future<AiIntegrationState> build() async {
     _generation++;
+    _backupGeneration++;
     final service = ref.watch(aiIntegrationServiceProvider);
     final userId = _userId = await ref.watch(currentUserIdProvider.future);
     return AiIntegrationState(
@@ -161,15 +192,10 @@ class AiIntegrationViewModel extends AsyncNotifier<AiIntegrationState> {
     final current = state.valueOrNull;
     if (current == null) return;
     _generation++;
-    // The backup uses the model picked for its provider, so its old test
-    // result no longer applies when that is this provider.
-    final backupUsesModel = current.backupProvider == current.provider;
-    if (backupUsesModel) _backupGeneration++;
     await _savePreferences(
       current.copyWith(
         preferences: current.preferences.withModel(current.provider, modelId),
         clearTest: true,
-        clearBackupTest: backupUsesModel,
       ),
     );
   }
@@ -234,6 +260,94 @@ class AiIntegrationViewModel extends AsyncNotifier<AiIntegrationState> {
     }
   }
 
+  /// Saves [apiKey] for [provider] as the backup key, replacing any earlier
+  /// one. Returns whether it was saved.
+  Future<bool> saveBackupKey(AiProvider provider, String apiKey) async {
+    final userId = _userId;
+    if (userId == null) return false;
+    try {
+      await _service.saveBackupKey(
+        userId: userId,
+        provider: provider,
+        apiKey: apiKey,
+      );
+    } on Object {
+      return false;
+    }
+    _backupChanged(
+      (state) => state.copyWith(
+        backupProvider: provider,
+        clearBackupModels: true,
+        clearBackupTest: true,
+      ),
+    );
+    return true;
+  }
+
+  /// Deletes the backup key. Returns whether it was removed.
+  Future<bool> removeBackupKey() async {
+    final userId = _userId;
+    if (userId == null) return false;
+    try {
+      await _service.removeBackupKey(userId);
+    } on Object {
+      return false;
+    }
+    _backupChanged((state) => state.copyWith(clearBackup: true));
+    return true;
+  }
+
+  /// Picks [modelId] for the backup key, or its provider's default when null.
+  Future<void> selectBackupModel(String? modelId) async {
+    final current = state.valueOrNull;
+    final provider = current?.backupProvider;
+    if (current == null || provider == null) return;
+    _backupGeneration++;
+    await _savePreferences(
+      current.copyWith(
+        preferences: current.preferences.withBackupModel(provider, modelId),
+        clearBackupTest: true,
+      ),
+    );
+  }
+
+  /// Loads the backup provider's model list, asked with the backup key.
+  Future<void> loadBackupModels() async {
+    final current = state.valueOrNull;
+    final userId = _userId;
+    if (current == null ||
+        userId == null ||
+        !current.hasBackup ||
+        current.isLoadingBackupModels) {
+      return;
+    }
+    final generation = _backupGeneration;
+    state = AsyncData(
+      current.copyWith(
+        isLoadingBackupModels: true,
+        clearBackupModelsFailure: true,
+      ),
+    );
+    try {
+      final models = await _service.listBackupModels(userId);
+      _applyBackup(
+        generation,
+        (state) => state.copyWith(
+          isLoadingBackupModels: false,
+          backupAvailableModels: models,
+        ),
+      );
+    } on AiIntegrationException catch (error) {
+      _applyBackup(
+        generation,
+        (state) => state.copyWith(
+          isLoadingBackupModels: false,
+          backupModelsFailure: error.failure,
+        ),
+      );
+    }
+  }
+
   /// Sends a test photo with the backup key and its model.
   Future<void> testBackup() async {
     final current = state.valueOrNull;
@@ -270,7 +384,7 @@ class AiIntegrationViewModel extends AsyncNotifier<AiIntegrationState> {
   }
 
   /// Re-reads which providers have keys and the backup key, e.g. after a key
-  /// screen closes.
+  /// pop-up closes.
   Future<void> refreshKeys() async {
     final current = state.valueOrNull;
     final userId = _userId;
@@ -280,12 +394,13 @@ class AiIntegrationViewModel extends AsyncNotifier<AiIntegrationState> {
     var latest = state.valueOrNull;
     if (latest == null) return;
     if (backupProvider != latest.backupProvider) {
-      // The backup was added, replaced or removed: an old test result no
-      // longer applies.
+      // The backup was added, replaced or removed elsewhere: its old model
+      // list and test result no longer apply.
       _backupGeneration++;
       latest = latest.copyWith(
         backupProvider: backupProvider,
         clearBackup: backupProvider == null,
+        clearBackupModels: true,
         clearBackupTest: true,
       );
       state = AsyncData(latest);
@@ -300,13 +415,12 @@ class AiIntegrationViewModel extends AsyncNotifier<AiIntegrationState> {
     );
   }
 
-  /// The backup key itself can be replaced with the same provider, so the
-  /// key screen asks for a fresh test result whenever it saves or removes.
-  void backupKeyChanged() {
-    final current = state.valueOrNull;
-    if (current == null) return;
+  /// A new or removed backup key makes any loading model list or running
+  /// test about the old one, so those are dropped.
+  void _backupChanged(AiIntegrationState Function(AiIntegrationState) update) {
     _backupGeneration++;
-    state = AsyncData(current.copyWith(clearBackupTest: true));
+    final latest = state.valueOrNull;
+    if (latest != null) state = AsyncData(update(latest));
   }
 
   void _applyBackup(

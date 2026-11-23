@@ -6,7 +6,6 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_integration_service.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_integration_viewmodel.dart';
-import 'package:faunawatch/features/settings/views/ai_backup_key_view.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_key_editor.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_model_picker_sheet.dart';
 import 'package:faunawatch/features/settings/views/widgets/ai_provider_picker_sheet.dart';
@@ -234,16 +233,66 @@ class AiIntegrationView extends ConsumerWidget {
                         isDark: isDark,
                         children: [
                           _Row(
-                            icon: Icons.vpn_key_outlined,
-                            title: 'Backup key',
-                            subtitle: state.hasBackup
-                                ? '${state.backupProvider!.displayName} · '
-                                      '${state.backupModel}'
-                                : 'Not set up. Tap to add one.',
+                            icon: Icons.auto_awesome_outlined,
+                            title: 'Backup provider',
+                            subtitle: 'Choose the service for the backup key.',
                             isDark: isDark,
+                            below: _ProviderPill(
+                              label:
+                                  state.backupProvider?.displayName ??
+                                  'Not set up',
+                              isDark: isDark,
+                            ),
                             trailing: const Icon(Icons.arrow_forward_rounded),
-                            onTap: () => _openBackup(context, ref),
+                            onTap: () => _pickBackupProvider(context, ref),
                           ),
+                          _Row(
+                            icon: Icons.vpn_key_outlined,
+                            title: 'Backup API key',
+                            subtitle: state.hasBackup
+                                ? 'Configured'
+                                : 'Not added. Tap to add a backup key.',
+                            isDark: isDark,
+                            onTap: () => _editBackupKey(context, ref),
+                          ),
+                          if (state.hasBackup)
+                            _Row(
+                              icon: Icons.tune_rounded,
+                              title: 'Backup model',
+                              subtitle: state.usesDefaultBackupModel
+                                  ? '${state.backupModel} (default)'
+                                  : state.backupModel!,
+                              isDark: isDark,
+                              below: state.backupModelsFailure == null
+                                  ? (state.backupAvailableModels == null
+                                        ? _Hint(
+                                            'Tap refresh to load available '
+                                            'models',
+                                            isDark: isDark,
+                                          )
+                                        : null)
+                                  : _Hint(
+                                      _failureMessage(
+                                        state.backupModelsFailure!,
+                                        state.backupProvider!,
+                                        forTest: false,
+                                      ),
+                                      isDark: isDark,
+                                      isError: true,
+                                    ),
+                              trailing: _RefreshButton(
+                                tooltip: 'Refresh backup models',
+                                isLoading: state.isLoadingBackupModels,
+                                onPressed: ref
+                                    .read(
+                                      aiIntegrationViewModelProvider.notifier,
+                                    )
+                                    .loadBackupModels,
+                              ),
+                              onTap: state.isLoadingBackupModels
+                                  ? null
+                                  : () => _pickBackupModel(context, ref),
+                            ),
                           if (state.hasBackup)
                             _testRow(
                               title: 'Test backup',
@@ -265,7 +314,8 @@ class AiIntegrationView extends ConsumerWidget {
                         child: Text(
                           'If your main key is rejected, runs out, or its '
                           'provider is down, FaunaLens tries the backup key '
-                          'once. It uses the model picked for its provider.',
+                          'once, with its own model. It can be any provider, '
+                          'even a second key for the same one.',
                           style: GoogleFonts.dmSans(
                             fontSize: 12,
                             color: isDark
@@ -285,14 +335,52 @@ class AiIntegrationView extends ConsumerWidget {
     );
   }
 
-  Future<void> _openBackup(BuildContext context, WidgetRef ref) async {
-    await Navigator.of(
+  /// Picks the backup provider, then opens the key pop-up for it: a backup
+  /// is only saved together with its key, so Cancel keeps the old backup.
+  Future<void> _pickBackupProvider(BuildContext context, WidgetRef ref) async {
+    final backup = ref
+        .read(aiIntegrationViewModelProvider)
+        .valueOrNull
+        ?.backupProvider;
+    final provider = await showAiProviderPickerSheet(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const AiBackupKeyView()));
+      title: 'Backup provider',
+      selected: backup,
+      hasKey: backup == null ? const {} : {backup: true},
+    );
+    if (provider == null || !context.mounted) return;
+    await editAiBackupKey(context, ref, provider);
+  }
+
+  /// Opens the key pop-up for the current backup, or picks a provider first
+  /// when there is none.
+  Future<void> _editBackupKey(BuildContext context, WidgetRef ref) async {
+    final backup = ref
+        .read(aiIntegrationViewModelProvider)
+        .valueOrNull
+        ?.backupProvider;
+    if (backup == null) return _pickBackupProvider(context, ref);
+    await editAiBackupKey(context, ref, backup);
+  }
+
+  Future<void> _pickBackupModel(BuildContext context, WidgetRef ref) async {
     final viewModel = ref.read(aiIntegrationViewModelProvider.notifier);
-    // The key may have been replaced even if the provider stayed the same.
-    viewModel.backupKeyChanged();
-    await viewModel.refreshKeys();
+    var state = ref.read(aiIntegrationViewModelProvider).valueOrNull;
+    if (state == null || !state.hasBackup) return;
+    if (state.backupAvailableModels == null) {
+      await viewModel.loadBackupModels();
+      state = ref.read(aiIntegrationViewModelProvider).valueOrNull;
+      if (state?.backupAvailableModels == null || !context.mounted) return;
+    }
+    final provider = state!.backupProvider!;
+    final choice = await showAiModelPickerSheet(
+      context,
+      provider: provider,
+      models: state.backupAvailableModels!,
+      selected: state.backupModel!,
+      defaultModel: state.defaultModels[provider]!,
+    );
+    if (choice != null) await viewModel.selectBackupModel(choice.modelId);
   }
 
   /// A row that sends a test photo and shows the result: used for both the
@@ -564,15 +652,20 @@ class _Hint extends StatelessWidget {
 }
 
 class _RefreshButton extends StatelessWidget {
-  const _RefreshButton({required this.isLoading, required this.onPressed});
+  const _RefreshButton({
+    required this.isLoading,
+    required this.onPressed,
+    this.tooltip = 'Refresh models',
+  });
 
   final bool isLoading;
   final VoidCallback? onPressed;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
     return IconButton.filledTonal(
-      tooltip: 'Refresh models',
+      tooltip: tooltip,
       onPressed: isLoading ? null : onPressed,
       icon: isLoading
           ? const SizedBox.square(
