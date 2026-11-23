@@ -509,6 +509,101 @@ void main() {
     });
   });
 
+  testWidgets(
+    'Use current location button is full-width light yellow with blue semibold text and toggle/clear indicator',
+    (tester) async {
+      final locations = FakeLocations()
+        ..location = const GeoCoordinates(
+          latitude: 10.3157,
+          longitude: 123.8854,
+        );
+      final map = FakePickerMap();
+      final container = ProviderContainer(
+        overrides: [
+          currentUserIdProvider.overrideWith((ref) => const Stream.empty()),
+          createPostServiceProvider.overrideWithValue(FakeCreatePostService()),
+          photoLocationServiceProvider.overrideWithValue(locations),
+          postPhotoPickerServiceProvider.overrideWithValue(
+            FakePostPhotoPicker(),
+          ),
+          locationSearchServiceProvider.overrideWithValue(FakePlaceSearch()),
+          locationPickerMapServiceProvider.overrideWithValue(map),
+          locationPickerCanvasBuilderProvider.overrideWithValue(
+            FakePickerCanvas(map),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await openAsPage(tester, container);
+
+      final buttonFinder = find.byKey(
+        const ValueKey('use_current_location_button'),
+      );
+      await tester.ensureVisible(buttonFinder);
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<Container>(buttonFinder);
+      final decoration = button.decoration! as BoxDecoration;
+      expect(decoration.color, AppColors.galleryFilterButtonBackground);
+      expect((decoration.border! as Border).top.color, Colors.transparent);
+
+      // Spans horizontally matching the form card width.
+      final buttonRect = tester.getRect(buttonFinder);
+      expect(buttonRect.width, greaterThan(300));
+
+      final label = tester.widget<Text>(find.text('Use current location'));
+      expect(label.style?.color, AppColors.faunaLensBlue);
+      expect(label.style?.fontWeight, FontWeight.w600);
+
+      // Inactive before tapping: unchecked indicator and no clear X button.
+      final indicatorBefore = tester.widget<Icon>(
+        find.byKey(const ValueKey('current_location_indicator')),
+      );
+      expect(indicatorBefore.icon, Icons.radio_button_unchecked_rounded);
+      expect(
+        find.byKey(const ValueKey('clear_current_location_button')),
+        findsNothing,
+      );
+
+      // Tapping locates and activates the blue stroke, check indicator + X clear button.
+      await tester.tap(find.text('Use current location'));
+      await tester.pumpAndSettle();
+      expect(container.read(createPostViewModelProvider).hasLocation, isTrue);
+      final activeDecoration =
+          tester.widget<Container>(buttonFinder).decoration! as BoxDecoration;
+      expect(
+        (activeDecoration.border! as Border).top.color,
+        AppColors.faunaLensBlue,
+      );
+      final indicatorAfter = tester.widget<Icon>(
+        find.byKey(const ValueKey('current_location_indicator')),
+      );
+      expect(indicatorAfter.icon, Icons.check_circle_rounded);
+      expect(
+        find.byKey(const ValueKey('clear_current_location_button')),
+        findsOneWidget,
+      );
+
+      // Tapping X clears the current location and removes the blue stroke.
+      await tester.tap(
+        find.byKey(const ValueKey('clear_current_location_button')),
+      );
+      await tester.pumpAndSettle();
+      expect(container.read(createPostViewModelProvider).hasLocation, isFalse);
+      final clearedDecoration =
+          tester.widget<Container>(buttonFinder).decoration! as BoxDecoration;
+      expect(
+        (clearedDecoration.border! as Border).top.color,
+        Colors.transparent,
+      );
+      expect(
+        find.byKey(const ValueKey('clear_current_location_button')),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('form fits a narrow screen with large text', (tester) async {
     tester.view.physicalSize = const Size(320, 568);
     tester.view.devicePixelRatio = 1;

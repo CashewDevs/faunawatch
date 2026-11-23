@@ -252,15 +252,16 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
                 ),
                 onOpenMap: busy ? null : _pickLocation,
               ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: busy ? null : vm.locate,
-                  icon: const Icon(Icons.my_location),
-                  label: const Text('Use current location'),
-                ),
+              const SizedBox(height: 10),
+              _CurrentLocationButton(
+                isUsingCurrentLocation:
+                    state.hasLocation &&
+                    state.locationLabel == 'Current location',
+                isDark: isDark,
+                onLocate: busy ? null : vm.locate,
+                onClear: busy ? null : vm.clearLocation,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               LabeledTextField(
                 label: 'Additional notes (optional)',
                 icon: Icons.edit_note_rounded,
@@ -341,6 +342,112 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-width light-yellow button to capture or clear the user's current GPS
+/// location, with a visual status indicator and an `×` icon when active.
+class _CurrentLocationButton extends StatelessWidget {
+  const _CurrentLocationButton({
+    required this.isUsingCurrentLocation,
+    required this.isDark,
+    required this.onLocate,
+    required this.onClear,
+  });
+
+  final bool isUsingCurrentLocation;
+  final bool isDark;
+  final VoidCallback? onLocate;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final accentBlue = isDark
+        ? AppColors.darkAccentBlue
+        : AppColors.faunaLensBlue;
+    final backgroundColor = isDark
+        ? AppColors.darkFilterSelected
+        : (isUsingCurrentLocation
+              ? AppColors.messagesFilterSelected
+              : AppColors.galleryFilterButtonBackground);
+    final checkGreen = isDark
+        ? AppColors.darkIconGreen
+        : AppColors.faunaLensChipCheck;
+
+    return Container(
+      key: const ValueKey('use_current_location_button'),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isUsingCurrentLocation ? accentBlue : Colors.transparent,
+          width: 1.8,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: onLocate,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.my_location_rounded,
+                        size: 20,
+                        color: accentBlue,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Use current location',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                            color: accentBlue,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        isUsingCurrentLocation
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        key: const ValueKey('current_location_indicator'),
+                        size: 20,
+                        color: isUsingCurrentLocation
+                            ? checkGreen
+                            : accentBlue.withValues(alpha: 0.55),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (isUsingCurrentLocation)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: IconButton(
+                  key: const ValueKey('clear_current_location_button'),
+                  tooltip: 'Do not use current location',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onClear,
+                  icon: Icon(Icons.close_rounded, size: 20, color: accentBlue),
+                ),
+              ),
+          ],
         ),
       ),
     );
