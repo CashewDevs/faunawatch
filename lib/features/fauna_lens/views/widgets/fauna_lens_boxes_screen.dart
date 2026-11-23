@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
@@ -181,12 +182,14 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
                         label: chosenCount > 1
                             ? 'Analyse $chosenCount animals'
                             : 'Analyse animal',
+                        primaryText: AppColors.faunaLensBlue,
                         onPressed: state.canAnalyse ? _analyse : null,
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
+                            flex: isGallery ? (_isDrawing ? 4 : 3) : 1,
                             child: PillButton(
                               label: _isDrawing
                                   ? 'Cancel drawing'
@@ -203,6 +206,7 @@ class _FaunaLensBoxesScreenState extends ConsumerState<FaunaLensBoxesScreen> {
                           ),
                           const SizedBox(width: 10),
                           Expanded(
+                            flex: isGallery ? 5 : 1,
                             child: PillButton(
                               label: isGallery
                                   ? 'Choose another photo'

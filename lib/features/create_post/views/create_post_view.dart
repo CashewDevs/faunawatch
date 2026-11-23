@@ -1,4 +1,6 @@
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/labeled_input_field.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -100,6 +102,7 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
     ref.listen(createPostViewModelProvider, (_, next) => _sync(next));
     _sync(state);
     final submitted = state.submittedId != null;
+    final colors = FaunaLensTheme.of(context);
 
     return PopScope(
       // A submission in progress can't be left; after submitting, back does
@@ -109,14 +112,31 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
         if (!didPop && submitted) _exit(CreatePostExit.done);
       },
       child: Scaffold(
+        backgroundColor: colors.page,
         appBar: AppBar(
+          backgroundColor: colors.header,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
           centerTitle: false,
-          automaticallyImplyLeading: !submitted,
+          automaticallyImplyLeading: false,
+          leading: submitted
+              ? null
+              : IconButton(
+                  tooltip: 'Back',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(
+                    Icons.chevron_left_rounded,
+                    color: AppColors.aiResultBackChevron,
+                    size: 34,
+                  ),
+                ),
           titleSpacing: submitted ? null : 0,
           title: Text(
             submitted ? 'Post submitted for review' : 'Create post',
             style: GoogleFonts.dmSans(
-              fontSize: 22,
+              color: colors.accent,
+              fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -124,6 +144,7 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
             if (!submitted)
               IconButton(
                 tooltip: 'Posting tips',
+                color: colors.accent,
                 onPressed: _showTips,
                 icon: const Icon(Icons.info_outline_rounded),
               ),
@@ -281,19 +302,46 @@ class _CreatePostViewState extends ConsumerState<CreatePostView> {
               ],
               SizedBox(
                 height: 52,
-                child: FilledButton.icon(
-                  onPressed: state.canSubmit ? vm.submit : null,
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26),
+                child: DecoratedBox(
+                  key: const ValueKey('create_post_submit_container'),
+                  decoration: state.canSubmit
+                      ? BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              AppColors.onboardingButtonGradientStart,
+                              AppColors.onboardingButtonGradientEnd,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(26),
+                          border: Border.all(
+                            color: AppColors.faunaLensBlue,
+                            width: 2.0,
+                          ),
+                        )
+                      : const BoxDecoration(),
+                  child: FilledButton.icon(
+                    onPressed: state.canSubmit ? vm.submit : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: state.canSubmit
+                          ? Colors.transparent
+                          : null,
+                      foregroundColor: state.canSubmit
+                          ? const Color(0xFF003E43)
+                          : null,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      textStyle: GoogleFonts.dmSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    textStyle: GoogleFonts.dmSans(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    icon: const Icon(Icons.send_outlined),
+                    label: Text(busy ? 'Please wait…' : 'Submit post'),
                   ),
-                  icon: const Icon(Icons.send_outlined),
-                  label: Text(busy ? 'Please wait…' : 'Submit post'),
                 ),
               ),
             ],

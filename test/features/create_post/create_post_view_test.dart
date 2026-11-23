@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/create_post/services/create_post_service.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
@@ -119,6 +120,25 @@ void main() {
       expect(find.text(testPlace.label), findsOneWidget);
       expect(find.text('Tap to choose where you saw it'), findsNothing);
       expect(submitButton().onPressed, isNotNull);
+      final submitBox = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('create_post_submit_container')),
+      );
+      final submitDecoration = submitBox.decoration as BoxDecoration;
+      final submitGradient = submitDecoration.gradient! as LinearGradient;
+      expect(submitGradient.begin, Alignment.centerLeft);
+      expect(submitGradient.end, Alignment.centerRight);
+      expect(submitGradient.colors, const [
+        Color(0xFFF9DC5F),
+        Color(0xFFB2EFFF),
+      ]);
+      expect(
+        (submitDecoration.border! as Border).top.color,
+        AppColors.faunaLensBlue,
+      );
+      expect(
+        submitButton().style?.foregroundColor?.resolve(const {}),
+        const Color(0xFF003E43),
+      );
       await tester.ensureVisible(find.text('Submit post'));
       await tester.tap(find.text('Submit post'));
       await tester.pumpAndSettle();
@@ -234,6 +254,23 @@ void main() {
     tester,
   ) async {
     await openAsPage(tester, makeContainer());
+
+    final scaffold = tester.widget<Scaffold>(
+      find.descendant(
+        of: find.byType(CreatePostView),
+        matching: find.byType(Scaffold),
+      ),
+    );
+    expect(scaffold.backgroundColor, Colors.white);
+
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(appBar.backgroundColor, AppColors.aiResultHeader);
+    final backIcon = tester.widget<Icon>(
+      find.byIcon(Icons.chevron_left_rounded),
+    );
+    expect(backIcon.color, AppColors.aiResultBackChevron);
+    final titleText = tester.widget<Text>(find.text('Create post'));
+    expect(titleText.style?.color, AppColors.faunaLensBlue);
 
     final title = tester.getRect(find.text('Create post'));
     expect(title.center.dx, lessThan(400 / 2));
