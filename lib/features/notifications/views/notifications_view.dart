@@ -40,19 +40,18 @@ class NotificationsView extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header with horizontal gradient and DM Sans extrabold title
-          NotificationsHeader(
-            onClearAll: state.items.isEmpty || state.isLoading
-                ? null
-                : () => _confirmClearAll(context, viewModel),
-          ),
+          // Header with flipped horizontal gradient and left-aligned title
+          const NotificationsHeader(),
 
-          // Filter pills (All, Unread)
+          // Filter pills (All, Unread) and three-dot Clear all menu
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
             child: NotificationsFilterChips(
               selectedFilter: state.activeFilter,
               onSelectFilter: viewModel.setFilter,
+              onClearAll: state.items.isEmpty || state.isLoading
+                  ? null
+                  : () => _confirmClearAll(context, viewModel),
             ),
           ),
 
@@ -145,22 +144,87 @@ extension on NotificationsView {
     BuildContext context,
     NotificationsViewModel viewModel,
   ) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const dangerRed = Color(0xFFDC2626);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Clear all notifications?'),
-        content: const Text(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.darkErrorBackground
+                    : AppColors.consentBadgeRedBackground,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.delete_sweep_rounded,
+                color: isDark ? AppColors.darkErrorText : dangerRed,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Clear all notifications?',
+                style: GoogleFonts.dmSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
           'This permanently deletes all of your notifications, including '
           'older ones that are not loaded yet.',
+          style: GoogleFonts.dmSans(
+            fontSize: 14,
+            height: 1.45,
+            color: isDark ? AppColors.darkTextBody : const Color(0xFF475569),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.dmSans(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : const Color(0xFF64748B),
+              ),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: dangerRed,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Clear all'),
+            child: Text(
+              'Clear all',
+              style: GoogleFonts.dmSans(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
         ],
       ),
