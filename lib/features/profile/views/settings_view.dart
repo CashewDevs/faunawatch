@@ -7,6 +7,7 @@ import 'package:faunawatch/features/app_update/views/widgets/app_version_rows.da
 import 'package:faunawatch/features/profile/viewmodels/posts_privacy_viewmodel.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/change_password_view.dart';
+import 'package:faunawatch/features/profile/views/widgets/delete_account_dialog.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
 import 'package:faunawatch/features/settings/views/about_ai_reports_view.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
@@ -22,6 +23,13 @@ class SettingsView extends ConsumerWidget {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const ChangePasswordView()));
+  }
+
+  void _openDeleteAccountDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => const DeleteAccountDialog(),
+    );
   }
 
   void _openAiKeys(BuildContext context) {
@@ -160,76 +168,52 @@ class SettingsView extends ConsumerWidget {
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(18),
                         clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () => _openChangePassword(context),
-                          borderRadius: BorderRadius.circular(18),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
+                        child: Column(
+                          children: [
+                            _buildNavigationRow(
+                              icon: Icons.lock_outline_rounded,
+                              iconBackground: isDark
+                                  ? const Color(
+                                      0xFF0E7A5F,
+                                    ).withValues(alpha: 0.22)
+                                  : const Color(0xFFD9F5EC),
+                              iconColor: isDark
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFF0E7A5F),
+                              title: 'Change password',
+                              subtitle: 'Update your sign-in password',
+                              isDark: isDark,
+                              onTap: () => _openChangePassword(context),
                             ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? const Color(
-                                            0xFF0E7A5F,
-                                          ).withValues(alpha: 0.22)
-                                        : const Color(0xFFD9F5EC),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Icon(
-                                    Icons.lock_outline_rounded,
-                                    color: isDark
-                                        ? const Color(0xFF34D399)
-                                        : const Color(0xFF0E7A5F),
-                                    size: 22,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'Change password',
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDark
-                                              ? Colors.white
-                                              : const Color(0xFF1E293B),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Update your sign-in password',
-                                        style: GoogleFonts.dmSans(
-                                          fontSize: 12.5,
-                                          color: isDark
-                                              ? const Color(0xFF94A3B8)
-                                              : const Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: isDark
-                                      ? const Color(0xFF64748B)
-                                      : const Color(0xFF94A3B8),
-                                  size: 24,
-                                ),
-                              ],
+                            Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFE2E8F0),
                             ),
-                          ),
+                            _buildNavigationRow(
+                              key: const ValueKey('settings_delete_account'),
+                              icon: Icons.delete_outline_rounded,
+                              iconBackground: isDark
+                                  ? const Color(
+                                      0xFFB91C1C,
+                                    ).withValues(alpha: 0.22)
+                                  : const Color(0xFFFDE8E8),
+                              iconColor: isDark
+                                  ? const Color(0xFFFCA5A5)
+                                  : const Color(0xFFB91C1C),
+                              title: 'Delete account',
+                              subtitle:
+                                  'Permanently remove your account and data',
+                              titleColor: isDark
+                                  ? const Color(0xFFFCA5A5)
+                                  : AppColors.signOutButtonRed,
+                              isDark: isDark,
+                              onTap: () => _openDeleteAccountDialog(context),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -643,15 +627,18 @@ class SettingsView extends ConsumerWidget {
   }
 
   Widget _buildNavigationRow({
+    Key? key,
     required IconData icon,
     required Color iconBackground,
     required Color iconColor,
     required String title,
     required String subtitle,
+    Color? titleColor,
     required bool isDark,
     required VoidCallback onTap,
   }) {
     return InkWell(
+      key: key,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -678,7 +665,9 @@ class SettingsView extends ConsumerWidget {
                     style: GoogleFonts.dmSans(
                       fontSize: 15.5,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                      color:
+                          titleColor ??
+                          (isDark ? Colors.white : const Color(0xFF1E293B)),
                     ),
                   ),
                   const SizedBox(height: 2),
