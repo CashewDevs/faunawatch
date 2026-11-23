@@ -582,6 +582,7 @@ void main() {
                 message: 'Details',
                 timestamp: '1h ago',
                 type: type,
+                isUnread: type.index.isEven,
               ),
           ],
         ),
@@ -595,6 +596,23 @@ void main() {
       expect(find.byIcon(Icons.pets_rounded), findsOneWidget);
       expect(find.byIcon(Icons.verified_outlined), findsOneWidget);
       expect(find.byIcon(Icons.notifications_none_rounded), findsOneWidget);
+
+      for (final type in NotificationType.values) {
+        final circleFinder = find.byKey(
+          ValueKey('notification_icon_circle_${type.name}'),
+        );
+        final circle = tester.widget<Container>(circleFinder);
+        final decoration = circle.decoration! as BoxDecoration;
+        final icon = tester.widget<Icon>(
+          find.descendant(of: circleFinder, matching: find.byType(Icon)),
+        );
+        expect(decoration.color, AppColors.messagesFilterUnselected);
+        if (type.index.isEven) {
+          expect((decoration.border! as Border).top.color, icon.color);
+        } else {
+          expect(decoration.border, isNull);
+        }
+      }
     });
   });
 

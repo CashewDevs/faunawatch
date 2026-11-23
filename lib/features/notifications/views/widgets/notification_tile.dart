@@ -10,8 +10,9 @@ import 'package:faunawatch/features/notifications/models/notification_item.dart'
 /// - Background is styled in [#FFFBE9].
 /// - An accent vertical bar [#FECE01] spans the entire height of the left edge.
 ///
-/// Features a circular icon/avatar placeholder [#D9D9D9] as specified.
-/// Supports [onTap] to view/mark as read and [onLongPress] to open action options.
+/// Features a circular cream-white icon badge with a stroke matching the icon's
+/// color when unread (and no stroke when read). Supports [onTap] to view/mark
+/// as read and [onLongPress] to open action options.
 class NotificationTile extends StatelessWidget {
   const NotificationTile({
     super.key,
@@ -63,7 +64,7 @@ class NotificationTile extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Circular icon placeholder: gray #D9D9D9
+                        // Circular cream-white icon badge with matching stroke
                         _buildLeadingIcon(context, isDark),
                         const SizedBox(width: 14),
 
@@ -200,11 +201,15 @@ class NotificationTile extends StatelessWidget {
     }
 
     return Container(
+      key: ValueKey('notification_icon_circle_${item.id}'),
       width: 52,
       height: 52,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkBorder : AppColors.messagesPfpPlaceholder,
+        color: isDark
+            ? AppColors.darkSurface
+            : AppColors.messagesFilterUnselected,
         shape: BoxShape.circle,
+        border: item.isUnread ? Border.all(color: iconColor, width: 1.5) : null,
       ),
       child: item.avatarAsset != null
           ? ClipOval(
