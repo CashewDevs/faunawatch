@@ -45,6 +45,7 @@ enabled = true
 site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = [
   "http://localhost:5173/reset-password**",
+  "http://localhost:5173/accept-invite**",
   "com.faunawatch.app://login-callback/",
 ]
 jwt_expiry = 3600
@@ -103,4 +104,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.purge-deleted-accounts]
+verify_jwt = false
+
+# Called by the admin site with an admin's session. The function checks the
+# token itself with Supabase Auth (works with any signing key), then that the
+# caller is an active admin.
+[functions.manage-admins]
 verify_jwt = false
