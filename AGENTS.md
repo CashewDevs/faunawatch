@@ -1071,8 +1071,9 @@ only a suspension screen). Both levels are enforced by the same
 `is_suspended()` checks; the extra lock of `locked` is app-side. Suspended users
 also can't update `profiles` or upload/replace an avatar. The admin site calls
 `admin_suspend_user(user_id, category, level, reason, days)`; the older
-`(user_id, reason, days)` version stays for the live site until it is updated
-(category null, level restricted) and should then be dropped. The app reads
+`(user_id, reason, days)` version is dropped by
+`20261123160000_drop_old_admin_suspend_user.sql` (rows it made keep category
+null and level restricted). The app reads
 its own active suspension with `my_active_suspension()` (no admin identity;
 locked first). A trigger adds an `account_suspended` notification for a new
 suspension and `account_reactivated` when an admin lifts one early (none when
