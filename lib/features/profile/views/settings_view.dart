@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/app_update/views/widgets/app_version_rows.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
@@ -584,36 +585,7 @@ class SettingsView extends ConsumerWidget {
                                   ? const Color(0xFF334155)
                                   : const Color(0xFFE2E8F0),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'FaunaWatch Version',
-                                    style: GoogleFonts.dmSans(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF1E293B),
-                                    ),
-                                  ),
-                                  Text(
-                                    '1.0.0',
-                                    style: GoogleFonts.dmSans(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            const AppVersionRows(),
                           ],
                         ),
                       ),

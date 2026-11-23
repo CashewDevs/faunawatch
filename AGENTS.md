@@ -919,6 +919,28 @@ to the private `report-images` bucket; `report_images` stores their Storage path
 and metadata. Apply `20261103152000_limit_report_images_to_5mb.sql` to enforce
 the same per-file limit in Storage. Existing objects are unaffected.
 
+In-app updates live in `lib/features/app_update/` (Model → Service → ViewModel →
+View). The app is shared outside the Play Store as GitHub Releases of the public
+`CashewDevs/faunawatch` repository: each release's tag is the `pubspec.yaml`
+version (`v1.0.0+2`) and its Android app is attached as `faunawatch.apk`
+(`AppRelease.apkFileName`), so
+`https://github.com/CashewDevs/faunawatch/releases/latest/download/faunawatch.apk`
+always downloads the newest one. Settings › About and Support shows the installed
+version (`AppVersion.label`, e.g. "1.0.0 (2)") read by
+`PlatformInstalledVersionService` through the `faunawatch/app_info` channel in
+`MainActivity.kt` (`package_info_plus` cannot be used, see Tech Stack), and, on
+Android only (`selfUpdateSupportedProvider`; iPhones cannot install apps from
+outside the App Store/TestFlight), a "Check for updates" row. Checking happens only
+when tapped (no automatic check yet): `GitHubAppReleaseService` reads
+`GET /repos/CashewDevs/faunawatch/releases/latest` without sign-in (drafts and
+pre-releases are skipped; 404 means nothing released yet), and
+`AppUpdateViewModel` compares name, then build number. A newer release opens an
+"Update available" box with its notes and "Open download page" (the release page
+in the browser, through `ExternalLinkService`). Updates only install over the
+existing app when every release is built on the same computer (same signing
+key) with a higher build number. The ViewModel keeps the result for the app
+session. No new dependency or migration.
+
 Appearance palettes (Apollo, Forest, Ocean, Sunset, Arctic and Meadow) are selected
 in Profile > Change Theme. Apollo is the default and retains the original blue
 controls, yellow highlights and green Material accents in both brightness modes.
