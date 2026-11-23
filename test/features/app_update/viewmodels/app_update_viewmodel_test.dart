@@ -263,22 +263,47 @@ void main() {
       );
       expect(installer.installs, isEmpty);
 
+      expect(stateOf(container).permissionStillMissing, isFalse);
+      expect(installer.installs, isEmpty);
+
       await viewModel(container).openInstallSettings();
       expect(installer.settingsOpened, 1);
 
-      // Still not allowed: keep asking.
-      await viewModel(container).installDownloaded();
+      // Back from settings, still not allowed: say so.
+      await viewModel(container).recheckInstallPermission();
       expect(
         stateOf(container).installStatus,
         UpdateInstallStatus.needsPermission,
       );
+      expect(stateOf(container).permissionStillMissing, isTrue);
 
+      // Back from settings, allowed: the installer opens by itself.
       installer.allowed = true;
-      await viewModel(container).installDownloaded();
+      await viewModel(container).recheckInstallPermission();
       expect(stateOf(container).installStatus, UpdateInstallStatus.installing);
+      expect(stateOf(container).permissionStillMissing, isFalse);
       expect(installer.downloads, hasLength(1));
       expect(installer.installs, [FakeAppUpdateInstaller.downloadedPath]);
     });
+
+    test(
+      'rechecking does nothing unless the permission is asked for',
+      () async {
+        final container = await withNewerRelease();
+
+        await viewModel(container).recheckInstallPermission();
+        expect(stateOf(container).installStatus, UpdateInstallStatus.idle);
+
+        await viewModel(container).startUpdate();
+        await viewModel(container).recheckInstallPermission();
+        expect(
+          stateOf(container).installStatus,
+          UpdateInstallStatus.installing,
+        );
+        // Coming back from Android's installer does not open it again.
+        expect(installer.installs, hasLength(1));
+      },
+    );
 
     test('an installer that cannot open is reported and retried', () async {
       installer.installError = const AppUpdateInstallException(

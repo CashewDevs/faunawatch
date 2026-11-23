@@ -13,8 +13,34 @@ Future<void> showUpdateAvailableDialog(BuildContext context) {
   );
 }
 
-class UpdateAvailableDialog extends ConsumerWidget {
+class UpdateAvailableDialog extends ConsumerStatefulWidget {
   const UpdateAvailableDialog({super.key});
+
+  @override
+  ConsumerState<UpdateAvailableDialog> createState() =>
+      _UpdateAvailableDialogState();
+}
+
+class _UpdateAvailableDialogState extends ConsumerState<UpdateAvailableDialog> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Coming back from Android settings: check the permission again, so the
+    // installer opens without another tap.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => ref
+          .read(appUpdateViewModelProvider.notifier)
+          .recheckInstallPermission(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   Future<void> _openReleasePage(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -31,7 +57,7 @@ class UpdateAvailableDialog extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final state = ref.watch(appUpdateViewModelProvider);
     final viewModel = ref.read(appUpdateViewModelProvider.notifier);
     final release = state.latest;
@@ -117,21 +143,34 @@ class UpdateAvailableDialog extends ConsumerWidget {
       ),
       UpdateInstallStatus.needsPermission => (
         'One more step',
-        Text(
-          'Android needs your OK for FaunaWatch to install updates.\n\n'
-          'Tap Open settings, turn on "Allow from this source", then come '
-          'back and tap Install.',
-          style: bodyStyle,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Android needs your OK for FaunaWatch to install updates.\n\n'
+              'Tap Open settings and turn on "Allow from this source". When '
+              'you come back, the update installs.',
+              style: bodyStyle,
+            ),
+            if (state.permissionStillMissing) ...[
+              const SizedBox(height: 12),
+              Text(
+                "FaunaWatch still isn't allowed to install apps. Tap Open "
+                'settings and turn on "Allow from this source".',
+                style: bodyStyle.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
+          ],
         ),
         [
           later,
-          TextButton(
+          FilledButton(
             onPressed: viewModel.openInstallSettings,
             child: const Text('Open settings'),
-          ),
-          FilledButton(
-            onPressed: viewModel.installDownloaded,
-            child: const Text('Install'),
           ),
         ],
       ),

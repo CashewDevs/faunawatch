@@ -204,7 +204,18 @@ void main() {
       expect(installer.downloads, hasLength(1));
     });
 
-    testWidgets('asks for permission, then installs', (tester) async {
+    const stillMissing =
+        "FaunaWatch still isn't allowed to install apps. Tap Open settings "
+        'and turn on "Allow from this source".';
+
+    /// The user leaves for Android settings and comes back.
+    Future<void> returnFromSettings(WidgetTester tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('asks for permission with only Open settings', (tester) async {
       installer.allowed = false;
       await openUpdateBox(tester);
 
@@ -212,13 +223,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('One more step'), findsOneWidget);
+      expect(find.text('Open settings'), findsOneWidget);
+      expect(find.text('Install'), findsNothing);
+      expect(find.text(stillMissing), findsNothing);
+
       await tester.tap(find.text('Open settings'));
       await tester.pumpAndSettle();
       expect(installer.settingsOpened, 1);
+    });
+
+    testWidgets('says the permission is still missing on return', (
+      tester,
+    ) async {
+      installer.allowed = false;
+      await openUpdateBox(tester);
+      await tester.tap(find.text('Update'));
+      await tester.pumpAndSettle();
+
+      await returnFromSettings(tester);
+
+      expect(find.text('One more step'), findsOneWidget);
+      expect(find.text(stillMissing), findsOneWidget);
+      expect(installer.installs, isEmpty);
+    });
+
+    testWidgets('opens the installer by itself once allowed', (tester) async {
+      installer.allowed = false;
+      await openUpdateBox(tester);
+      await tester.tap(find.text('Update'));
+      await tester.pumpAndSettle();
 
       installer.allowed = true;
-      await tester.tap(find.text('Install'));
-      await tester.pumpAndSettle();
+      await returnFromSettings(tester);
+
       expect(find.text('Finish in the installer'), findsOneWidget);
       expect(installer.installs, [FakeAppUpdateInstaller.downloadedPath]);
     });

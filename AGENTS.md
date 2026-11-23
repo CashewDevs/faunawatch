@@ -944,8 +944,11 @@ percentage progress, Cancel, a 30 s stall timeout, a `.part` file renamed only
 when complete; the box cannot be closed while downloading), then, through the
 `faunawatch/app_update` channel in `MainActivity.kt`, checks Android's "install
 unknown apps" permission (`REQUEST_INSTALL_PACKAGES` in the manifest). Without
-it the box says "One more step" and offers Open settings and Install (the
-download is kept); with it Android's installer opens on the file, shared through
+it the box says "One more step" with a single Open settings button (the download
+is kept); when the app comes back to the front (`AppLifecycleListener` in the
+box → `recheckInstallPermission`) the permission is checked again: given, the
+installer opens by itself; still missing, the box says so in red
+(`permissionStillMissing`). With it Android's installer opens on the file, shared through
 `UpdateFileProvider` (its own `FileProvider` subclass, authority
 `<applicationId>.updates`, folder in `res/xml/update_paths.xml`; the app depends
 on `androidx.core` for it). Downloads are deleted when the ViewModel first starts
