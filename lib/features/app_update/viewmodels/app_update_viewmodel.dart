@@ -78,8 +78,16 @@ class AppUpdateState {
   final bool permissionStillMissing;
 
   /// The newer version offered by the Feed banner, or null when the banner
-  /// is hidden (nothing newer, or the user closed it for this version).
+  /// is hidden (nothing newer, or "Not now" was tapped since the app opened).
   final AppVersion? notice;
+
+  /// One line from the newer release's notes for the banner, when its
+  /// details are loaded and match the banner's version.
+  String? get noticeHeadline {
+    final release = latest;
+    if (release == null || release.version != notice) return null;
+    return release.notesHeadline;
+  }
 
   /// Whether "Check for updates" is offered.
   bool get canCheck => selfUpdateSupported && installed != null;
@@ -179,8 +187,9 @@ class AppUpdateViewModel extends Notifier<AppUpdateState> {
 
   /// The quiet check when the app opens: asks GitHub at most once every
   /// [UpdateReminder.checkInterval] (otherwise reuses the last answer) and
-  /// shows the Feed banner for a newer version the user has not closed.
-  /// Failures are silent; "Check for updates" in Settings still works.
+  /// shows the Feed banner for a newer version, on every app launch until
+  /// the user updates. Failures are silent; "Check for updates" in Settings
+  /// still works.
   Future<void> autoCheck() async {
     if (_autoChecked || !state.selfUpdateSupported) return;
     _autoChecked = true;
@@ -193,7 +202,10 @@ class AppUpdateViewModel extends Notifier<AppUpdateState> {
       try {
         final latest = await ref.read(appReleaseServiceProvider).fetchLatest();
         if (_disposed) return;
-        reminder = reminder.checkedAt(now, latest?.version);
+        reminder = UpdateReminder(
+          lastCheckedAt: now,
+          lastFound: latest?.version,
+        );
         await _reminders.saveCheck(now, latest?.version);
         // Also let the Settings row show it, unless a check or update the
         // user started is already showing something.
@@ -214,12 +226,11 @@ class AppUpdateViewModel extends Notifier<AppUpdateState> {
     if (notice != null) state = state.copyWith(notice: notice);
   }
 
-  /// Hides the banner and does not show it again for this version.
-  Future<void> dismissNotice() async {
-    final notice = state.notice;
-    if (notice == null) return;
+  /// "Not now": hides the banner until the app is opened again. Nothing is
+  /// saved, so a reflex tap never hides an update for good.
+  void dismissNotice() {
+    if (state.notice == null) return;
     state = state.copyWith(clearNotice: true);
-    await _reminders.saveDismissed(notice);
   }
 
   /// Makes sure the newer release's details are loaded for the "Update

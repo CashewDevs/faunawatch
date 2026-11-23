@@ -30,10 +30,22 @@ Reference: [Flutter web initialization](https://docs.flutter.dev/platform-integr
 
 Testers and users install FaunaWatch from this repository's GitHub Releases,
 outside the Play Store. The app finds new releases by itself: it checks GitHub
-when it opens (at most every 6 hours) and shows a "FaunaWatch 1.0.0 (5) is
-ready" banner at the top of the Feed. Settings › Check for updates checks at
-any time. Update downloads the new version and opens Android's installer; data
-and sign-in are kept. iPhones cannot install apps this way (use TestFlight).
+when it opens (at most every 6 hours) and shows a large "New version
+available" card at the top of the Feed, with the first line of the release
+notes. "Not now" hides it only until the app is opened again. Settings › Check
+for updates checks at any time. Update downloads the new version and opens
+Android's installer; data and sign-in are kept. iPhones cannot install apps
+this way (use TestFlight).
+
+### When to release
+
+**Many changes, one release.** Don't release after every change. While coding,
+test on your own phone straight from your computer
+(`flutter run --release --dart-define-from-file=dart_defines.json`, or Run in
+VS Code); no GitHub step is needed. Publish a release only when a batch of
+merged changes is ready for testers (for example weekly, or when a set of
+features is done). Each release then includes everything merged into `main`
+since the previous one, and testers see one update instead of many.
 
 ### Before the first release
 
@@ -87,6 +99,11 @@ publish the higher one. Android cannot put a lower number back over a higher
 one without uninstalling (which signs the user out and erases saved AI keys).
 To see the one-time permission step again, turn off Settings › Apps ›
 FaunaWatch › Install unknown apps.
+
+The Feed card uses the app's last answer from GitHub for up to 6 hours, so a
+release published after the app was opened may not show at once. To see it
+right away, tap Settings › Check for updates (it refreshes the saved answer),
+then close and reopen the app.
 
 > **Google Play:** Play does not allow apps that install their own updates.
 > Before any Play Store build, remove `REQUEST_INSTALL_PACKAGES` from

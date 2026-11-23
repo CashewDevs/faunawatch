@@ -26,6 +26,18 @@ final class AppRelease {
   /// file attached.
   final Uri? apkUrl;
 
+  /// The first line of [notes] without a list marker (`-`, `*`, `•`), for a
+  /// one-line preview; null when there are no notes.
+  String? get notesHeadline {
+    final text = notes;
+    if (text == null) return null;
+    for (final line in text.split('\n')) {
+      final cleaned = line.trim().replaceFirst(RegExp(r'^[-*•]\s*'), '').trim();
+      if (cleaned.isNotEmpty) return cleaned;
+    }
+    return null;
+  }
+
   /// Reads one release from GitHub's REST API (`GET /releases/latest`).
   ///
   /// Throws a [FormatException] when the tag is not a version or a required

@@ -62,4 +62,28 @@ void main() {
       );
     });
   });
+
+  group('AppRelease.notesHeadline', () {
+    AppRelease withNotes(String? body) =>
+        AppRelease.fromGitHubJson(releaseJson(body: body));
+
+    test('is the first line without a list marker', () {
+      expect(
+        withNotes('- Faster map\n- New banner').notesHeadline,
+        'Faster map',
+      );
+      expect(withNotes('* Faster map').notesHeadline, 'Faster map');
+      expect(withNotes('• Faster map').notesHeadline, 'Faster map');
+      expect(withNotes('Faster map.').notesHeadline, 'Faster map.');
+    });
+
+    test('skips empty lines and bare markers', () {
+      expect(withNotes('-\n\n  - Faster map').notesHeadline, 'Faster map');
+    });
+
+    test('is null without notes', () {
+      expect(withNotes(null).notesHeadline, isNull);
+      expect(withNotes('-').notesHeadline, isNull);
+    });
+  });
 }
