@@ -147,7 +147,7 @@ void main() {
         expect(find.byTooltip('Profile & preferences'), findsNothing);
         expect(find.text('Edit Profile'), findsNothing);
         expect(find.text('Pending'), findsNothing);
-        // Back stays on the banner; identity sits beside the avatar with Message below.
+        // Back stays on the banner; Message aligns with the username.
         final headerRect = tester.getRect(find.byType(ProfileHeaderCard));
         final backRect = tester.getRect(find.text('Back'));
         expect(backRect.top, lessThan(headerRect.top + 80));
@@ -162,16 +162,12 @@ void main() {
           const Color(0xFF1A5DC9),
         );
         expect(
-          tester.getRect(messageButton).top,
-          greaterThan(tester.getRect(find.text('Forest Ranger')).bottom),
+          tester.getRect(messageButton).center.dy,
+          closeTo(tester.getRect(find.text('Forest Ranger')).center.dy, 0.01),
         );
         expect(
           tester.getRect(messageButton).left,
-          greaterThan(
-            tester
-                .getRect(find.byKey(const ValueKey('profile_header_avatar')))
-                .right,
-          ),
+          greaterThan(tester.getRect(find.text('Forest Ranger')).right),
         );
         final title = tester.widget<Text>(find.text('Public Gallery'));
         expect(
