@@ -9,6 +9,7 @@ class FakeGoogleAuthService implements GoogleAuthService {
   Object? launchError;
   Object? resolveError;
   int launches = 0;
+  void Function()? beforeLaunchReturns;
 
   /// How many times [loadSessionProfile] was called.
   int resolutions = 0;
@@ -21,6 +22,8 @@ class FakeGoogleAuthService implements GoogleAuthService {
   @override
   Future<bool> launchSignIn() async {
     launches++;
+    // E.g. the auth stream handing over an old event before the page opens.
+    beforeLaunchReturns?.call();
     if (launchError != null) throw launchError!;
     return opens;
   }

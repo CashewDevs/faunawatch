@@ -1176,6 +1176,25 @@ and UPDATE) sends "will be deleted" and "restored"; `purge-deleted-accounts`
 cascades) and sends "deleted". Both reuse the suspension emails' secrets;
 setup is in their READMEs.
 
+Forgot password lives in `lib/features/password_reset/`. The Login screen's
+"Forgot Password?" opens `ForgotPasswordView` (email, then "Check your email"
+with a 60-second Send again, Supabase's limit). The emailed link goes through
+Supabase to `com.faunawatch.app://login-callback/` (see
+`supabase/templates/README.md`); Supabase's library trades it, together with
+a secret it kept on this phone when asking, for a session and reports
+`AuthChangeEvent.passwordRecovery`, so the link only works on the phone that
+asked. Change Password's "Forgot your password?" email lands in the same
+place. `PasswordRecoveryGate` is the outermost gate in `MaterialApp.builder`
+(around `AccountDeletionGate`): it shows Choose a new password, then Password
+updated (stays signed in) or This link can't be used; Cancel signs out.
+Afterwards the navigator starts again from the splash screen.
+`PasswordRecoveryViewModel` is not auto-disposed: the auth stream hands a new
+listener its latest event or error again, so it listens once for the app's
+lifetime. For the same reason `GoogleSignInViewModel` ignores anything that
+arrives before the Google page has opened. Password rules (8+ characters, a
+letter and a number) are in `lib/data/models/password_rules.dart`, shared with
+Change Password.
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.

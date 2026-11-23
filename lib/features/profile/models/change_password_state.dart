@@ -1,3 +1,5 @@
+import 'package:faunawatch/data/models/password_rules.dart';
+
 /// Immutable presentation state for the Change Password screen.
 class ChangePasswordState {
   const ChangePasswordState({
@@ -13,7 +15,7 @@ class ChangePasswordState {
     this.infoMessage,
   });
 
-  static const int minPasswordLength = 8;
+  static const int minPasswordLength = PasswordRules.minLength;
 
   final String currentPassword;
   final String newPassword;
@@ -26,15 +28,11 @@ class ChangePasswordState {
   final String? errorMessage;
   final String? infoMessage;
 
-  static final RegExp _letterRegex = RegExp(r'[A-Za-z]');
-  static final RegExp _numberRegex = RegExp(r'[0-9]');
-
   /// Whether the new password meets the minimum character length.
-  bool get hasMinLength => newPassword.length >= minPasswordLength;
+  bool get hasMinLength => PasswordRules.hasMinLength(newPassword);
 
   /// Whether the new password contains at least one letter and one number.
-  bool get hasLetterAndNumber =>
-      _letterRegex.hasMatch(newPassword) && _numberRegex.hasMatch(newPassword);
+  bool get hasLetterAndNumber => PasswordRules.hasLetterAndNumber(newPassword);
 
   /// Whether the confirmation matches the non-empty new password.
   bool get matchesConfirmation =>

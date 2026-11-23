@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/features/auth/views/login_view.dart';
+import 'package:faunawatch/features/password_reset/views/screens/forgot_password_view.dart';
 import 'package:faunawatch/features/auth/views/widgets/auth_text_field.dart';
 import 'package:faunawatch/features/auth/views/widgets/login_action_button.dart';
 import 'package:faunawatch/features/shell/views/shell_view.dart';
@@ -240,6 +241,33 @@ void main() {
 
       expect(find.text("Let's Get\nStarted"), findsOneWidget);
       expect(find.text('Confirm Password'), findsOneWidget);
+    });
+
+    testWidgets('Forgot Password? opens Forgot password with the typed email', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2200);
+      tester.view.devicePixelRatio = 2.5;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.enterText(
+        find.byType(TextField).first,
+        'spotter@example.com',
+      );
+      await tester.tap(find.text('Forgot Password?'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ForgotPasswordView), findsOneWidget);
+      expect(find.text('spotter@example.com'), findsOneWidget);
+      expect(find.text('Send Reset Link'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginView), findsOneWidget);
     });
   });
 }
