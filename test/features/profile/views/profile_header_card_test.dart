@@ -18,6 +18,7 @@ void main() {
     WidgetTester tester, {
     bool dark = false,
     double scale = 1,
+    ProfileData? data,
     VoidCallback? onMessage,
   }) async {
     await tester.pumpWidget(
@@ -31,7 +32,10 @@ void main() {
         ),
         home: Scaffold(
           body: SingleChildScrollView(
-            child: ProfileHeaderCard(profile: profile, onMessage: onMessage),
+            child: ProfileHeaderCard(
+              profile: data ?? profile,
+              onMessage: onMessage,
+            ),
           ),
         ),
       ),
@@ -54,6 +58,38 @@ void main() {
     expect(name.left, greaterThan(avatar.right));
     expect(bio.top, greaterThan(name.bottom));
     expect(bio.left, name.left);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Message aligns with the username with the bio below both', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const bio = 'someday i’ll be fine';
+    await pumpHeader(
+      tester,
+      data: profile.copyWith(username: 'bel', bio: bio),
+      onMessage: () {},
+    );
+
+    final avatar = tester.getRect(
+      find.byKey(const ValueKey('profile_header_avatar')),
+    );
+    final name = tester.getRect(find.text('bel'));
+    final bioRect = tester.getRect(find.text(bio));
+    final message = tester.getRect(
+      find.byKey(const ValueKey('public_profile_message_button')),
+    );
+    final header = tester.getRect(find.byType(ProfileHeaderCard));
+    expect(name.top, lessThan(avatar.bottom));
+    expect(message.center.dy, closeTo(name.center.dy, 0.01));
+    expect(message.left, greaterThan(name.right));
+    expect(bioRect.top, greaterThan(message.bottom));
+    expect(bioRect.left, name.left);
+    expect(message.center.dx, greaterThan(header.center.dx));
+    expect(message.right, lessThan(header.right));
     expect(tester.takeException(), isNull);
   });
 
@@ -84,7 +120,10 @@ void main() {
         expect(bio.top, greaterThan(name.bottom));
         expect(bio.left, name.left);
         expect(message.top, greaterThan(bio.bottom));
-        expect(message.left, name.left);
+        expect(message.top, greaterThan(avatar.bottom));
+        final header = tester.getRect(find.byType(ProfileHeaderCard));
+        expect(message.center.dx, greaterThan(header.center.dx));
+        expect(message.right, lessThan(header.right));
         for (final text in [profile.username, profile.bio, 'Message']) {
           final paragraph = tester.renderObject<RenderParagraph>(
             find.text(text),
