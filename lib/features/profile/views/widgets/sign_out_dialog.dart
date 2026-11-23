@@ -13,18 +13,29 @@ class SignOutConfirmationDialog extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    await ref.read(settingsViewModelProvider.notifier).signOut();
+    final signedOut = await ref
+        .read(settingsViewModelProvider.notifier)
+        .signOut();
+    if (!context.mounted) return;
 
-    if (context.mounted) {
-      // Pop the dialog
-      Navigator.of(context).pop();
+    // Pop the dialog
+    Navigator.of(context).pop();
 
-      // Redirect to the very first screen, clearing navigation history
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const WelcomeView()),
-        (route) => false,
+    if (!signedOut) {
+      // Still signed in, so the user stays where they are.
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Could not sign out. Check your connection.'),
+        ),
       );
+      return;
     }
+
+    // Redirect to the very first screen, clearing navigation history
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const WelcomeView()),
+      (route) => false,
+    );
   }
 
   @override

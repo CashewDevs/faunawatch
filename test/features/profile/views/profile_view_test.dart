@@ -28,6 +28,17 @@ import 'package:faunawatch/features/welcome/views/welcome_view.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
+import 'package:faunawatch/features/auth/services/auth_service.dart';
+
+/// Signing out always succeeds.
+class _FakeAuthService implements AuthService {
+  @override
+  Future<bool> login(String email, String password) async => true;
+  @override
+  Future<bool> signUp(String email, String password) async => true;
+  @override
+  Future<void> signOut() async {}
+}
 
 void main() {
   Widget buildTestProfile({
@@ -44,6 +55,8 @@ void main() {
         suspensionServiceProvider.overrideWithValue(
           const SignedOutSuspensionService(),
         ),
+        // Sign out ends a real Supabase session, which tests don't have.
+        authServiceProvider.overrideWithValue(_FakeAuthService()),
         galleryServiceProvider.overrideWithValue(
           gallery ?? FakeGalleryService(),
         ),

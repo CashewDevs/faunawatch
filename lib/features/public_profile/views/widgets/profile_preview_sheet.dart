@@ -7,6 +7,8 @@ import 'package:faunawatch/features/profile/views/widgets/profile_header_card.da
 import 'package:faunawatch/features/public_profile/viewmodels/profile_preview_viewmodel.dart';
 import 'package:faunawatch/features/public_profile/viewmodels/public_profile_viewmodel.dart';
 import 'package:faunawatch/features/public_profile/views/screens/public_profile_screen.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -42,9 +44,15 @@ class ProfilePreviewSheet extends ConsumerWidget {
 
   Future<void> _openMessage(
     BuildContext context,
+    WidgetRef ref,
     ProfilePreviewViewModel vm,
   ) async {
     final navigator = Navigator.of(context);
+    // The explanation shows on the screen below once the sheet closes.
+    if (blockedBySuspension(context, ref, SuspendedAction.message)) {
+      navigator.pop();
+      return;
+    }
     final thread = await vm.openPrivateChat();
     if (!context.mounted || thread == null) return;
     navigator.pop();
@@ -101,7 +109,9 @@ class ProfilePreviewSheet extends ConsumerWidget {
               profile: profile.username.isEmpty
                   ? profile.copyWith(username: FeedPost.fallbackAuthorName)
                   : profile,
-              onMessage: canMessage ? () => _openMessage(context, vm) : null,
+              onMessage: canMessage
+                  ? () => _openMessage(context, ref, vm)
+                  : null,
               isOpeningMessage: state.isOpeningChat,
             ),
             if (state.message != null)
