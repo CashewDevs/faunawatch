@@ -46,6 +46,7 @@ class PublicProfileScreen extends ConsumerWidget {
     final signedIn = viewerId != null;
     final canMessage = ref.watch(canMessageProvider(userId));
     final items = vm.items;
+    final postsHidden = vm.postsHidden;
     ref.listen(provider.select((state) => state.message), (_, message) {
       if (message == null) return;
       ScaffoldMessenger.of(
@@ -165,17 +166,32 @@ class PublicProfileScreen extends ConsumerWidget {
                           isOpeningMessage: state.isOpeningChat,
                         ),
                       ),
-                      SliverToBoxAdapter(
-                        child: GalleryHeader(
-                          title: 'Public Gallery',
-                          filter: GalleryFilter(
-                            status: GalleryStatusFilter.approved,
-                            category: state.category,
+                      // A private account shows a notice instead of its
+                      // gallery and category filters.
+                      if (!postsHidden)
+                        SliverToBoxAdapter(
+                          child: GalleryHeader(
+                            title: 'Public Gallery',
+                            filter: GalleryFilter(
+                              status: GalleryStatusFilter.approved,
+                              category: state.category,
+                            ),
+                            onCategorySelected: vm.setCategory,
                           ),
-                          onCategorySelected: vm.setCategory,
                         ),
-                      ),
-                      if (state.isLoadingPosts)
+                      if (postsHidden)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _ProfileNotice(
+                            key: const ValueKey('public_profile_posts_private'),
+                            icon: Icons.lock_outline_rounded,
+                            title: "This account's posts are private",
+                            hint: canMessage
+                                ? 'You can still send them a message.'
+                                : null,
+                          ),
+                        )
+                      else if (state.isLoadingPosts)
                         const GallerySkeleton()
                       else if (state.postsHaveError || items.isEmpty)
                         SliverFillRemaining(
@@ -241,10 +257,17 @@ class PublicProfileScreen extends ConsumerWidget {
 }
 
 class _ProfileNotice extends StatelessWidget {
-  const _ProfileNotice({required this.title, this.hint, this.onRetry});
+  const _ProfileNotice({
+    super.key,
+    required this.title,
+    this.hint,
+    this.onRetry,
+    this.icon,
+  });
   final String title;
   final String? hint;
   final VoidCallback? onRetry;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -253,6 +276,14 @@ class _ProfileNotice extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 40,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 10),
+          ],
           Text(
             title,
             textAlign: TextAlign.center,

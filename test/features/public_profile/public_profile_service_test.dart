@@ -128,7 +128,7 @@ void main() {
     expect(query['id'], 'eq.other');
     expect(
       query['select'],
-      'username,full_name,display_name,bio,avatar_path,banner_asset,banner_color',
+      'username,full_name,display_name,bio,avatar_path,banner_asset,banner_color,posts_private',
     );
     profiles = [];
     expect(await service.fetchProfile('gone'), isNull);

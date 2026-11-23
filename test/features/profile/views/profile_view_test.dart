@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
+import 'package:faunawatch/features/profile/services/posts_privacy_service.dart';
 import 'package:faunawatch/features/profile/services/profile_reader_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +52,10 @@ void main() {
         ),
         windowSecurityServiceProvider.overrideWithValue(_FakeWindowSecurity()),
         currentUserIdProvider.overrideWith((ref) => Stream.value('user-a')),
+        // Settings (opened from the menu) reads the Private posts switch.
+        postsPrivacyServiceProvider.overrideWithValue(
+          const SignedOutPostsPrivacyService(),
+        ),
         profileReaderServiceProvider.overrideWithValue(reader ?? _FakeReader()),
         profileServiceProvider.overrideWithValue(
           writer ?? FakeProfileService(),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/app_update/views/widgets/app_version_rows.dart';
+import 'package:faunawatch/features/profile/viewmodels/posts_privacy_viewmodel.dart';
 import 'package:faunawatch/features/profile/viewmodels/settings_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/change_password_view.dart';
 import 'package:faunawatch/features/settings/viewmodels/ai_key_settings_viewmodel.dart';
@@ -50,6 +51,17 @@ class SettingsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsViewModelProvider);
+    final postsPrivacy = ref.watch(postsPrivacyViewModelProvider);
+    ref.listen(postsPrivacyViewModelProvider.select((state) => state.message), (
+      _,
+      message,
+    ) {
+      if (message == null) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      ref.read(postsPrivacyViewModelProvider.notifier).clearMessage();
+    });
     final savedKeyCount = ref
         .watch(aiKeySettingsViewModelProvider)
         .asData
@@ -252,31 +264,12 @@ class SettingsView extends ConsumerWidget {
                         ],
                       ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildPrivacyToggleRow(
                             context: context,
-                            icon: Icons.shield_outlined,
-                            iconBackground: isDark
-                                ? const Color(
-                                    0xFF1A5DC9,
-                                  ).withValues(alpha: 0.22)
-                                : const Color(0xFFE3F0FE),
-                            iconColor: isDark
-                                ? AppColors.darkAccentBlue
-                                : const Color(0xFF1A5DC9),
-                            title: 'Show approximate location',
-                            subtitle:
-                                'Other users see a nearby area, not your exact spot',
-                            value: settings.locationPrivacyEnabled,
-                            isDark: isDark,
-                            onChanged: (val) => ref
-                                .read(settingsViewModelProvider.notifier)
-                                .toggleLocationPrivacy(val),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildPrivacyToggleRow(
-                            context: context,
-                            icon: Icons.image_outlined,
+                            key: const ValueKey('settings_private_posts'),
+                            icon: Icons.lock_outline_rounded,
                             iconBackground: isDark
                                 ? const Color(
                                     0xFFB91C1C,
@@ -285,13 +278,61 @@ class SettingsView extends ConsumerWidget {
                             iconColor: isDark
                                 ? const Color(0xFFFCA5A5)
                                 : const Color(0xFFB91C1C),
-                            title: 'Hide my name on reports',
-                            subtitle: 'Post as "Anonymous spotter"',
-                            value: settings.hideNameOnReports,
+                            title: 'Private posts',
+                            subtitle: postsPrivacy.loadFailed
+                                ? 'Could not load this setting. Tap to try again.'
+                                : 'Only you can see your posts on your profile. '
+                                      'They still appear in the Feed and on the map.',
+                            value: postsPrivacy.isPrivate,
                             isDark: isDark,
-                            onChanged: (val) => ref
-                                .read(settingsViewModelProvider.notifier)
-                                .toggleHideNameOnReports(val),
+                            onTap: postsPrivacy.loadFailed
+                                ? ref
+                                      .read(
+                                        postsPrivacyViewModelProvider.notifier,
+                                      )
+                                      .retry
+                                : null,
+                            onChanged: postsPrivacy.canChange
+                                ? (val) => ref
+                                      .read(
+                                        postsPrivacyViewModelProvider.notifier,
+                                      )
+                                      .setPrivate(val)
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+                          // Replaces the old "Show approximate location"
+                          // switch: locations are always approximate.
+                          Row(
+                            key: const ValueKey('settings_location_note'),
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 1),
+                                child: Icon(
+                                  Icons.location_on_outlined,
+                                  size: 18,
+                                  color: isDark
+                                      ? AppColors.darkAccentBlue
+                                      : const Color(0xFF1A5DC9),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Other people always see a nearby area '
+                                  '(about 100 m) on your posts, never your '
+                                  'exact spot.',
+                                  style: GoogleFonts.dmSans(
+                                    fontSize: 12.5,
+                                    height: 1.3,
+                                    color: isDark
+                                        ? const Color(0xFF94A3B8)
+                                        : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -666,8 +707,11 @@ class SettingsView extends ConsumerWidget {
     );
   }
 
+  /// [onChanged] null shows the switch disabled. [onTap] makes the whole row
+  /// tappable (used to retry loading).
   Widget _buildPrivacyToggleRow({
     required BuildContext context,
+    Key? key,
     required IconData icon,
     required Color iconBackground,
     required Color iconColor,
@@ -675,9 +719,11 @@ class SettingsView extends ConsumerWidget {
     required String subtitle,
     required bool value,
     required bool isDark,
-    required ValueChanged<bool> onChanged,
+    required ValueChanged<bool>? onChanged,
+    VoidCallback? onTap,
   }) {
-    return Row(
+    final row = Row(
+      key: key,
       children: [
         Container(
           width: 44,
@@ -726,6 +772,12 @@ class SettingsView extends ConsumerWidget {
           activeThumbColor: Colors.white,
         ),
       ],
+    );
+    if (onTap == null) return row;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: row,
     );
   }
 

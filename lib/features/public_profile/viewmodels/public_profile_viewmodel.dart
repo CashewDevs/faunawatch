@@ -7,6 +7,7 @@ import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart'
 import 'package:faunawatch/features/messages/models/chat_user.dart';
 import 'package:faunawatch/features/messages/models/message_thread.dart';
 import 'package:faunawatch/features/messages/services/messages_service.dart';
+import 'package:faunawatch/features/profile/models/profile_data.dart';
 import 'package:faunawatch/features/public_profile/models/public_profile_state.dart';
 import 'package:faunawatch/features/public_profile/services/public_profile_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,11 +39,9 @@ class PublicProfileViewModel
     try {
       final profile = await _service.fetchProfile(arg);
       if (generation != _generation) return;
-      state = PublicProfileState(
-        profile: profile,
-        isLoadingPosts: profile != null,
-      );
-      if (profile != null) await _loadPosts(++_postsGeneration);
+      final showPosts = profile != null && !_postsHidden(profile);
+      state = PublicProfileState(profile: profile, isLoadingPosts: showPosts);
+      if (showPosts) await _loadPosts(++_postsGeneration);
     } catch (_) {
       if (generation == _generation) {
         state = const PublicProfileState(hasError: true);
@@ -87,8 +86,25 @@ class PublicProfileViewModel
         post,
   ];
 
+  /// The owner turned on Private posts and the viewer isn't the owner. The
+  /// server would return no posts anyway, so none are requested.
+  bool _postsHidden(ProfileData profile) =>
+      profile.postsPrivate &&
+      ref.read(currentUserIdProvider).valueOrNull != arg;
+
+  /// Whether to show the "posts are private" notice instead of the gallery.
+  bool get postsHidden {
+    final profile = state.profile;
+    return profile != null && _postsHidden(profile);
+  }
+
   Future<void> setCategory(ReportCategory? category) async {
-    if (state.category == category || state.profile == null) return;
+    final profile = state.profile;
+    if (state.category == category ||
+        profile == null ||
+        _postsHidden(profile)) {
+      return;
+    }
     state = state.copyWith(
       category: category,
       clearCategory: category == null,
@@ -103,7 +119,7 @@ class PublicProfileViewModel
   }
 
   Future<void> retryPosts() async {
-    if (state.isLoadingPosts) return;
+    if (state.isLoadingPosts || postsHidden) return;
     state = state.copyWith(isLoadingPosts: true, postsHaveError: false);
     await _loadPosts(++_postsGeneration);
   }

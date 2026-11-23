@@ -11,8 +11,6 @@ void main() {
 
       final state = container.read(settingsViewModelProvider);
       expect(state.pushNotificationsEnabled, isTrue);
-      expect(state.locationPrivacyEnabled, isTrue);
-      expect(state.hideNameOnReports, isFalse);
       expect(state.activePaletteId, 'apollo');
     });
 
@@ -35,13 +33,9 @@ void main() {
 
       final notifier = container.read(settingsViewModelProvider.notifier);
       notifier.togglePushNotifications(false);
-      notifier.toggleLocationPrivacy(false);
-      notifier.toggleHideNameOnReports(true);
 
       final state = container.read(settingsViewModelProvider);
       expect(state.pushNotificationsEnabled, isFalse);
-      expect(state.locationPrivacyEnabled, isFalse);
-      expect(state.hideNameOnReports, isTrue);
     });
 
     test('signOut resets shell destination to feed', () async {
