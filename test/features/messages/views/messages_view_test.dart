@@ -2,7 +2,6 @@ import '../fake_messages_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/messages/models/chat_message.dart';
@@ -153,8 +152,11 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New chat'));
+        await tester.tap(find.text('New Chat'));
         await tester.pumpAndSettle();
+        expect(find.text('Find someone to chat with'), findsOneWidget);
+        expect(find.text('Search by username or name'), findsOneWidget);
+        expect(find.text('Type here...'), findsOneWidget);
         await tester.enterText(find.byType(TextField), 'Bob');
         await tester.pump(const Duration(milliseconds: 299));
         expect(service.queries, isEmpty);
@@ -169,28 +171,45 @@ void main() {
       },
     );
     testWidgets(
-      'renders header, search bar with where.webp, and filter chips',
+      'renders header, search bar with crisp search icon, New Chat beside it, and pull-to-refresh',
       (tester) async {
-        await tester.pumpWidget(buildTestWidget());
+        final service = _CountingMessagesService();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [messagesServiceProvider.overrideWithValue(service)],
+            child: const MaterialApp(home: MessagesView()),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(find.byType(MessagesHeader), findsOneWidget);
         expect(find.text('Messages'), findsOneWidget);
+        expect(find.byTooltip('Refresh messages'), findsNothing);
 
         expect(find.byType(MessagesSearchBar), findsOneWidget);
         expect(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is Image &&
-                widget.image is AssetImage &&
-                (widget.image as AssetImage).assetName == AppAssets.whereIcon,
+          find.descendant(
+            of: find.byType(MessagesSearchBar),
+            matching: find.byIcon(Icons.search_rounded),
           ),
           findsOneWidget,
         );
 
+        // New Chat pill sits beside the search bar on the same row.
+        final searchRect = tester.getRect(find.byType(MessagesSearchBar));
+        final newChatRect = tester.getRect(find.text('New Chat'));
+        expect(newChatRect.left, greaterThan(searchRect.right));
+        expect(newChatRect.center.dy, closeTo(searchRect.center.dy, 6));
+
         expect(find.byType(MessagesFilterChips), findsOneWidget);
         expect(find.text('All'), findsOneWidget);
         expect(find.text('Unread'), findsOneWidget);
+
+        // Dragging down triggers pull-to-refresh.
+        final beforeRefresh = service.fetches;
+        await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
+        await tester.pumpAndSettle();
+        expect(service.fetches, greaterThan(beforeRefresh));
       },
     );
 
@@ -304,6 +323,16 @@ void main() {
       },
     );
   });
+}
+
+class _CountingMessagesService extends ImmediateTestMessagesService {
+  int fetches = 0;
+
+  @override
+  Future<List<MessageThread>> fetchMessageThreads() async {
+    fetches++;
+    return super.fetchMessageThreads();
+  }
 }
 
 class _EmptyInboxService extends ImmediateTestMessagesService {

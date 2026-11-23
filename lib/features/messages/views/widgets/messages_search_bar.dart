@@ -1,10 +1,9 @@
 import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 
-/// Search input bar featuring `where.webp` icon and a bright blue stroke.
+/// Search input bar featuring a crisp vector search icon and a bright blue stroke.
 class MessagesSearchBar extends StatelessWidget {
   const MessagesSearchBar({
     super.key,
@@ -18,37 +17,31 @@ class MessagesSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = AppPaletteColors.of(context);
+    final accentColor = isDark
+        ? palette.darkAccentBlue
+        : palette.messagesHeaderBlue;
+
     return Container(
       height: 46,
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isDark
-              ? AppPaletteColors.of(context).darkAccentBlue
-              : AppPaletteColors.of(context).messagesSearchBorder,
+          color: isDark ? palette.darkAccentBlue : palette.messagesSearchBorder,
           width: 2.0,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
-          Image.asset(
-            AppAssets.whereIcon,
-            width: 20,
-            height: 20,
-            fit: BoxFit.contain,
-            color: isDark ? AppPaletteColors.of(context).darkAccentBlue : null,
-            colorBlendMode: isDark ? BlendMode.srcIn : null,
-          ),
-          const SizedBox(width: 12),
+          Icon(Icons.search_rounded, size: 22, color: accentColor),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              cursorColor: isDark
-                  ? AppPaletteColors.of(context).darkAccentBlue
-                  : AppPaletteColors.of(context).messagesHeaderBlue,
+              cursorColor: accentColor,
               style: GoogleFonts.dmSans(
                 color: isDark ? AppColors.darkTextPrimary : Colors.black87,
                 fontSize: 15,

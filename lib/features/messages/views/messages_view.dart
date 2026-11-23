@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:faunawatch/core/widgets/inset_centered_scroll.dart';
 import 'package:faunawatch/features/messages/viewmodels/messages_viewmodel.dart';
 import 'package:faunawatch/features/messages/views/chat_conversation_view.dart';
@@ -13,15 +14,8 @@ import 'package:faunawatch/features/messages/views/widgets/messages_header.dart'
 import 'package:faunawatch/features/messages/views/widgets/messages_search_bar.dart';
 import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
 
-/// Screen displaying the conversation message threads with search and filters.
-///
-/// Implements the visual specifications:
-/// - Header gradient: 0% #DCF2FF to 100% #A4DDFF
-/// - Title: "Messages" in DM Sans extrabold (#1A5DC9) with yellow underline (#FECE01)
-/// - Search bar with `where.webp` icon and blue stroke
-/// - Filter chips for "All" and "Unread"
-/// - Unread message highlighting: #FFFBE9 background with #FECE01 left accent bar
-/// - Gray circular profile picture placeholders (#D9D9D9)
+/// Screen displaying the conversation message threads with search, pull-to-refresh,
+/// a New Chat pill beside the search bar, and All/Unread filters.
 class MessagesView extends ConsumerStatefulWidget {
   const MessagesView({super.key});
 
@@ -49,12 +43,26 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
     super.dispose();
   }
 
+  Future<void> _openNewChat() async {
+    final thread = await Navigator.of(context).push<MessageThread>(
+      MaterialPageRoute(builder: (_) => const NewChatView()),
+    );
+    if (!mounted || thread == null) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => ChatConversationView(thread: thread)),
+    );
+    if (mounted) {
+      ref.read(messagesViewModelProvider.notifier).refresh();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(messagesViewModelProvider);
     final viewModel = ref.read(messagesViewModelProvider.notifier);
     final filteredThreads = state.filteredThreads;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = AppPaletteColors.of(context);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
@@ -63,38 +71,9 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
         children: [
           // Header with gradient and DM Sans extrabold title
           const MessagesHeader(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton.icon(
-                icon: const Icon(Icons.add_comment_outlined),
-                label: const Text('New chat'),
-                onPressed: () async {
-                  final thread = await Navigator.of(context)
-                      .push<MessageThread>(
-                        MaterialPageRoute(builder: (_) => const NewChatView()),
-                      );
-                  if (!context.mounted || thread == null) return;
-                  await Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) => ChatConversationView(thread: thread),
-                    ),
-                  );
-                  if (mounted) {
-                    ref.read(messagesViewModelProvider.notifier).refresh();
-                  }
-                },
-              ),
-              IconButton(
-                tooltip: 'Refresh messages',
-                onPressed: viewModel.refresh,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
           if (state.error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
               child: Text(
                 state.error!,
                 style: TextStyle(
@@ -103,15 +82,27 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
               ),
             ),
 
-          // Search bar and filter pills
+          // Search bar + New Chat pill and filter chips
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                MessagesSearchBar(
-                  controller: _searchController,
-                  onChanged: viewModel.setSearchQuery,
+                Row(
+                  children: [
+                    Expanded(
+                      child: MessagesSearchBar(
+                        controller: _searchController,
+                        onChanged: viewModel.setSearchQuery,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    _NewChatPillButton(
+                      isDark: isDark,
+                      palette: palette,
+                      onTap: _openNewChat,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 14),
                 MessagesFilterChips(
@@ -122,12 +113,13 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
             ),
           ),
 
-          // Message threads list
+          // Message threads list with pull-to-refresh
           Expanded(
             child: state.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredThreads.isEmpty
                 ? InsetCenteredScroll(
+                    onRefresh: viewModel.refresh,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Column(
@@ -160,50 +152,116 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    // Leave room for the nav bar the shell draws over the body.
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.paddingOf(context).bottom,
+                : RefreshIndicator(
+                    onRefresh: viewModel.refresh,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      // Leave room for the nav bar the shell draws over the body.
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.paddingOf(context).bottom,
+                      ),
+                      itemCount: filteredThreads.length,
+                      itemBuilder: (context, index) {
+                        final thread = filteredThreads[index];
+                        return MessageTile(
+                          thread: thread,
+                          onProfileTap: thread.otherUserId?.isNotEmpty == true
+                              ? () => openPublicProfile(
+                                  context,
+                                  thread.otherUserId!,
+                                )
+                              : null,
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (context) =>
+                                    ChatConversationView(thread: thread),
+                              ),
+                            );
+                            if (mounted) {
+                              ref
+                                  .read(messagesViewModelProvider.notifier)
+                                  .refresh();
+                            }
+                          },
+                          onLongPress: () {
+                            MessageActionSheet.show(
+                              context: context,
+                              thread: thread,
+                              onToggleRead: () =>
+                                  viewModel.toggleThreadReadStatus(thread.id),
+                              onDelete: () =>
+                                  viewModel.deleteConversation(thread.id),
+                            );
+                          },
+                        );
+                      },
                     ),
-                    itemCount: filteredThreads.length,
-                    itemBuilder: (context, index) {
-                      final thread = filteredThreads[index];
-                      return MessageTile(
-                        thread: thread,
-                        onProfileTap: thread.otherUserId?.isNotEmpty == true
-                            ? () => openPublicProfile(
-                                context,
-                                thread.otherUserId!,
-                              )
-                            : null,
-                        onTap: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) =>
-                                  ChatConversationView(thread: thread),
-                            ),
-                          );
-                          if (mounted) {
-                            ref
-                                .read(messagesViewModelProvider.notifier)
-                                .refresh();
-                          }
-                        },
-                        onLongPress: () {
-                          MessageActionSheet.show(
-                            context: context,
-                            thread: thread,
-                            onToggleRead: () =>
-                                viewModel.toggleThreadReadStatus(thread.id),
-                            onDelete: () =>
-                                viewModel.deleteConversation(thread.id),
-                          );
-                        },
-                      );
-                    },
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NewChatPillButton extends StatelessWidget {
+  const _NewChatPillButton({
+    required this.isDark,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final bool isDark;
+  final AppPaletteColors palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = isDark
+        ? palette.darkFilterSelected
+        : const Color(0xFFFFF8DC);
+    final borderColor = isDark
+        ? palette.darkAccentBlue.withValues(alpha: 0.7)
+        : palette.searchFieldStroke;
+    final iconColor = isDark
+        ? palette.darkAccentBlue
+        : palette.messagesHeaderBlue;
+    final textColor = isDark
+        ? AppColors.darkTextPrimary
+        : AppColors.loginDarkText;
+
+    return Semantics(
+      button: true,
+      label: 'New Chat',
+      child: Material(
+        color: backgroundColor,
+        shape: StadiumBorder(side: BorderSide(color: borderColor, width: 1.4)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 46,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_comment_outlined, size: 19, color: iconColor),
+                  const SizedBox(width: 7),
+                  Text(
+                    'New Chat',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
