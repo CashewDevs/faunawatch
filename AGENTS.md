@@ -581,11 +581,11 @@ Scrolling or "Load older posts" loads more. While a filter's first page loads
 for less motion. No dependency or migration is added.
 
 Public account profiles live in `lib/features/public_profile/`
-(Model → Service → ViewModel → View). A post author's name/avatar, a chat
-list name/avatar, and the conversation header name/avatar open a separate
+(Model → Service → ViewModel → View). A post author's name/avatar and the
+conversation header name/avatar open a separate
 `PublicProfileScreen`. In For You, tapping the signed-in user's own name/avatar
-selects the existing Profile shell destination instead. The chat preview still
-opens the conversation. Opening from the list does not mark it read; opening
+selects the existing Profile shell destination instead. In the chat list, the
+name, avatar and message preview all open the conversation. Opening a profile
 from the conversation pauses its active/read state until Back, preserving the
 draft. Opening another account preserves the shell destination, feed page and
 the owner's gallery. Missing chat user IDs disable only the profile action.

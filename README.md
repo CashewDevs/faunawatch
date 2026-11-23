@@ -207,15 +207,16 @@ and [mobile deep linking](https://supabase.com/docs/guides/auth/native-mobile-de
 
 ## Community profiles and public galleries
 
-Tap an author's name or avatar in For You, a name/avatar in the chat list, or
-the conversation header to open that account's public profile. Tapping your own
+Tap an author's name or avatar in For You or the conversation header to open
+that account's public profile. In the chat list, tapping the name, avatar or
+message preview opens the conversation. Tapping your own
 name or avatar in For You switches to your existing Profile tab. Public profiles
 use the existing banner, avatar, DM Sans typography and themed three-column gallery.
 Only approved posts appear; the owner's pending posts and preferences stay
 in their own Profile tab. Category filters, pull to refresh and older-page
 loading work independently of My Gallery. Tap a tile to browse that account's
 posts with likes/comments; Back restores the grid, feed or chat, including an
-unsent chat draft. Tapping the message preview still opens the chat.
+unsent chat draft.
 
 Before using the public gallery, you or the backend owner must run
 [`20261121233000_create_public_profile_gallery.sql`](supabase/migrations/20261121233000_create_public_profile_gallery.sql)

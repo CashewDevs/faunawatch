@@ -1,4 +1,5 @@
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
@@ -35,6 +36,7 @@ class _Messages extends FakeMessagesService {
     lastMessage: 'Hello!',
     timestamp: '1m ago',
     otherUserId: 'other',
+    avatarAsset: AppAssets.avatarBunny,
     isUnread: true,
   );
   int reads = 0;
@@ -245,20 +247,32 @@ void main() {
     );
 
     testWidgets(
-      'inbox ${avatar ? 'avatar' : 'name'} opens a profile without reading or opening the chat',
+      'inbox ${avatar ? 'avatar' : 'name'} opens the conversation before the profile',
       (tester) async {
         await pump(tester, const MessagesView());
-        final link = find.descendant(
-          of: find.byType(MessageTile),
-          matching: find.byType(ProfileLink),
+        await tester.tap(
+          avatar
+              ? find.descendant(
+                  of: find.byType(MessageTile),
+                  matching: find.byType(Image),
+                )
+              : find.text('Forest Ranger'),
         );
-        await tester.tap(avatar ? link.first : link.last);
         await tester.pumpAndSettle();
-        expect(find.byType(PublicProfileScreen), findsOneWidget);
-        expect(find.byType(ChatConversationView), findsNothing);
-        expect(messages.reads, 0);
-        await tester.pageBack();
+        expect(find.byType(PublicProfileScreen), findsNothing);
+        expect(find.byType(ChatConversationView), findsOneWidget);
+        expect(
+          tester
+              .widget<ChatConversationView>(find.byType(ChatConversationView))
+              .thread
+              .id,
+          _Messages.thread.id,
+        );
+        expect(public.profileRequests, isEmpty);
+        expect(public.postRequests, isEmpty);
+        await tester.tap(find.bySemanticsLabel('Back'));
         await tester.pumpAndSettle();
+        expect(find.byType(MessagesView), findsOneWidget);
         await tester.tap(find.text('Hello!'));
         await tester.pumpAndSettle();
         expect(find.byType(ChatConversationView), findsOneWidget);
