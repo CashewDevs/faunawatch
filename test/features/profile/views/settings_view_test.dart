@@ -159,13 +159,10 @@ void main() {
 
         expect(find.byType(DeleteAccountDialog), findsOneWidget);
         expect(
-          find.text('Are you sure you want to delete this account?'),
+          find.text('Are you sure you want to delete your account?'),
           findsOneWidget,
         );
-        expect(
-          find.text('What happens if you delete your account:'),
-          findsOneWidget,
-        );
+        expect(find.text('What happens next:'), findsOneWidget);
         expect(find.text('Cancel'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('delete_account_confirm_button')),
