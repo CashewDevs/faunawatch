@@ -78,3 +78,7 @@ enabled = false
 # (x-webhook-secret), not a Supabase user JWT.
 [functions.send-push]
 verify_jwt = false
+
+# Same for send-suspension-email (Database Webhook on user_sanctions).
+[functions.send-suspension-email]
+verify_jwt = false
