@@ -6,6 +6,9 @@ import 'package:faunawatch/features/feed/views/widgets/comment_input_bar.dart';
 import 'package:faunawatch/features/feed/views/widgets/comment_tile.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/profile/viewmodels/profile_viewmodel.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/viewmodels/account_suspension_viewmodel.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 
 /// Bottom sheet listing a post's comments, newest first, with a composer.
 ///
@@ -43,6 +46,7 @@ class PostCommentsSheet extends ConsumerWidget {
     final state = ref.watch(provider);
     final viewModel = ref.read(provider.notifier);
     final profile = ref.watch(profileViewModelProvider).asData?.value;
+    final suspension = ref.watch(accountSuspensionViewModelProvider);
     final mediaQuery = MediaQuery.of(context);
     final theme = Theme.of(context);
     return Padding(
@@ -82,16 +86,22 @@ class PostCommentsSheet extends ConsumerWidget {
                   ),
                 ),
               ),
-            CommentInputBar(
-              avatar: PostAvatar(
-                size: 40,
-                asset: profile?.presetAvatar,
-                filePath: profile?.customImagePath,
-                url: profile?.avatarUrl,
+            if (suspension != null)
+              SuspendedInputNote(
+                suspension: suspension,
+                action: SuspendedAction.comment,
+              )
+            else
+              CommentInputBar(
+                avatar: PostAvatar(
+                  size: 40,
+                  asset: profile?.presetAvatar,
+                  filePath: profile?.customImagePath,
+                  url: profile?.avatarUrl,
+                ),
+                isSending: state.isSending,
+                onSubmit: viewModel.addComment,
               ),
-              isSending: state.isSending,
-              onSubmit: viewModel.addComment,
-            ),
           ],
         ),
       ),

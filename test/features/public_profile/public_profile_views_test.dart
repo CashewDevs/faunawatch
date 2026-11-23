@@ -1,4 +1,5 @@
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/features/suspension/services/suspension_service.dart';
 import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
@@ -100,6 +101,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          // Signed in but not suspended; the real service needs Supabase.
+          suspensionServiceProvider.overrideWithValue(
+            const SignedOutSuspensionService(),
+          ),
           currentUserIdProvider.overrideWith((ref) => Stream.value('viewer')),
           publicProfileServiceProvider.overrideWithValue(public),
           feedServiceProvider.overrideWithValue(feed),

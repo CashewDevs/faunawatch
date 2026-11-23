@@ -10,6 +10,8 @@ import 'package:faunawatch/features/messages/views/chat_conversation_view.dart';
 import 'package:faunawatch/features/profile/views/widgets/profile_header_card.dart';
 import 'package:faunawatch/features/public_profile/viewmodels/public_profile_viewmodel.dart';
 import 'package:faunawatch/features/public_profile/views/screens/public_gallery_post_viewer.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,8 +23,10 @@ class PublicProfileScreen extends ConsumerWidget {
 
   Future<void> _openMessage(
     BuildContext context,
+    WidgetRef ref,
     PublicProfileViewModel vm,
   ) async {
+    if (blockedBySuspension(context, ref, SuspendedAction.message)) return;
     final thread = await vm.openPrivateChat();
     if (!context.mounted || thread == null) return;
     await Navigator.of(context).push<void>(
@@ -156,7 +160,7 @@ class PublicProfileScreen extends ConsumerWidget {
                               : profile,
                           onBack: () => Navigator.of(context).maybePop(),
                           onMessage: canMessage
-                              ? () => _openMessage(context, vm)
+                              ? () => _openMessage(context, ref, vm)
                               : null,
                           isOpeningMessage: state.isOpeningChat,
                         ),

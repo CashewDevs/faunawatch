@@ -8,6 +8,9 @@ import 'package:faunawatch/features/messages/views/widgets/chat_bubble.dart';
 import 'package:faunawatch/features/messages/views/widgets/chat_header.dart';
 import 'package:faunawatch/features/messages/views/widgets/chat_input_bar.dart';
 import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/viewmodels/account_suspension_viewmodel.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 
 class ChatConversationView extends ConsumerStatefulWidget {
   const ChatConversationView({super.key, required this.thread});
@@ -57,6 +60,7 @@ class _ChatConversationViewState extends ConsumerState<ChatConversationView> {
     final state = ref.watch(chatConversationViewModelProvider(thread.id));
     final vm = ref.read(chatConversationViewModelProvider(thread.id).notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final suspension = ref.watch(accountSuspensionViewModelProvider);
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
       body: Column(
@@ -125,35 +129,43 @@ class _ChatConversationViewState extends ConsumerState<ChatConversationView> {
                     ),
                   ),
           ),
-          if (state.photo != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Image.memory(
-                    state.photo!.bytes,
-                    width: 64,
-                    height: 64,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(Icons.image),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(child: Text('Photo ready to send')),
-                  IconButton(
-                    tooltip: 'Remove photo',
-                    onPressed: state.isSending ? null : vm.removePhoto,
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
+          if (suspension != null)
+            SuspendedInputNote(
+              suspension: suspension,
+              action: SuspendedAction.message,
+            )
+          else ...[
+            if (state.photo != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Image.memory(
+                      state.photo!.bytes,
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Icon(Icons.image),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(child: Text('Photo ready to send')),
+                    IconButton(
+                      tooltip: 'Remove photo',
+                      onPressed: state.isSending ? null : vm.removePhoto,
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
               ),
+            ChatInputBar(
+              key: ValueKey(vm.sessionRevision),
+              onSend: vm.sendMessage,
+              onAddImage: vm.pickPhoto,
+              isBusy:
+                  state.isLoading || state.isSending || state.isPickingPhoto,
+              hasPhoto: state.photo != null,
             ),
-          ChatInputBar(
-            key: ValueKey(vm.sessionRevision),
-            onSend: vm.sendMessage,
-            onAddImage: vm.pickPhoto,
-            isBusy: state.isLoading || state.isSending || state.isPickingPhoto,
-            hasPhoto: state.photo != null,
-          ),
+          ],
         ],
       ),
     );

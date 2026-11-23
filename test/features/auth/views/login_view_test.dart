@@ -1,4 +1,5 @@
 import 'package:faunawatch/features/auth/services/google_auth_service.dart';
+import 'package:faunawatch/features/suspension/services/suspension_service.dart';
 import '../fake_google_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +52,10 @@ void main() {
   Widget createWidgetUnderTest({FakeGoogleAuthService? googleAuth}) {
     return ProviderScope(
       overrides: [
+        // Signed in but not suspended; the real service needs Supabase.
+        suspensionServiceProvider.overrideWithValue(
+          const SignedOutSuspensionService(),
+        ),
         if (googleAuth != null)
           googleAuthServiceProvider.overrideWithValue(googleAuth),
         messagesServiceProvider.overrideWithValue(

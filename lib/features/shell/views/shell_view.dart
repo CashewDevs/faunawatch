@@ -12,6 +12,8 @@ import 'package:faunawatch/features/profile/views/profile_view.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_nav_bar.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 
 /// The root presentation widget containing the top app bar, active tab body,
 /// and bottom navigation bar.
@@ -148,6 +150,9 @@ class _ShellViewState extends ConsumerState<ShellView>
               // "+" opens the FaunaLens camera; FaunaLens opens the post form
               // on top of itself once there is a photo.
               if (destination == ShellDestination.addPost) {
+                if (blockedBySuspension(context, ref, SuspendedAction.post)) {
+                  return;
+                }
                 // Every "+" starts a fresh post; a draft left behind earlier
                 // is dropped.
                 ref.read(createPostViewModelProvider.notifier).reset();

@@ -9,12 +9,15 @@ import 'package:faunawatch/features/profile/views/widgets/profile_header_card.da
 import 'package:faunawatch/features/profile/views/widgets/profile_preferences_drawer.dart';
 import 'package:faunawatch/features/profile/views/widgets/sign_out_dialog.dart';
 import 'package:faunawatch/features/profile/views/widgets/theme_picker_sheet.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 
 /// Profile content and gallery, with preferences behind a hamburger menu.
 class ProfileView extends ConsumerWidget {
   const ProfileView({super.key});
 
-  void _openEditProfile(BuildContext context) {
+  void _openEditProfile(BuildContext context, WidgetRef ref) {
+    if (blockedBySuspension(context, ref, SuspendedAction.editProfile)) return;
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const EditProfileView()));
@@ -44,7 +47,7 @@ class ProfileView extends ConsumerWidget {
 
   /// Opens the profile sidebar on the root navigator so it layers above the
   /// shell's bottom navigation bar.
-  void _openProfileMenu(BuildContext context) {
+  void _openProfileMenu(BuildContext context, WidgetRef ref) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     showGeneralDialog<void>(
       context: context,
@@ -59,7 +62,7 @@ class ProfileView extends ConsumerWidget {
         alignment: Alignment.centerRight,
         child: ProfilePreferencesDrawer(
           onClose: () => Navigator.of(dialogContext).pop(),
-          onEditProfile: () => _openEditProfile(context),
+          onEditProfile: () => _openEditProfile(context, ref),
           onChangeTheme: () => _openThemePicker(context),
           onSettings: () => _openSettings(context),
           onSignOut: () => _showSignOutDialog(context),
@@ -131,7 +134,7 @@ class ProfileView extends ConsumerWidget {
         child: GalleryView(
           header: ProfileHeaderCard(
             profile: profile,
-            onOpenMenu: () => _openProfileMenu(context),
+            onOpenMenu: () => _openProfileMenu(context, ref),
           ),
         ),
       ),

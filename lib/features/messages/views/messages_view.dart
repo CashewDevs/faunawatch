@@ -12,6 +12,8 @@ import 'package:faunawatch/features/messages/views/widgets/message_tile.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_filter_chips.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_header.dart';
 import 'package:faunawatch/features/messages/views/widgets/messages_search_bar.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 
 /// Screen displaying the conversation message threads with search, pull-to-refresh,
 /// a New Chat pill beside the search bar, and All/Unread filters.
@@ -43,6 +45,7 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
   }
 
   Future<void> _openNewChat() async {
+    if (blockedBySuspension(context, ref, SuspendedAction.message)) return;
     final thread = await Navigator.of(context).push<MessageThread>(
       MaterialPageRoute(builder: (_) => const NewChatView()),
     );
