@@ -8,6 +8,7 @@ import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/features/profile/services/posts_privacy_service.dart';
 import 'package:faunawatch/features/profile/viewmodels/posts_privacy_viewmodel.dart';
 import 'package:faunawatch/features/profile/views/change_password_view.dart';
+import 'package:faunawatch/features/profile/views/widgets/delete_account_dialog.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
@@ -32,6 +33,15 @@ void main() {
       expect(find.text('ACCOUNT'), findsOneWidget);
       expect(find.text('Change password'), findsOneWidget);
       expect(find.text('Update your sign-in password'), findsOneWidget);
+      expect(find.text('Delete account'), findsOneWidget);
+      expect(
+        find.text('Permanently remove your account and data'),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(find.text('Delete account')).dy,
+        greaterThan(tester.getBottomLeft(find.text('Change password')).dy),
+      );
       expect(find.text('PRIVACY'), findsOneWidget);
       expect(find.text('Private posts'), findsOneWidget);
       expect(
@@ -47,7 +57,7 @@ void main() {
       expect(find.text('Hide my name on reports'), findsNothing);
       expect(
         tester.getTopLeft(find.text('PRIVACY')).dy,
-        greaterThan(tester.getBottomLeft(find.text('Change password')).dy),
+        greaterThan(tester.getBottomLeft(find.text('Delete account')).dy),
       );
       expect(find.text('Theme Mode'), findsNothing);
       expect(find.text('Sign Out'), findsNothing);
@@ -138,6 +148,35 @@ void main() {
       expect(find.text('Change Password'), findsOneWidget);
       expect(find.text('Update password'), findsOneWidget);
     });
+
+    testWidgets(
+      'tapping Delete account opens DeleteAccountDialog with explanations',
+      (tester) async {
+        await tester.pumpWidget(buildTestSettings());
+
+        await tester.tap(find.byKey(const ValueKey('settings_delete_account')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DeleteAccountDialog), findsOneWidget);
+        expect(
+          find.text('Are you sure you want to delete this account?'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('What happens if you delete your account:'),
+          findsOneWidget,
+        );
+        expect(find.text('Cancel'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('delete_account_confirm_button')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DeleteAccountDialog), findsNothing);
+      },
+    );
   });
 
   group('SettingsView AI keys', () {
