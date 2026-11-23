@@ -12,6 +12,9 @@ abstract final class AppAssets {
   static const String loginDesign = '$imagesPath/loginD.webp';
   static const String signUpDesign = '$imagesPath/signupD.webp';
   static const String introBackground = '$imagesPath/inBG.webp';
+  static const String onboardingBg1 = '$imagesPath/m1.png';
+  static const String onboardingBg2 = '$imagesPath/m2.png';
+  static const String onboardingBg3 = '$imagesPath/m3.png';
 
   /// The fox on the splash screen. Also the phone's own loading screen picture
   /// (flutter_native_splash), so the two match exactly.

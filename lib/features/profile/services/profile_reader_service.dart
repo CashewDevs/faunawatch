@@ -12,21 +12,50 @@ abstract interface class ProfileReaderService {
 class SupabaseProfileReaderService implements ProfileReaderService {
   const SupabaseProfileReaderService(this._client);
 
+  static const _profileColumnsWithBio =
+      'username, full_name, display_name, bio, avatar_path, banner_asset, banner_color';
+  static const _profileColumnsWithoutBio =
+      'username, full_name, display_name, avatar_path, banner_asset, banner_color';
+
   final SupabaseClient _client;
+
+  static bool _isMissingBioColumn(PostgrestException error) {
+    final code = error.code ?? '';
+    final message = error.message.toLowerCase();
+    final hasMissingColumnSignal =
+        code == '42703' ||
+        code == 'PGRST204' ||
+        message.contains('42703') ||
+        message.contains('pgrst204') ||
+        message.contains('does not exist') ||
+        message.contains('schema cache');
+    return hasMissingColumnSignal && message.contains('bio');
+  }
 
   @override
   Future<ProfileData> loadProfile(String userId) async =>
       await findProfile(userId) ?? const ProfileData();
 
+  Future<Map<String, dynamic>?> _fetchProfileRow(String userId) async {
+    try {
+      return await _client
+          .from('profiles')
+          .select(_profileColumnsWithBio)
+          .eq('id', userId)
+          .maybeSingle();
+    } on PostgrestException catch (error) {
+      if (!_isMissingBioColumn(error)) rethrow;
+      return await _client
+          .from('profiles')
+          .select(_profileColumnsWithoutBio)
+          .eq('id', userId)
+          .maybeSingle();
+    }
+  }
+
   /// Public identity, or null when the account no longer exists.
   Future<ProfileData?> findProfile(String userId) async {
-    final row = await _client
-        .from('profiles')
-        .select(
-          'username, full_name, display_name, avatar_path, banner_asset, banner_color',
-        )
-        .eq('id', userId)
-        .maybeSingle();
+    final row = await _fetchProfileRow(userId);
     if (row == null) return null;
 
     final name = ['username', 'full_name', 'display_name']
@@ -53,9 +82,9 @@ class SupabaseProfileReaderService implements ProfileReaderService {
             .createSignedUrl(avatarPath, 3600);
       }
     }
-    // Bio persistence still requires a schema decision; keep it empty.
     return ProfileData(
       username: name ?? '',
+      bio: (row['bio'] as String?)?.trim() ?? '',
       presetAvatar: preset,
       avatarUrl: avatarUrl,
       bannerAsset: row['banner_asset'] as String?,

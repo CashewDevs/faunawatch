@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:faunawatch/core/constants/app_assets.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
@@ -39,6 +40,16 @@ void main() {
       await tester.pump();
 
       expect(find.text('Spot & Identify'), findsOneWidget);
+      expect(find.text('Artwork Placeholder'), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Image &&
+              w.image is AssetImage &&
+              (w.image as AssetImage).assetName == AppAssets.onboardingBg1,
+        ),
+        findsOneWidget,
+      );
       expect(
         find.text(
           'Scan encounters through your camera to\nidentify species and risk levels.',
@@ -71,6 +82,15 @@ void main() {
 
         expect(find.text('Real-Time Alerts'), findsOneWidget);
         expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Image &&
+                w.image is AssetImage &&
+                (w.image as AssetImage).assetName == AppAssets.onboardingBg2,
+          ),
+          findsOneWidget,
+        );
+        expect(
           find.text(
             'Track live encounters and stay\nupdated on sightings near you.',
           ),
@@ -84,6 +104,15 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Protect & Report'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Image &&
+                w.image is AssetImage &&
+                (w.image as AssetImage).assetName == AppAssets.onboardingBg3,
+          ),
+          findsOneWidget,
+        );
         expect(
           find.text('Report animals in need and keep\nyour neighborhood safe.'),
           findsOneWidget,

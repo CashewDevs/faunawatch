@@ -984,6 +984,11 @@ Profile banners persist in `profiles.banner_asset` (preset asset identifier) or
 set. Apply `20261028000100_add_profile_banner.sql` before running clients that
 load or save banner preferences. Existing profiles may leave both fields null.
 
+Profile bios persist in `profiles.bio` (nullable text, max 50 characters). Apply
+`20261123083000_add_profile_bio.sql` in the Supabase SQL editor before running
+clients that read or save bios during onboarding setup, Edit Profile, or public
+profile views. Existing profiles leave `bio` null (rendered as empty).
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.

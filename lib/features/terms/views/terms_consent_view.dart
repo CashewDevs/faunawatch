@@ -109,6 +109,10 @@ class TermsConsentView extends ConsumerWidget {
                   children: [
                     PillButton(
                       label: 'I agree, continue  >',
+                      primaryBorder: state.canContinue
+                          ? AppColors.loginButtonStroke
+                          : null,
+                      primaryBorderWidth: state.canContinue ? 2.0 : 1.0,
                       onPressed: state.canContinue
                           ? () => _handleAccept(context, ref)
                           : null,
@@ -191,7 +195,7 @@ class _TermsHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Last updated $termsLastUpdated · v$termsVersion',
+              'v$termsVersion',
               style: GoogleFonts.dmSans(
                 color: AppColors.consentBodyText,
                 fontSize: 11,

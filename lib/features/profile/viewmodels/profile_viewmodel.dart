@@ -56,6 +56,10 @@ class ProfileViewModel extends AsyncNotifier<ProfileData> {
     }
   }
 
+  void restoreProfile(ProfileData profile) {
+    state = AsyncData(profile);
+  }
+
   Future<bool> save() async {
     final profile = state.asData?.value;
     if (profile == null) return false;
@@ -64,12 +68,23 @@ class ProfileViewModel extends AsyncNotifier<ProfileData> {
           .read(profileStorageServiceProvider)
           .saveProfile(profile);
       if (!saved) return false;
-      return await ref
-          .read(profileServiceProvider)
-          .saveProfileBanner(
-            bannerAsset: profile.bannerAsset,
-            colorValue: profile.bannerColorValue,
-          );
+      final profileService = ref.read(profileServiceProvider);
+      final identitySaved = await profileService.saveProfile(
+        username: profile.username,
+        bio: profile.bio,
+      );
+      if (!identitySaved) return false;
+      if (profile.customImagePath != null || profile.presetAvatar != null) {
+        final pictureSaved = await profileService.saveProfilePicture(
+          presetAvatar: profile.presetAvatar,
+          customImagePath: profile.customImagePath,
+        );
+        if (!pictureSaved) return false;
+      }
+      return await profileService.saveProfileBanner(
+        bannerAsset: profile.bannerAsset,
+        colorValue: profile.bannerColorValue,
+      );
     } catch (_) {
       return false;
     }

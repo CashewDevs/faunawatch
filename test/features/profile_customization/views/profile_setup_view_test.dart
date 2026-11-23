@@ -39,6 +39,11 @@ void main() {
       expect(find.text('0/50 characters'), findsOneWidget);
       expect(find.text('Continue'), findsOneWidget);
       expect(find.byType(TextField), findsNWidgets(2));
+      for (final field in tester.widgetList<TextField>(
+        find.byType(TextField),
+      )) {
+        expect(field.textAlign, TextAlign.center);
+      }
       expect(find.byType(ProfileContinueButton), findsOneWidget);
     });
 

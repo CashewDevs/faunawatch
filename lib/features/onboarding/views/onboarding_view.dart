@@ -6,7 +6,6 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/onboarding/models/onboarding_item.dart';
 import 'package:faunawatch/features/onboarding/viewmodels/onboarding_viewmodel.dart';
 import 'package:faunawatch/features/onboarding/views/widgets/begin_watch_button.dart';
-import 'package:faunawatch/features/onboarding/views/widgets/onboarding_artwork_placeholder.dart';
 import 'package:faunawatch/features/onboarding/views/widgets/onboarding_indicator.dart';
 import 'package:faunawatch/features/shell/views/shell_view.dart';
 
@@ -55,27 +54,32 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
 
     return Scaffold(
       backgroundColor: AppColors.onboardingBackground,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // Blue upper region with artwork placeholder
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: items.length,
-                onPageChanged: (index) {
-                  ref
-                      .read(onboardingViewModelProvider.notifier)
-                      .onPageChanged(index);
-                },
-                itemBuilder: (context, index) {
-                  return OnboardingArtworkPlaceholder(pageIndex: index);
-                },
-              ),
-            ),
-            // White bottom presentation card
-            Container(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Full-screen swipeable background artwork (m1, m2, m3)
+          PageView.builder(
+            controller: _pageController,
+            itemCount: items.length,
+            onPageChanged: (index) {
+              ref
+                  .read(onboardingViewModelProvider.notifier)
+                  .onPageChanged(index);
+            },
+            itemBuilder: (context, index) {
+              return Image.asset(
+                items[index].backgroundAsset,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                width: double.infinity,
+                height: double.infinity,
+              );
+            },
+          ),
+          // White bottom presentation card
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -162,8 +166,8 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/theme/app_theme.dart';
+import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/intro/views/intro_view.dart';
 import 'package:faunawatch/features/terms/views/terms_consent_view.dart';
 
@@ -56,6 +58,9 @@ void main() {
     testWidgets('expands one section at a time', (tester) async {
       await openTerms(tester);
 
+      expect(find.text('v1.0'), findsOneWidget);
+      expect(find.textContaining('Last updated'), findsNothing);
+
       const neighbourDetails =
           'Only share photos you took yourself. No harassment, spam or '
           'misleading reports. We may remove posts that break these rules.';
@@ -76,6 +81,20 @@ void main() {
     ) async {
       await openTerms(tester);
 
+      Border continueBorder() {
+        final container = tester.widget<Container>(
+          find
+              .descendant(
+                of: find.byType(PillButton),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        return (container.decoration! as BoxDecoration).border! as Border;
+      }
+
+      expect(continueBorder().top.color, AppColors.consentButtonBorder);
+
       await tester.tap(continueButton());
       await tester.pumpAndSettle();
       expect(find.byType(IntroView), findsNothing);
@@ -84,6 +103,7 @@ void main() {
         tester,
         find.text('I agree to the Terms of Service and Privacy Policy.'),
       );
+      expect(continueBorder().top.color, AppColors.consentButtonBorder);
       await tester.tap(continueButton());
       await tester.pumpAndSettle();
       expect(find.byType(IntroView), findsNothing);
@@ -92,6 +112,7 @@ void main() {
         tester,
         find.textContaining('I understand AI results are preliminary'),
       );
+      expect(continueBorder().top.color, AppColors.loginButtonStroke);
       await tester.tap(continueButton());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));

@@ -1,6 +1,10 @@
 import 'package:faunawatch/features/profile_customization/services/profile_service.dart';
 
 class FakeProfileService implements ProfileService {
+  String? savedUsername;
+  String? savedBio;
+  String? savedPresetAvatar;
+  String? savedCustomImagePath;
   String? savedBanner;
   int? savedColor;
   bool succeeds = true;
@@ -18,11 +22,21 @@ class FakeProfileService implements ProfileService {
   Future<bool> saveProfile({
     required String username,
     required String bio,
-  }) async => true;
+  }) async {
+    if (throwsOnSave) throw StateError('Unavailable');
+    savedUsername = username;
+    savedBio = bio;
+    return succeeds;
+  }
 
   @override
   Future<bool> saveProfilePicture({
     String? presetAvatar,
     String? customImagePath,
-  }) async => true;
+  }) async {
+    if (throwsOnSave) throw StateError('Unavailable');
+    savedPresetAvatar = presetAvatar;
+    savedCustomImagePath = customImagePath;
+    return succeeds;
+  }
 }

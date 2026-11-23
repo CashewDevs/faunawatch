@@ -124,6 +124,7 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
 
   Future<void> _handleSave() async {
     if (!_canSave) return;
+    final previous = ref.read(profileViewModelProvider).asData?.value;
     final username = _usernameController.text.trim();
     final bio = _bioController.text.trim();
 
@@ -144,6 +145,10 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
 
     setState(() => _isSaving = true);
     final success = await ref.read(profileViewModelProvider.notifier).save();
+
+    if (!success && previous != null) {
+      ref.read(profileViewModelProvider.notifier).restoreProfile(previous);
+    }
 
     if (!mounted) return;
     setState(() => _isSaving = false);
