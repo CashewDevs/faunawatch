@@ -44,6 +44,32 @@ void main() {
     });
   }
 
+  test(
+    'an old event or error handed over before the page opens is ignored',
+    () async {
+      // The auth stream gives a new listener its latest event, e.g. a reset
+      // link that failed earlier; it is not about this sign-in.
+      service.destination = AuthDestination.home;
+      service.beforeLaunchReturns = () {
+        service.events.addError(StateError('old reset link error'));
+        service.events.add(null);
+      };
+      await container.read(googleSignInViewModelProvider.notifier).signIn();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(googleSignInViewModelProvider).isBusy, isTrue);
+      expect(container.read(googleSignInViewModelProvider).error, isNull);
+      expect(service.resolutions, 0);
+
+      service.events.add(null);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(googleSignInViewModelProvider).destination,
+        AuthDestination.home,
+      );
+    },
+  );
+
   test('launch failure and retry use a safe error message', () async {
     service.launchError = StateError('sensitive provider response');
     final vm = container.read(googleSignInViewModelProvider.notifier);

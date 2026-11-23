@@ -9,6 +9,7 @@ import 'package:faunawatch/features/auth/views/widgets/auth_text_field.dart';
 import 'package:faunawatch/features/auth/views/widgets/google_auth_action.dart';
 import 'package:faunawatch/features/auth/viewmodels/google_sign_in_viewmodel.dart';
 import 'package:faunawatch/features/auth/views/widgets/login_action_button.dart';
+import 'package:faunawatch/features/password_reset/views/screens/forgot_password_view.dart';
 import 'package:faunawatch/features/shell/views/shell_view.dart';
 
 /// The Login screen displaying the cloud-themed header, credentials form,
@@ -41,6 +42,16 @@ class LoginView extends ConsumerWidget {
         );
       }
     }
+  }
+
+  /// Opens Forgot password with the email already typed here, if any.
+  void _openForgotPassword(BuildContext context, WidgetRef ref) {
+    final email = ref.read(loginViewModelProvider).email;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ForgotPasswordView(initialEmail: email),
+      ),
+    );
   }
 
   void _navigateToSignUp(BuildContext context) {
@@ -230,9 +241,7 @@ class LoginView extends ConsumerWidget {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: TextButton(
-                        onPressed: () {
-                          // Forgot password flow
-                        },
+                        onPressed: () => _openForgotPassword(context, ref),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 4,

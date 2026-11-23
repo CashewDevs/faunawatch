@@ -25,13 +25,22 @@ class GoogleSignInViewModel extends AutoDisposeNotifier<GoogleSignInState> {
     final attempt = ++_attempt;
     final service = ref.read(googleAuthServiceProvider);
     state = const GoogleSignInState(isBusy: true);
+    // The auth stream hands a new listener its latest event or error, which
+    // may be old (e.g. a reset link that failed earlier). Only what arrives
+    // after the Google page opened belongs to this attempt.
+    var launched = false;
     _subscription = service.signedIn.listen(
-      (_) => _complete(attempt),
-      onError: (Object error, StackTrace stack) => _fail(attempt),
+      (_) {
+        if (launched) _complete(attempt);
+      },
+      onError: (Object error, StackTrace stack) {
+        if (launched) _fail(attempt);
+      },
     );
     _timeout = Timer(const Duration(minutes: 3), () => _fail(attempt));
     try {
       final opened = await service.launchSignIn();
+      launched = true;
       if (!opened) _fail(attempt);
     } catch (_) {
       _fail(attempt);
