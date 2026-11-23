@@ -1019,6 +1019,24 @@ Profile bios persist in `profiles.bio` (nullable text, max 50 characters). Apply
 clients that read or save bios during onboarding setup, Edit Profile, or public
 profile views. Existing profiles leave `bio` null (rendered as empty).
 
+Suspensions (`user_sanctions`) have a reason `category` (`suspension_category`:
+spam, misleading_reports, inappropriate_content, harassment, hate_or_threats,
+scam_or_impersonation, other; null for older rows) and a `level`
+(`suspension_level`: `restricted` = can browse but not post, comment, like,
+message or edit their profile; `locked` = the same blocks, and the app shows
+only a suspension screen). Both levels are enforced by the same
+`is_suspended()` checks; the extra lock of `locked` is app-side. Suspended users
+also can't update `profiles` or upload/replace an avatar. The admin site calls
+`admin_suspend_user(user_id, category, level, reason, days)`; the older
+`(user_id, reason, days)` version stays for the live site until it is updated
+(category null, level restricted) and should then be dropped. The app reads
+its own active suspension with `my_active_suspension()` (no admin identity;
+locked first). A trigger adds an `account_suspended` notification for a new
+suspension and `account_reactivated` when an admin lifts one early (none when
+it simply ends), so the app hears about it through the live notifications
+stream. Apply `20261123120000_add_account_notification_types.sql` first, let it
+finish, then `20261123120100_add_suspension_levels.sql`.
+
 Update this file when introducing significant architectural changes,
 new dependencies, or new configuration requirements. Keep it consistent
 with the actual implementation — don't let it drift into aspiration.
