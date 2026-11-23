@@ -108,6 +108,8 @@ class _MessagesViewState extends ConsumerState<MessagesView> {
                 MessagesFilterChips(
                   selectedFilter: state.activeFilter,
                   onSelectFilter: viewModel.setFilter,
+                  selectedSortOrder: state.effectiveSortOrder,
+                  onSelectSortOrder: viewModel.setSortOrder,
                 ),
               ],
             ),

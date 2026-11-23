@@ -1,6 +1,19 @@
 /// Filter criteria for the Messages screen.
 enum MessagesFilter { all, unread }
 
+/// Sort order options for the Messages screen dropdown.
+enum MessagesSortOrder {
+  newest('Newest'),
+  oldest('Oldest'),
+  alphabeticalAZ('A–Z'),
+  alphabeticalZA('Z–A'),
+  unreadFirst('Unread first');
+
+  const MessagesSortOrder(this.label);
+
+  final String label;
+}
+
 /// Domain model representing a conversation/message thread.
 class MessageThread {
   const MessageThread({
@@ -98,6 +111,7 @@ class MessagesState {
   const MessagesState({
     this.threads = const [],
     this.activeFilter = MessagesFilter.all,
+    this.sortOrder = MessagesSortOrder.newest,
     this.searchQuery = '',
     this.isLoading = false,
     this.error,
@@ -105,31 +119,88 @@ class MessagesState {
 
   final List<MessageThread> threads;
   final MessagesFilter activeFilter;
+  final MessagesSortOrder? sortOrder;
   final String searchQuery;
   final bool isLoading;
   final String? error;
 
-  /// Returns threads filtered by [activeFilter] and [searchQuery].
+  /// Effective sort order (safe even across hot-reloaded instances).
+  MessagesSortOrder get effectiveSortOrder =>
+      sortOrder ?? MessagesSortOrder.newest;
+
+  /// Returns threads filtered by [activeFilter] and [searchQuery], then sorted
+  /// according to [effectiveSortOrder].
   List<MessageThread> get filteredThreads {
-    return threads.where((thread) {
+    final indexed = <(int, MessageThread)>[];
+    for (var i = 0; i < threads.length; i++) {
+      final thread = threads[i];
       if (activeFilter == MessagesFilter.unread && !thread.isUnread) {
-        return false;
+        continue;
       }
       if (searchQuery.trim().isNotEmpty) {
         final query = searchQuery.trim().toLowerCase();
         final matchSender = thread.senderName.toLowerCase().contains(query);
         final matchMessage = thread.lastMessage.toLowerCase().contains(query);
         if (!matchSender && !matchMessage) {
-          return false;
+          continue;
         }
       }
-      return true;
-    }).toList();
+      indexed.add((i, thread));
+    }
+
+    int compareNewest((int, MessageThread) a, (int, MessageThread) b) {
+      final aAt = a.$2.lastMessageAt;
+      final bAt = b.$2.lastMessageAt;
+      if (aAt != null && bAt != null) {
+        final cmp = bAt.compareTo(aAt);
+        if (cmp != 0) return cmp;
+      }
+      return a.$1.compareTo(b.$1);
+    }
+
+    switch (effectiveSortOrder) {
+      case MessagesSortOrder.newest:
+        indexed.sort(compareNewest);
+      case MessagesSortOrder.oldest:
+        indexed.sort((a, b) {
+          final aAt = a.$2.lastMessageAt;
+          final bAt = b.$2.lastMessageAt;
+          if (aAt != null && bAt != null) {
+            final cmp = aAt.compareTo(bAt);
+            if (cmp != 0) return cmp;
+          }
+          return b.$1.compareTo(a.$1);
+        });
+      case MessagesSortOrder.alphabeticalAZ:
+        indexed.sort((a, b) {
+          final cmp = a.$2.senderName.toLowerCase().compareTo(
+            b.$2.senderName.toLowerCase(),
+          );
+          return cmp != 0 ? cmp : a.$1.compareTo(b.$1);
+        });
+      case MessagesSortOrder.alphabeticalZA:
+        indexed.sort((a, b) {
+          final cmp = b.$2.senderName.toLowerCase().compareTo(
+            a.$2.senderName.toLowerCase(),
+          );
+          return cmp != 0 ? cmp : a.$1.compareTo(b.$1);
+        });
+      case MessagesSortOrder.unreadFirst:
+        indexed.sort((a, b) {
+          if (a.$2.isUnread != b.$2.isUnread) {
+            return a.$2.isUnread ? -1 : 1;
+          }
+          return compareNewest(a, b);
+        });
+    }
+
+    return [for (final item in indexed) item.$2];
   }
 
   MessagesState copyWith({
     List<MessageThread>? threads,
     MessagesFilter? activeFilter,
+    MessagesSortOrder? sortOrder,
     String? searchQuery,
     bool? isLoading,
     String? error,
@@ -138,6 +209,7 @@ class MessagesState {
     return MessagesState(
       threads: threads ?? this.threads,
       activeFilter: activeFilter ?? this.activeFilter,
+      sortOrder: sortOrder ?? effectiveSortOrder,
       searchQuery: searchQuery ?? this.searchQuery,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : error ?? this.error,
@@ -150,12 +222,19 @@ class MessagesState {
     return other is MessagesState &&
         other.threads == threads &&
         other.activeFilter == activeFilter &&
+        other.effectiveSortOrder == effectiveSortOrder &&
         other.searchQuery == searchQuery &&
         other.isLoading == isLoading &&
         other.error == error;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(threads, activeFilter, searchQuery, isLoading, error);
+  int get hashCode => Object.hash(
+    threads,
+    activeFilter,
+    effectiveSortOrder,
+    searchQuery,
+    isLoading,
+    error,
+  );
 }

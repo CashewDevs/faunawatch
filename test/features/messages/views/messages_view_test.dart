@@ -264,6 +264,93 @@ void main() {
       expect(find.byType(MessageTile), findsNWidgets(2));
     });
 
+    testWidgets(
+      'selected All/Unread chip has blue stroke, unselected has none, and Filter dropdown sorts threads',
+      (tester) async {
+        await tester.pumpWidget(buildTestWidget());
+        await tester.pumpAndSettle();
+
+        Border chipBorder(String label) {
+          final chip = find.descendant(
+            of: find.byType(MessagesFilterChips),
+            matching: find.ancestor(
+              of: find.text(label),
+              matching: find.byType(Container),
+            ),
+          );
+          final decoration =
+              tester.widget<Container>(chip.first).decoration! as BoxDecoration;
+          return decoration.border! as Border;
+        }
+
+        // Initially All is selected (blue stroke) and Unread is unselected (no visible stroke).
+        expect(chipBorder('All').top.color, AppColors.messagesSearchBorder);
+        expect(chipBorder('Unread').top.color, Colors.transparent);
+
+        // Selecting Unread moves the blue stroke to Unread.
+        await tester.tap(find.text('Unread'));
+        await tester.pumpAndSettle();
+        expect(chipBorder('Unread').top.color, AppColors.messagesSearchBorder);
+        expect(chipBorder('All').top.color, Colors.transparent);
+
+        await tester.tap(find.text('All'));
+        await tester.pumpAndSettle();
+
+        // Filter dropdown sits on the opposite (right) side with light yellow fill and blue stroke.
+        final filterPill = find.byKey(
+          const ValueKey('messages_sort_filter_pill'),
+        );
+        expect(filterPill, findsOneWidget);
+        final pillDecoration =
+            tester.widget<Container>(filterPill).decoration! as BoxDecoration;
+        expect(pillDecoration.color, AppColors.messagesFilterSelected);
+        expect(
+          (pillDecoration.border! as Border).top.color,
+          AppColors.messagesSearchBorder,
+        );
+        expect(
+          tester.getRect(filterPill).left,
+          greaterThan(tester.getRect(find.text('Unread')).right),
+        );
+
+        // Open Filter dropdown and sort by Z–A (Wildlife Rescue Team before Ranger Dave).
+        await tester.tap(filterPill);
+        await tester.pumpAndSettle();
+        expect(find.text('Newest'), findsOneWidget);
+        expect(find.text('Oldest'), findsOneWidget);
+        expect(find.text('A–Z'), findsOneWidget);
+        expect(find.text('Z–A'), findsOneWidget);
+        expect(find.text('Unread first'), findsOneWidget);
+
+        await tester.tap(find.text('Z–A'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(find.text('Wildlife Rescue Team')).dy,
+          lessThan(tester.getTopLeft(find.text('Ranger Dave')).dy),
+        );
+
+        // Sort by A–Z (Ranger Dave before Wildlife Rescue Team).
+        await tester.tap(filterPill);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('A–Z'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(find.text('Ranger Dave')).dy,
+          lessThan(tester.getTopLeft(find.text('Wildlife Rescue Team')).dy),
+        );
+
+        // Sort by Oldest reverses the original list order.
+        await tester.tap(filterPill);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Oldest'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getTopLeft(find.text('Wildlife Rescue Team')).dy,
+          lessThan(tester.getTopLeft(find.text('Ranger Dave')).dy),
+        );
+      },
+    );
+
     testWidgets('filters message list by search query input', (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
