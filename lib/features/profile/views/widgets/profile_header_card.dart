@@ -7,8 +7,9 @@ import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
 
 /// Top section of the Profile screen displaying the user's chosen banner,
-/// overlapping circular avatar, username, bio, optional top-left Back pill,
-/// optional Message button, optional menu button, and bottom divider line.
+/// overlapping circular avatar with username and bio to its right, optional
+/// Back and menu buttons, a Message action beside the name when space allows,
+/// and divider.
 class ProfileHeaderCard extends StatelessWidget {
   const ProfileHeaderCard({
     super.key,
@@ -59,8 +60,11 @@ class ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const double bannerHeight = 165.0;
-    const double bottomHeight = 85.0;
-    const double avatarSize = 84.0;
+    const double avatarSize = 104.0;
+    const double avatarOverlap = 36.0;
+    const double nameFontSize = 22.0;
+    final scheme = Theme.of(context).colorScheme;
+    final hasBio = profile.bio.trim().isNotEmpty;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -86,58 +90,103 @@ class ProfileHeaderCard extends StatelessWidget {
                               : AppColors.profileDefaultBanner,
                         ),
                 ),
-                // White bottom container with username, bio, and optional Message button
+                // Keep the name and bio together to the right of the avatar.
                 Container(
                   width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: bottomHeight),
-                  color: Colors.white,
-                  padding: const EdgeInsets.fromLTRB(118, 12, 16, 12),
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              profile.username.isNotEmpty
-                                  ? profile.username
-                                  : 'Profile',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
-                                color: Colors.black,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                              ),
+                  constraints: const BoxConstraints(
+                    minHeight: avatarSize - avatarOverlap + 18,
+                  ),
+                  color: scheme.surface,
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final messageButton = onMessage == null
+                          ? null
+                          : _ProfileMessageButton(
+                              isLoading: isOpeningMessage,
+                              onTap: onMessage!,
+                            );
+                      // Reserve readable name space alongside the actual button
+                      // width. Large text or narrow screens keep the action below.
+                      final minimumNameWidth =
+                          MediaQuery.textScalerOf(context).scale(nameFontSize) *
+                          3;
+                      final inlineMessage =
+                          messageButton != null &&
+                          constraints.maxWidth - avatarSize - 18 >=
+                              minimumNameWidth +
+                                  12 +
+                                  _ProfileMessageButton.preferredWidth(context);
+                      final name = Text(
+                        profile.username.isNotEmpty
+                            ? profile.username
+                            : 'Profile',
+                        style: GoogleFonts.dmSans(
+                          color: scheme.onSurface,
+                          fontSize: nameFontSize,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                          height: 1.2,
+                        ),
+                      );
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              minHeight: avatarSize - avatarOverlap - 18,
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              profile.bio,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
-                                color: const Color(0xFF222222),
-                                fontSize: 13,
-                                fontStyle: FontStyle.italic,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(width: avatarSize + 18),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (inlineMessage)
+                                        Row(
+                                          children: [
+                                            Expanded(child: name),
+                                            const SizedBox(width: 12),
+                                            messageButton,
+                                          ],
+                                        )
+                                      else
+                                        name,
+                                      if (hasBio) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          profile.bio,
+                                          style: GoogleFonts.dmSans(
+                                            color: scheme.onSurfaceVariant,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w400,
+                                            fontStyle: FontStyle.italic,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (messageButton != null && !inlineMessage) ...[
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: messageButton,
                             ),
                           ],
-                        ),
-                      ),
-                      if (onMessage != null) ...[
-                        const SizedBox(width: 10),
-                        _ProfileMessageButton(
-                          isLoading: isOpeningMessage,
-                          onTap: onMessage!,
-                        ),
-                      ],
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -145,11 +194,21 @@ class ProfileHeaderCard extends StatelessWidget {
             // Overlapping Circular Avatar
             Positioned(
               left: 20,
-              top: bannerHeight - (avatarSize / 2),
+              top: bannerHeight - avatarOverlap,
               child: SizedBox(
+                key: const ValueKey('profile_header_avatar'),
                 width: avatarSize,
                 height: avatarSize,
-                child: ClipOval(child: _buildAvatar()),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: ClipOval(child: _buildAvatar()),
+                  ),
+                ),
               ),
             ),
             if (onBack != null)
@@ -184,11 +243,12 @@ class ProfileHeaderCard extends StatelessWidget {
               ),
           ],
         ),
-        // Horizontal divider line
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          height: 1.5,
-          color: Colors.black.withValues(alpha: 0.85),
+        Divider(
+          height: 24,
+          thickness: 1,
+          indent: 20,
+          endIndent: 20,
+          color: scheme.outlineVariant,
         ),
       ],
     );
@@ -249,11 +309,32 @@ class _ProfileMessageButton extends StatelessWidget {
 
   static const _yellowBg = Color(0xFFFECE01);
   static const _blueFg = Color(0xFF1A5DC9);
+  static const _maxWidth = 180.0;
+  static const _iconSize = 16.0;
+  static const _labelGap = 6.0;
+  static const _horizontalPadding = 8.0;
+
+  static TextStyle get _labelStyle => GoogleFonts.dmSans(
+    fontSize: 13.5,
+    fontWeight: FontWeight.w800,
+    color: _blueFg,
+  );
+
+  static double preferredWidth(BuildContext context) {
+    final label = TextPainter(
+      text: TextSpan(text: 'Message', style: _labelStyle),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = label.width + _iconSize + _labelGap + _horizontalPadding * 2;
+    label.dispose();
+    return width.clamp(0, _maxWidth).toDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 140),
+      constraints: const BoxConstraints(minHeight: 44, maxWidth: _maxWidth),
       child: Semantics(
         button: true,
         label: 'Message',
@@ -267,14 +348,17 @@ class _ProfileMessageButton extends StatelessWidget {
           child: InkWell(
             onTap: isLoading ? null : onTap,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: _horizontalPadding,
+                vertical: 8,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isLoading)
                     const SizedBox(
-                      width: 16,
-                      height: 16,
+                      width: _iconSize,
+                      height: _iconSize,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: _blueFg,
@@ -283,20 +367,16 @@ class _ProfileMessageButton extends StatelessWidget {
                   else
                     const Icon(
                       Icons.chat_bubble_outline_rounded,
-                      size: 16,
+                      size: _iconSize,
                       color: _blueFg,
                     ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: _labelGap),
                   Flexible(
                     child: Text(
                       'Message',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.dmSans(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: _blueFg,
-                      ),
+                      style: _labelStyle,
                     ),
                   ),
                 ],

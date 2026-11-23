@@ -1061,6 +1061,9 @@ Profile bios persist in `profiles.bio` (nullable text, max 50 characters). Apply
 `20261123083000_add_profile_bio.sql` in the Supabase SQL editor before running
 clients that read or save bios during onboarding setup, Edit Profile, or public
 profile views. Existing profiles leave `bio` null (rendered as empty).
+New-account onboarding must persist the entered bio through `ProfileService`
+when the username/bio step's Continue succeeds, before advancing to profile
+picture setup. Later avatar and banner saves must preserve that bio.
 
 Suspensions (`user_sanctions`) have a reason `category` (`suspension_category`:
 spam, misleading_reports, inappropriate_content, harassment, hate_or_threats,

@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -173,6 +174,32 @@ void main() {
         tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
         isNotNull,
       );
+      expect(find.text('Choose Observation Location'), findsOneWidget);
+      final header = tester.widget<Container>(
+        find.byKey(const ValueKey('location_picker_header')),
+      );
+      expect(
+        (header.decoration! as BoxDecoration).color,
+        AppColors.searchHeaderBackground,
+      );
+      final bottomBar = tester.widget<Container>(
+        find.byKey(const ValueKey('location_picker_bottom_bar')),
+      );
+      expect(bottomBar.color, AppColors.searchHeaderBackground);
+      final hintText = tester.widget<Text>(
+        find.text('Place the pin where you saw the animal'),
+      );
+      expect(hintText.maxLines, 1);
+      expect(hintText.softWrap, isFalse);
+      final confirmBox = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('location_picker_confirm_box')),
+      );
+      final confirmGradient =
+          (confirmBox.decoration as BoxDecoration).gradient! as LinearGradient;
+      expect(confirmGradient.colors, const [
+        AppColors.onboardingButtonGradientStart,
+        AppColors.onboardingButtonGradientEnd,
+      ]);
       expect(tester.takeException(), isNull);
     },
   );

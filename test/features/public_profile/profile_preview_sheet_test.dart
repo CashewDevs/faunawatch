@@ -15,7 +15,6 @@ import 'package:faunawatch/features/profile/views/widgets/profile_header_card.da
 import 'package:faunawatch/features/public_profile/services/public_profile_service.dart';
 import 'package:faunawatch/features/public_profile/views/screens/public_profile_screen.dart';
 import 'package:faunawatch/features/public_profile/views/widgets/profile_preview_sheet.dart';
-import 'package:faunawatch/features/suspension/services/suspension_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
