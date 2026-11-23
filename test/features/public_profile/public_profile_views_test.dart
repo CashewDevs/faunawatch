@@ -147,7 +147,7 @@ void main() {
         expect(find.byTooltip('Profile & preferences'), findsNothing);
         expect(find.text('Edit Profile'), findsNothing);
         expect(find.text('Pending'), findsNothing);
-        // Back pill sits at the top left of the banner; Message button sits right of username.
+        // Back stays on the banner; Message sits beside the avatar, above the name.
         final headerRect = tester.getRect(find.byType(ProfileHeaderCard));
         final backRect = tester.getRect(find.text('Back'));
         expect(backRect.top, lessThan(headerRect.top + 80));
@@ -162,8 +162,16 @@ void main() {
           const Color(0xFF1A5DC9),
         );
         expect(
+          tester.getRect(messageButton).bottom,
+          lessThanOrEqualTo(tester.getRect(find.text('Forest Ranger')).top),
+        );
+        expect(
           tester.getRect(messageButton).left,
-          greaterThan(tester.getRect(find.text('Forest Ranger')).right),
+          greaterThan(
+            tester
+                .getRect(find.byKey(const ValueKey('profile_header_avatar')))
+                .right,
+          ),
         );
         final title = tester.widget<Text>(find.text('Public Gallery'));
         expect(

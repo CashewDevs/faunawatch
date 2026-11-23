@@ -8,7 +8,7 @@ import 'package:faunawatch/features/profile/models/profile_data.dart';
 
 /// Top section of the Profile screen displaying the user's chosen banner,
 /// overlapping circular avatar, username, bio, optional top-left Back pill,
-/// optional Message button, optional menu button, and bottom divider line.
+/// optional Message button beside the avatar, optional menu button, and divider.
 class ProfileHeaderCard extends StatelessWidget {
   const ProfileHeaderCard({
     super.key,
@@ -59,8 +59,10 @@ class ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const double bannerHeight = 165.0;
-    const double bottomHeight = 85.0;
-    const double avatarSize = 84.0;
+    const double avatarSize = 88.0;
+    const double avatarOverlap = avatarSize / 2;
+    final scheme = Theme.of(context).colorScheme;
+    final hasBio = profile.bio.trim().isNotEmpty;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -86,55 +88,61 @@ class ProfileHeaderCard extends StatelessWidget {
                               : AppColors.profileDefaultBanner,
                         ),
                 ),
-                // White bottom container with username, bio, and optional Message button
+                // Leave room for the avatar, then give identity the full width.
                 Container(
                   width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: bottomHeight),
-                  color: Colors.white,
-                  padding: const EdgeInsets.fromLTRB(118, 12, 16, 12),
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  color: scheme.surface,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              profile.username.isNotEmpty
-                                  ? profile.username
-                                  : 'Profile',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
-                                color: Colors.black,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                              ),
+                      if (onMessage != null)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minHeight: avatarOverlap + 12,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 10, bottom: 8),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: avatarSize + 12),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: _ProfileMessageButton(
+                                      isLoading: isOpeningMessage,
+                                      onTap: onMessage!,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              profile.bio,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
-                                color: const Color(0xFF222222),
-                                fontSize: 13,
-                                fontStyle: FontStyle.italic,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                          ),
+                        )
+                      else
+                        const SizedBox(height: avatarOverlap + 12),
+                      Text(
+                        profile.username.isNotEmpty
+                            ? profile.username
+                            : 'Profile',
+                        style: GoogleFonts.dmSans(
+                          color: scheme.onSurface,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                          height: 1.2,
                         ),
                       ),
-                      if (onMessage != null) ...[
-                        const SizedBox(width: 10),
-                        _ProfileMessageButton(
-                          isLoading: isOpeningMessage,
-                          onTap: onMessage!,
+                      if (hasBio) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          profile.bio,
+                          style: GoogleFonts.dmSans(
+                            color: scheme.onSurfaceVariant,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            height: 1.4,
+                          ),
                         ),
                       ],
                     ],
@@ -145,11 +153,21 @@ class ProfileHeaderCard extends StatelessWidget {
             // Overlapping Circular Avatar
             Positioned(
               left: 20,
-              top: bannerHeight - (avatarSize / 2),
+              top: bannerHeight - avatarOverlap,
               child: SizedBox(
+                key: const ValueKey('profile_header_avatar'),
                 width: avatarSize,
                 height: avatarSize,
-                child: ClipOval(child: _buildAvatar()),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: ClipOval(child: _buildAvatar()),
+                  ),
+                ),
               ),
             ),
             if (onBack != null)
@@ -184,11 +202,12 @@ class ProfileHeaderCard extends StatelessWidget {
               ),
           ],
         ),
-        // Horizontal divider line
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          height: 1.5,
-          color: Colors.black.withValues(alpha: 0.85),
+        Divider(
+          height: 24,
+          thickness: 1,
+          indent: 20,
+          endIndent: 20,
+          color: scheme.outlineVariant,
         ),
       ],
     );
@@ -253,7 +272,7 @@ class _ProfileMessageButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 140),
+      constraints: const BoxConstraints(minHeight: 44, maxWidth: 180),
       child: Semantics(
         button: true,
         label: 'Message',
