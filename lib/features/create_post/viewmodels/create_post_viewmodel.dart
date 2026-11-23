@@ -115,6 +115,17 @@ class CreatePostViewModel extends Notifier<CreatePostState> {
     );
   }
 
+  /// Clears the chosen observation location so the user can choose another.
+  void clearLocation() {
+    if (state.isBusy || state.submittedId != null) return;
+    _request++;
+    state = state.copyWith(
+      latitude: '',
+      longitude: '',
+      locationLabel: 'Pinned location',
+    );
+  }
+
   /// Removes the cover photo and its AI analysis. The first extra photo, if
   /// any, becomes the cover.
   void removePhoto() {

@@ -13,6 +13,7 @@ class PillButton extends StatelessWidget {
     required this.onPressed,
     this.isPrimary = true,
     this.isLoading = false,
+    this.primaryText,
     this.primaryBorder,
     this.primaryBorderWidth = 1.0,
     this.secondaryFill,
@@ -27,7 +28,8 @@ class PillButton extends StatelessWidget {
   final bool isPrimary;
   final bool isLoading;
 
-  /// Optional custom border for the primary style.
+  /// Optional text and border overrides for the primary style.
+  final Color? primaryText;
   final Color? primaryBorder;
   final double primaryBorderWidth;
 
@@ -41,7 +43,7 @@ class PillButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !isLoading;
     final textColor = isPrimary
-        ? AppColors.consentTitleNavy
+        ? primaryText ?? AppColors.consentTitleNavy
         : secondaryText ?? AppColors.consentTitleNavy;
     final radius = BorderRadius.circular(26);
 
