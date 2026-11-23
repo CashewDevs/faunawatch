@@ -52,5 +52,26 @@ void main() {
       viewModel.setAcceptedTerms(true);
       expect(state().expandedSection, 2);
     });
+
+    test('steps forward, backward, and skips cleanly within bounds', () {
+      expect(state().currentPage, 0);
+      expect(state().isConsentPage, isFalse);
+
+      viewModel.previousPage();
+      expect(state().currentPage, 0);
+
+      viewModel.nextPage();
+      expect(state().currentPage, 1);
+
+      viewModel.skipToConsent();
+      expect(state().currentPage, TermsConsentState.consentPageIndex);
+      expect(state().isConsentPage, isTrue);
+
+      viewModel.nextPage();
+      expect(state().currentPage, TermsConsentState.consentPageIndex);
+
+      viewModel.previousPage();
+      expect(state().currentPage, TermsConsentState.consentPageIndex - 1);
+    });
   });
 }

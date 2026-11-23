@@ -16,6 +16,7 @@ class PillButton extends StatelessWidget {
     this.primaryText,
     this.primaryBorder,
     this.primaryBorderWidth = 1.0,
+    this.primaryGradientColors,
     this.secondaryFill,
     this.secondaryBorder,
     this.secondaryText,
@@ -28,10 +29,11 @@ class PillButton extends StatelessWidget {
   final bool isPrimary;
   final bool isLoading;
 
-  /// Optional text and border overrides for the primary style.
+  /// Optional text, border, and gradient overrides for the primary style.
   final Color? primaryText;
   final Color? primaryBorder;
   final double primaryBorderWidth;
+  final List<Color>? primaryGradientColors;
 
   /// Colours of the secondary (outlined) style, for screens that follow the
   /// app's dark mode. They default to the original white outline.
@@ -57,11 +59,15 @@ class PillButton extends StatelessWidget {
           borderRadius: radius,
           color: isPrimary ? null : secondaryFill ?? Colors.white,
           gradient: isPrimary
-              ? const LinearGradient(
-                  colors: [
-                    AppColors.profileButtonGradientStart,
-                    AppColors.profileButtonGradientEnd,
-                  ],
+              ? LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors:
+                      primaryGradientColors ??
+                      const [
+                        AppColors.profileButtonGradientStart,
+                        AppColors.profileButtonGradientEnd,
+                      ],
                 )
               : null,
           border: Border.all(
