@@ -149,6 +149,64 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a result from the main key has no backup note', (tester) async {
+    await open(tester);
+    expect(find.byKey(const ValueKey('ai_backup_key_note')), findsNothing);
+  });
+
+  testWidgets('a result from the backup key says so at the top', (
+    tester,
+  ) async {
+    service.result = sampleIdentification().withBackupKeyUse(
+      const BackupKeyUse(
+        mainFailure: IdentificationFailure.rateLimited,
+        mainProvider: AiProvider.groq,
+      ),
+    );
+    await open(tester);
+
+    final note = find.byKey(const ValueKey('ai_backup_key_note'));
+    expect(note, findsOneWidget);
+    expect(
+      find.text(
+        'Your main Groq key is busy or out of quota, so your backup Gemini '
+        'key was used.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(note).dy,
+      lessThan(tester.getTopLeft(find.text('Possible species')).dy),
+    );
+    // The result can still be used as normal.
+    await tester.tap(find.text('Use these results'));
+    await tester.pumpAndSettle();
+    expect((choice! as UseAiResults).result.usedBackupKey, isTrue);
+  });
+
+  test('the backup note explains each reason', () {
+    String note(IdentificationFailure failure, AiProvider backup) =>
+        backupKeyNote(
+          BackupKeyUse(mainFailure: failure, mainProvider: AiProvider.gemini),
+          backupProvider: backup,
+        );
+
+    expect(
+      note(IdentificationFailure.invalidKey, AiProvider.openRouter),
+      'Your main Gemini key was rejected, so your backup OpenRouter key was '
+      'used. Check your main key in Settings › AI Integration.',
+    );
+    expect(
+      note(IdentificationFailure.unavailable, AiProvider.groq),
+      "Gemini isn't available right now, so your backup Groq key was used.",
+    );
+    expect(
+      note(IdentificationFailure.rateLimited, AiProvider.gemini),
+      'Your main Gemini key is busy or out of quota, so your backup Gemini '
+      'key was used.',
+    );
+  });
+
   testWidgets('warns about a possible invasive species only when matched', (
     tester,
   ) async {

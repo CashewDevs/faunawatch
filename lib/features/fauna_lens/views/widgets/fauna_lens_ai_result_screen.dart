@@ -159,6 +159,12 @@ class _FaunaLensAiResultScreenState
 
   List<Widget> _resultBody(AiIdentification result) {
     return [
+      if (result.backupKeyUse case final use?) ...[
+        _BackupKeyNote(
+          text: backupKeyNote(use, backupProvider: result.provider),
+        ),
+        const SizedBox(height: 12),
+      ],
       PossibleSpeciesCard(result: result),
       if (result.possibleInvasive) ...[
         const SizedBox(height: 12),
@@ -226,6 +232,49 @@ class _FaunaLensAiResultScreenState
         style: aiResultMutedStyle(context),
       ),
     ];
+  }
+}
+
+/// Why this result came from the backup key, e.g. "Your main Gemini key is
+/// busy or out of quota, so your backup Groq key was used."
+String backupKeyNote(BackupKeyUse use, {required AiProvider backupProvider}) {
+  final main = use.mainProvider.displayName;
+  final backup = backupProvider.displayName;
+  return switch (use.mainFailure) {
+    IdentificationFailure.invalidKey =>
+      'Your main $main key was rejected, so your backup $backup key was '
+          'used. Check your main key in Settings › AI Integration.',
+    IdentificationFailure.rateLimited =>
+      'Your main $main key is busy or out of quota, so your backup $backup '
+          'key was used.',
+    _ =>
+      "$main isn't available right now, so your backup $backup key was used.",
+  };
+}
+
+/// A quiet note at the top of the result when the backup key was used.
+class _BackupKeyNote extends StatelessWidget {
+  const _BackupKeyNote({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return AiResultCard(
+      key: const ValueKey('ai_backup_key_note'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.vpn_key_outlined,
+            size: 18,
+            color: aiResultMutedStyle(context).color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: aiResultMutedStyle(context))),
+        ],
+      ),
+    );
   }
 }
 

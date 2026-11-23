@@ -11,17 +11,20 @@ const _user = 'user-a';
 
 void main() {
   late FakeKeyStorage keys;
+  late FakeBackupKeyStorage backups;
   late Map<AiProvider, FakeVisionClient> clients;
   late AiIntegrationService service;
 
   setUp(() {
     keys = FakeKeyStorage();
+    backups = FakeBackupKeyStorage();
     clients = {
       for (final provider in AiProvider.values)
         provider: FakeVisionClient(defaultModel: '${provider.name}-default'),
     };
     service = AiIntegrationService(
       keys: keys,
+      backupKeys: backups,
       clients: clients,
       testImage: () async => Uint8List.fromList([9]),
     );
@@ -115,9 +118,51 @@ void main() {
     }
   });
 
+  group('backup key', () {
+    test('reports its provider, or none', () async {
+      expect(await service.backupProvider(_user), isNull);
+      backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+      expect(await service.backupProvider(_user), AiProvider.groq);
+    });
+
+    test('the backup test uses the backup key and its provider only', () async {
+      keys.keys[(_user, AiProvider.groq)] = 'main-groq';
+      backups.backups[_user] = (AiProvider.groq, 'backup-groq');
+
+      await service.testBackup(userId: _user, model: 'groq/model');
+
+      final client = clients[AiProvider.groq]!;
+      expect(client.keysUsed, ['backup-groq']);
+      expect(client.modelsUsed, ['groq/model']);
+      expect(clients[AiProvider.gemini]!.keysUsed, isEmpty);
+    });
+
+    test('the backup test needs a backup key', () async {
+      keys.keys[(_user, AiProvider.gemini)] = 'main-gemini';
+      await expectLater(
+        service.testBackup(userId: _user, model: 'm'),
+        failsWith(AiIntegrationFailure.noKey),
+      );
+      expect(clients[AiProvider.gemini]!.keysUsed, isEmpty);
+    });
+
+    test('backup test failures are mapped like the main test', () async {
+      backups.backups[_user] = (AiProvider.openRouter, 'or-backup');
+      clients[AiProvider.openRouter]!.failure = AiVisionFailure.rateLimited;
+      await expectLater(
+        service.testBackup(userId: _user, model: 'm'),
+        failsWith(AiIntegrationFailure.rateLimited),
+      );
+    });
+  });
+
   testWidgets('the built-in test image is a real PNG', (tester) async {
     keys.keys[(_user, AiProvider.gemini)] = 'gemini-key';
-    final real = AiIntegrationService(keys: keys, clients: clients);
+    final real = AiIntegrationService(
+      keys: keys,
+      backupKeys: backups,
+      clients: clients,
+    );
 
     await tester.runAsync(
       () => real.testConnection(

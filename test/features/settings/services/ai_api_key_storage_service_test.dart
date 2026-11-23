@@ -103,6 +103,98 @@ void main() {
       test('is safe to call when no keys exist', () async {
         await service.deleteAllKeys('nonexistent-user');
       });
+
+      test('also removes that user\'s backup key', () async {
+        final backup = SecureAiBackupKeyStorageService(storage: storage);
+        await backup.save(userA, AiProvider.groq, 'backup-a');
+        await backup.save(userB, AiProvider.groq, 'backup-b');
+
+        await service.deleteAllKeys(userA);
+
+        expect(await backup.readProvider(userA), isNull);
+        expect(await backup.readKey(userA), isNull);
+        expect(await backup.readKey(userB), 'backup-b');
+      });
+    });
+  });
+
+  group('SecureAiBackupKeyStorageService', () {
+    late _MemorySecureKeyValueStore storage;
+    late SecureAiBackupKeyStorageService backup;
+    late SecureAiApiKeyStorageService main;
+    const userId = 'user-abc-123';
+
+    setUp(() {
+      storage = _MemorySecureKeyValueStore();
+      backup = SecureAiBackupKeyStorageService(storage: storage);
+      main = SecureAiApiKeyStorageService(storage: storage);
+    });
+
+    test('has no backup until one is saved', () async {
+      expect(await backup.readProvider(userId), isNull);
+      expect(await backup.readKey(userId), isNull);
+    });
+
+    test('saves a trimmed key with its provider under its own name', () async {
+      await backup.save(userId, AiProvider.openRouter, '  or-backup  ');
+
+      expect(await backup.readProvider(userId), AiProvider.openRouter);
+      expect(await backup.readKey(userId), 'or-backup');
+      expect(storage.values['faunawatch.ai_key.$userId.backup'], 'or-backup');
+      expect(
+        storage.values['faunawatch.ai_key.$userId.backup_provider'],
+        'openRouter',
+      );
+    });
+
+    test('can be a second key for the same provider as a main key', () async {
+      await main.saveKey(userId, AiProvider.gemini, 'main-gemini');
+      await backup.save(userId, AiProvider.gemini, 'backup-gemini');
+
+      expect(await main.readKey(userId, AiProvider.gemini), 'main-gemini');
+      expect(await backup.readKey(userId), 'backup-gemini');
+    });
+
+    test(
+      'a new backup replaces the old one, even for another provider',
+      () async {
+        await backup.save(userId, AiProvider.groq, 'groq-backup');
+        await backup.save(userId, AiProvider.gemini, 'gemini-backup');
+
+        expect(await backup.readProvider(userId), AiProvider.gemini);
+        expect(await backup.readKey(userId), 'gemini-backup');
+      },
+    );
+
+    test('rejects an empty key and keeps the old backup', () async {
+      await backup.save(userId, AiProvider.groq, 'groq-backup');
+      await expectLater(
+        () => backup.save(userId, AiProvider.gemini, '   '),
+        throwsArgumentError,
+      );
+      expect(await backup.readProvider(userId), AiProvider.groq);
+    });
+
+    test('delete removes the key and its provider', () async {
+      await backup.save(userId, AiProvider.groq, 'groq-backup');
+      await backup.delete(userId);
+
+      expect(await backup.readProvider(userId), isNull);
+      expect(storage.values, isEmpty);
+    });
+
+    test('a provider without a key counts as no backup', () async {
+      storage.values['faunawatch.ai_key.$userId.backup_provider'] = 'groq';
+      expect(await backup.readProvider(userId), isNull);
+    });
+
+    test('removing a main key leaves the backup alone', () async {
+      await main.saveKey(userId, AiProvider.groq, 'main-groq');
+      await backup.save(userId, AiProvider.groq, 'backup-groq');
+
+      await main.deleteKey(userId, AiProvider.groq);
+
+      expect(await backup.readKey(userId), 'backup-groq');
     });
   });
 }

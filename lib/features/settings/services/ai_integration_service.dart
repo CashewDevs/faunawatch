@@ -33,6 +33,7 @@ class AiIntegrationException implements Exception {
 class AiIntegrationService {
   AiIntegrationService({
     required this._keys,
+    required this._backupKeys,
     required this._clients,
     Future<Uint8List> Function()? testImage,
   }) : _testImage = testImage ?? _drawTestImage;
@@ -42,6 +43,7 @@ class AiIntegrationService {
       'else: {"ok": true}';
 
   final AiApiKeyStorageService _keys;
+  final AiBackupKeyStorageService _backupKeys;
   final Map<AiProvider, AiVisionClient> _clients;
   final Future<Uint8List> Function() _testImage;
 
@@ -50,6 +52,24 @@ class AiIntegrationService {
     for (final provider in AiProvider.values)
       provider: (await _keys.readKey(userId, provider))?.isNotEmpty ?? false,
   };
+
+  /// The backup key's provider, or null when there is no backup key.
+  Future<AiProvider?> backupProvider(String userId) =>
+      _backupKeys.readProvider(userId);
+
+  /// Sends the small test photo to [model] with the backup key. Completes
+  /// normally when the backup key works.
+  Future<void> testBackup({
+    required String userId,
+    required String model,
+  }) async {
+    final provider = await _backupKeys.readProvider(userId);
+    final key = await _backupKeys.readKey(userId);
+    if (provider == null || key == null || key.isEmpty) {
+      throw const AiIntegrationException(AiIntegrationFailure.noKey);
+    }
+    await _sendTest(provider, key, model);
+  }
 
   /// The model [provider] uses when the user hasn't picked one.
   String defaultModelFor(AiProvider provider) =>
@@ -71,6 +91,10 @@ class AiIntegrationService {
     required String model,
   }) async {
     final key = await _requireKey(userId, provider);
+    await _sendTest(provider, key, model);
+  }
+
+  Future<void> _sendTest(AiProvider provider, String key, String model) async {
     final image = await _testImage();
     await _guard(
       () => _clients[provider]!.describeImage(
@@ -127,6 +151,7 @@ class AiIntegrationService {
 final aiIntegrationServiceProvider = Provider<AiIntegrationService>(
   (ref) => AiIntegrationService(
     keys: ref.watch(aiApiKeyStorageServiceProvider),
+    backupKeys: ref.watch(aiBackupKeyStorageServiceProvider),
     clients: ref.watch(aiVisionClientsProvider),
   ),
 );

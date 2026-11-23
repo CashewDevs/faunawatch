@@ -88,49 +88,11 @@ class _AiKeySetupViewState extends ConsumerState<AiKeySetupView> {
     }
   }
 
-  void _showFullAgreement(AiProvider provider) {
-    // TODO(legal): Link the full AI Keys Agreement document once it is
-    // published. Until then this shows the complete in-app agreement text.
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('AI Keys Agreement'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final (_, title, body) in aiKeysAgreementPoints(
-                provider,
-              )) ...[
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: title,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      TextSpan(text: body),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => _openLink(provider.termsUri),
-            child: Text('${provider.displayName} terms'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
+  void _showFullAgreement(AiProvider provider) => showAiKeysFullAgreement(
+    context,
+    provider: provider,
+    onOpenTerms: () => _openLink(provider.termsUri),
+  );
 
   /// Asks for agreement, then saves the typed key for [provider].
   Future<bool> _saveDraft(AiProvider provider) async {

@@ -16,11 +16,13 @@ const _user = 'user-a';
 
 void main() {
   late FakeKeyStorage keys;
+  late FakeBackupKeyStorage backups;
   late Map<AiProvider, FakeVisionClient> clients;
   late FakePreferencesService preferences;
 
   setUp(() {
     keys = FakeKeyStorage();
+    backups = FakeBackupKeyStorage();
     clients = {
       for (final provider in AiProvider.values)
         provider: FakeVisionClient(defaultModel: '${provider.name}-default'),
@@ -36,6 +38,7 @@ void main() {
         aiIntegrationServiceProvider.overrideWithValue(
           AiIntegrationService(
             keys: keys,
+            backupKeys: backups,
             clients: clients,
             testImage: () async => Uint8List.fromList([1]),
           ),
@@ -52,6 +55,102 @@ void main() {
 
   AiIntegrationViewModel viewModelOf(ProviderContainer container) =>
       container.read(aiIntegrationViewModelProvider.notifier);
+
+  group('backup key', () {
+    test('starts with no backup', () async {
+      final state = stateOf(await makeContainer());
+      expect(state.hasBackup, isFalse);
+      expect(state.backupModel, isNull);
+    });
+
+    test("uses the model picked for the backup's provider", () async {
+      backups.backups[_user] = (AiProvider.groq, 'backup');
+      preferences.saved[_user] = const AiPreferences(
+        models: {AiProvider.groq: 'groq-picked'},
+      );
+      var state = stateOf(await makeContainer());
+      expect(state.backupProvider, AiProvider.groq);
+      expect(state.backupModel, 'groq-picked');
+
+      backups.backups[_user] = (AiProvider.gemini, 'backup');
+      preferences.saved.clear();
+      state = stateOf(await makeContainer());
+      expect(state.backupModel, 'gemini-default');
+    });
+
+    test('Test backup passes or explains the failure', () async {
+      backups.backups[_user] = (AiProvider.openRouter, 'or-backup');
+      final container = await makeContainer();
+
+      await viewModelOf(container).testBackup();
+      expect(stateOf(container).backupTestStatus, AiTestStatus.passed);
+      expect(clients[AiProvider.openRouter]!.keysUsed, ['or-backup']);
+      expect(clients[AiProvider.openRouter]!.modelsUsed, [
+        'openRouter-default',
+      ]);
+      // The main test result is separate.
+      expect(stateOf(container).testStatus, AiTestStatus.idle);
+
+      clients[AiProvider.openRouter]!.failure = AiVisionFailure.invalidKey;
+      await viewModelOf(container).testBackup();
+      expect(stateOf(container).backupTestStatus, AiTestStatus.failed);
+      expect(
+        stateOf(container).backupTestFailure,
+        AiIntegrationFailure.invalidKey,
+      );
+    });
+
+    test('refreshKeys picks up an added, replaced or removed backup', () async {
+      final container = await makeContainer();
+      final viewModel = viewModelOf(container);
+
+      backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+      await viewModel.refreshKeys();
+      expect(stateOf(container).backupProvider, AiProvider.groq);
+
+      await viewModel.testBackup();
+      expect(stateOf(container).backupTestStatus, AiTestStatus.passed);
+
+      backups.backups[_user] = (AiProvider.gemini, 'gemini-backup');
+      await viewModel.refreshKeys();
+      expect(stateOf(container).backupProvider, AiProvider.gemini);
+      expect(stateOf(container).backupTestStatus, AiTestStatus.idle);
+
+      backups.backups.remove(_user);
+      await viewModel.refreshKeys();
+      expect(stateOf(container).hasBackup, isFalse);
+    });
+
+    test(
+      'a new key for the same backup provider clears the old result',
+      () async {
+        backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+        final container = await makeContainer();
+        await viewModelOf(container).testBackup();
+        expect(stateOf(container).backupTestStatus, AiTestStatus.passed);
+
+        viewModelOf(container).backupKeyChanged();
+        expect(stateOf(container).backupTestStatus, AiTestStatus.idle);
+      },
+    );
+
+    test(
+      'changing the model of the backup provider clears its test result',
+      () async {
+        keys.keys[(_user, AiProvider.groq)] = 'main';
+        backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+        preferences.saved[_user] = const AiPreferences(
+          provider: AiProvider.groq,
+        );
+        final container = await makeContainer();
+        await viewModelOf(container).testBackup();
+
+        await viewModelOf(container).selectModel('groq/other');
+        expect(stateOf(container).backupTestStatus, AiTestStatus.idle);
+        expect(stateOf(container).backupModel, 'groq/other');
+      },
+    );
+  });
 
   test('starts from saved choices and key status', () async {
     keys.keys[(_user, AiProvider.groq)] = 'k';

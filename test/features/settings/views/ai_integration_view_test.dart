@@ -8,6 +8,7 @@ import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/services/ai_integration_service.dart';
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
+import 'package:faunawatch/features/settings/views/ai_backup_key_view.dart';
 import 'package:faunawatch/features/settings/views/ai_integration_view.dart';
 import 'package:faunawatch/features/settings/views/ai_key_setup_view.dart';
 import 'package:flutter/material.dart';
@@ -20,11 +21,13 @@ const _user = 'user-a';
 
 void main() {
   late FakeKeyStorage keys;
+  late FakeBackupKeyStorage backups;
   late Map<AiProvider, FakeVisionClient> clients;
   late FakePreferencesService preferences;
 
   setUp(() {
     keys = FakeKeyStorage();
+    backups = FakeBackupKeyStorage();
     clients = {
       for (final provider in AiProvider.values)
         provider: FakeVisionClient(defaultModel: '${provider.name}-default'),
@@ -41,10 +44,12 @@ void main() {
         overrides: [
           currentUserIdProvider.overrideWith((ref) => Stream.value(_user)),
           aiApiKeyStorageServiceProvider.overrideWithValue(keys),
+          aiBackupKeyStorageServiceProvider.overrideWithValue(backups),
           aiPreferencesServiceProvider.overrideWithValue(preferences),
           aiIntegrationServiceProvider.overrideWithValue(
             AiIntegrationService(
               keys: keys,
+              backupKeys: backups,
               clients: clients,
               testImage: () async => Uint8List.fromList([1]),
             ),
@@ -191,6 +196,70 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Configured'), findsOneWidget);
+  });
+
+  group('backup key', () {
+    testWidgets('without a backup shows only the setup row', (tester) async {
+      keys.keys[(_user, AiProvider.gemini)] = 'k';
+      await pump(tester);
+      await tester.scrollUntilVisible(find.text('Backup key'), 200);
+
+      expect(find.text('BACKUP KEY'), findsOneWidget);
+      expect(find.text('Not set up. Tap to add one.'), findsOneWidget);
+      expect(find.text('Test backup'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a saved backup shows its provider, model and a test', (
+      tester,
+    ) async {
+      keys.keys[(_user, AiProvider.gemini)] = 'k';
+      backups.backups[_user] = (AiProvider.groq, 'groq-backup');
+      await pump(tester);
+      await tester.scrollUntilVisible(find.text('Test backup'), 200);
+
+      expect(find.text('Groq · groq-default'), findsOneWidget);
+      await tester.tap(find.text('Test backup'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Backup key ready'), findsOneWidget);
+      expect(clients[AiProvider.groq]!.keysUsed, ['groq-backup']);
+      expect(clients[AiProvider.gemini]!.keysUsed, isEmpty);
+    });
+
+    testWidgets('a failing backup test names the backup provider', (
+      tester,
+    ) async {
+      keys.keys[(_user, AiProvider.gemini)] = 'k';
+      backups.backups[_user] = (AiProvider.openRouter, 'or-backup');
+      clients[AiProvider.openRouter]!.failure = AiVisionFailure.invalidKey;
+      await pump(tester);
+      await tester.scrollUntilVisible(find.text('Test backup'), 200);
+
+      await tester.tap(find.text('Test backup'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('OpenRouter rejected the key. Check or replace it.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the backup row opens the backup screen and picks up a key', (
+      tester,
+    ) async {
+      await pump(tester);
+      await tester.scrollUntilVisible(find.text('Backup key'), 200);
+      await tester.tap(find.text('Backup key'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AiBackupKeyView), findsOneWidget);
+
+      backups.backups[_user] = (AiProvider.gemini, 'gemini-backup');
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AiBackupKeyView), findsNothing);
+      expect(find.text('Gemini · gemini-default'), findsOneWidget);
+    });
   });
 }
 

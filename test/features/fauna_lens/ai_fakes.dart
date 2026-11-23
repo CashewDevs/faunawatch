@@ -97,6 +97,34 @@ class FakeKeyStorage implements AiApiKeyStorageService {
   }
 }
 
+class FakeBackupKeyStorage implements AiBackupKeyStorageService {
+  final Map<String, (AiProvider, String)> backups = {};
+  Object? saveError, readError;
+
+  @override
+  Future<AiProvider?> readProvider(String userId) async {
+    if (readError != null) throw readError!;
+    return backups[userId]?.$1;
+  }
+
+  @override
+  Future<String?> readKey(String userId) async {
+    if (readError != null) throw readError!;
+    return backups[userId]?.$2;
+  }
+
+  @override
+  Future<void> save(String userId, AiProvider provider, String apiKey) async {
+    if (saveError != null) throw saveError!;
+    backups[userId] = (provider, apiKey.trim());
+  }
+
+  @override
+  Future<void> delete(String userId) async {
+    backups.remove(userId);
+  }
+}
+
 class FakeAiPhotoService implements AiPhotoService {
   bool fails = false;
   final List<String> prepared = [];
@@ -122,6 +150,9 @@ class FakeVisionClient implements AiVisionClient {
   String reply;
   final List<String> instructionsSent = [];
   AiVisionFailure? failure;
+
+  /// Fails only calls made with these keys (checked before [failure]).
+  final Map<String, AiVisionFailure> failByKey = {};
   List<AiModelOption> models = const [AiModelOption(id: 'listed-model')];
   final List<String> keysUsed = [];
   final List<String> modelsUsed = [];
@@ -144,7 +175,8 @@ class FakeVisionClient implements AiVisionClient {
     instructionsSent.add(instructions);
     mimeTypes.add(mimeType);
     imagesSent.add(imageBytes);
-    if (failure != null) throw AiVisionException(failure!);
+    final failed = failByKey[apiKey] ?? failure;
+    if (failed != null) throw AiVisionException(failed);
     return reply;
   }
 

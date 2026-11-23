@@ -5,6 +5,7 @@ import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/services/ai_photo_service.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_reference_service.dart';
+import 'package:faunawatch/features/settings/models/ai_preferences.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
 import 'package:faunawatch/features/settings/services/ai_preferences_service.dart';
@@ -17,6 +18,7 @@ import 'package:faunawatch/features/settings/services/ai_preferences_service.dar
 class SpeciesIdentificationService {
   SpeciesIdentificationService({
     required this._keys,
+    required this._backupKeys,
     required this._photos,
     required this._clients,
     required this._references,
@@ -81,6 +83,7 @@ Rules:
   }
 
   final AiApiKeyStorageService _keys;
+  final AiBackupKeyStorageService _backupKeys;
   final AiPhotoService _photos;
   final Map<AiProvider, AiVisionClient> _clients;
   final SpeciesReferenceService _references;
@@ -92,17 +95,17 @@ Rules:
     required String userId,
     required String photoPath,
   }) async {
-    final (provider, _, reply) = await _ask(
+    final answer = await _ask(
       userId: userId,
       photoPath: photoPath,
       instructions: findInstructions,
     );
     try {
-      return AnimalBox.listFromModelReply(reply);
+      return AnimalBox.listFromModelReply(answer.reply);
     } on FormatException {
       throw IdentificationException(
         IdentificationFailure.badResponse,
-        provider: provider,
+        provider: answer.provider,
       );
     }
   }
@@ -125,19 +128,20 @@ Rules:
         'must be 1 to ${AnimalBox.maxChosen}',
       );
     }
-    final (provider, model, reply) = await _ask(
+    final answer = await _ask(
       userId: userId,
       photoPath: photoPath,
       instructions: instructionsFor(boxes),
       boxes: boxes,
     );
+    final provider = answer.provider;
 
-    final AiIdentification result;
+    AiIdentification result;
     try {
       result = AiIdentification.fromModelReply(
-        reply,
+        answer.reply,
         provider: provider,
-        model: model,
+        model: answer.model,
         promptVersion: promptVersion,
         boxes: boxes,
       );
@@ -146,6 +150,9 @@ Rules:
         IdentificationFailure.badResponse,
         provider: provider,
       );
+    }
+    if (answer.backupKeyUse != null) {
+      result = result.withBackupKeyUse(answer.backupKeyUse!);
     }
 
     if (result.animalPresent == false) {
@@ -170,16 +177,36 @@ Rules:
     return result;
   }
 
+  /// Main-key failures a different key might get past: the key was rejected,
+  /// is out of quota or busy, or its provider (or model) is down. Not network
+  /// problems, unreadable photos or odd replies, which another key can't fix.
+  static const _backupHelps = {
+    IdentificationFailure.invalidKey,
+    IdentificationFailure.rateLimited,
+    IdentificationFailure.unavailable,
+  };
+
+  static IdentificationFailure _failureFor(AiVisionFailure failure) =>
+      switch (failure) {
+        AiVisionFailure.invalidKey => IdentificationFailure.invalidKey,
+        AiVisionFailure.rateLimited => IdentificationFailure.rateLimited,
+        AiVisionFailure.unavailable => IdentificationFailure.unavailable,
+        AiVisionFailure.network => IdentificationFailure.network,
+        AiVisionFailure.badResponse => IdentificationFailure.badResponse,
+      };
+
   /// Sends the prepared photo, with [boxes] drawn on it, and [instructions]
-  /// to the user's provider. Returns the provider, model and text reply.
-  Future<(AiProvider, String, String)> _ask({
+  /// to the user's provider. If the main key fails in a way another key
+  /// might get past, tries the backup key once with the same photo. Throws
+  /// the main key's failure when both fail.
+  Future<_Answer> _ask({
     required String userId,
     required String photoPath,
     required String instructions,
     List<AnimalBox> boxes = const [],
   }) async {
-    final (provider, apiKey, model) = await _choose(userId);
-    final client = _clients[provider]!;
+    final preferences = await _preferences.load(userId);
+    final (provider, apiKey, model) = await _choose(userId, preferences);
 
     final AiPhoto photo;
     try {
@@ -197,32 +224,81 @@ Rules:
       );
     }
 
+    Future<String> send(AiProvider provider, String apiKey, String model) =>
+        _clients[provider]!.describeImage(
+          apiKey: apiKey,
+          model: model,
+          imageBytes: photo.bytes,
+          mimeType: photo.mimeType,
+          instructions: instructions,
+        );
+
+    final IdentificationFailure mainFailure;
     try {
-      final reply = await client.describeImage(
-        apiKey: apiKey,
-        model: model,
-        imageBytes: photo.bytes,
-        mimeType: photo.mimeType,
-        instructions: instructions,
-      );
-      return (provider, model, reply);
+      return _Answer(provider, model, await send(provider, apiKey, model));
     } on AiVisionException catch (error) {
-      throw IdentificationException(switch (error.failure) {
-        AiVisionFailure.invalidKey => IdentificationFailure.invalidKey,
-        AiVisionFailure.rateLimited => IdentificationFailure.rateLimited,
-        AiVisionFailure.unavailable => IdentificationFailure.unavailable,
-        AiVisionFailure.network => IdentificationFailure.network,
-        AiVisionFailure.badResponse => IdentificationFailure.badResponse,
-      }, provider: provider);
+      mainFailure = _failureFor(error.failure);
+    }
+
+    if (_backupHelps.contains(mainFailure)) {
+      final backup = await _backup(userId, preferences);
+      if (backup != null) {
+        final (backupProvider, backupKey, backupModel) = backup;
+        // Only the failure kinds are logged, never a key or reply.
+        debugPrint(
+          'SpeciesIdentificationService: main key failed '
+          '(${mainFailure.name}), trying the backup key',
+        );
+        try {
+          return _Answer(
+            backupProvider,
+            backupModel,
+            await send(backupProvider, backupKey, backupModel),
+            backupKeyUse: BackupKeyUse(
+              mainFailure: mainFailure,
+              mainProvider: provider,
+            ),
+          );
+        } on AiVisionException catch (error) {
+          debugPrint(
+            'SpeciesIdentificationService: backup key failed too '
+            '(${error.failure.name})',
+          );
+        }
+      }
+    }
+    throw IdentificationException(mainFailure, provider: provider);
+  }
+
+  /// The backup's provider, key and model (the one picked for that provider,
+  /// else its default), or null when there is no backup key.
+  Future<(AiProvider, String, String)?> _backup(
+    String userId,
+    AiPreferences preferences,
+  ) async {
+    try {
+      final provider = await _backupKeys.readProvider(userId);
+      final key = await _backupKeys.readKey(userId);
+      if (provider == null || key == null || key.isEmpty) return null;
+      final model =
+          preferences.models[provider] ?? _clients[provider]!.defaultModel;
+      return (provider, key, model);
+    } catch (error) {
+      // A storage problem with the backup must not hide the main failure.
+      debugPrint('SpeciesIdentificationService: backup key unreadable');
+      return null;
     }
   }
 
   /// The provider, key and model to use. A provider the user chose is used
   /// even without a key (they are asked to add one) rather than silently
   /// billing another provider. Without a choice, the first provider in
-  /// [AiProvider.fallbackOrder] with a key is used.
-  Future<(AiProvider, String, String)> _choose(String userId) async {
-    final preferences = await _preferences.load(userId);
+  /// [AiProvider.fallbackOrder] with a key is used. The backup key is never
+  /// chosen here: it is only tried after the main key fails.
+  Future<(AiProvider, String, String)> _choose(
+    String userId,
+    AiPreferences preferences,
+  ) async {
     final candidates = preferences.provider == null
         ? AiProvider.fallbackOrder
         : [preferences.provider!];
@@ -241,10 +317,23 @@ Rules:
   }
 }
 
+/// A provider's reply and who gave it.
+class _Answer {
+  const _Answer(this.provider, this.model, this.reply, {this.backupKeyUse});
+
+  /// The provider and model that answered: the backup's when
+  /// [backupKeyUse] is set.
+  final AiProvider provider;
+  final String model;
+  final String reply;
+  final BackupKeyUse? backupKeyUse;
+}
+
 final speciesIdentificationServiceProvider =
     Provider<SpeciesIdentificationService>(
       (ref) => SpeciesIdentificationService(
         keys: ref.watch(aiApiKeyStorageServiceProvider),
+        backupKeys: ref.watch(aiBackupKeyStorageServiceProvider),
         photos: ref.watch(aiPhotoServiceProvider),
         clients: ref.watch(aiVisionClientsProvider),
         references: ref.watch(speciesReferenceServiceProvider),
