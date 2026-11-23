@@ -58,6 +58,15 @@ void main() {
   ) async {
     await pump(tester, [_item('a', NotificationType.system)]);
 
+    // Three-dot menu lives on the same row as All and Unread (not the header).
+    final menuRect = tester.getRect(find.byTooltip('Notification options'));
+    final allRect = tester.getRect(find.text('All'));
+    expect(menuRect.center.dy, closeTo(allRect.center.dy, 6));
+    expect(
+      menuRect.left,
+      greaterThan(tester.getRect(find.text('Unread')).right),
+    );
+
     await tester.tap(find.byTooltip('Notification options'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Clear all'));

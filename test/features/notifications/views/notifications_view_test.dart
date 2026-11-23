@@ -45,7 +45,7 @@ void main() {
 
   group('NotificationsView Widgets and Visual Hierarchy', () {
     testWidgets(
-      'renders NotificationsHeader with gradient and extrabold title',
+      'renders NotificationsHeader with horizontally flipped gradient and right-aligned extrabold title',
       (tester) async {
         await tester.pumpWidget(buildTestNotificationsView());
         await tester.pumpAndSettle();
@@ -62,23 +62,50 @@ void main() {
         final decoration = container.decoration as BoxDecoration?;
         expect(decoration?.gradient, isA<LinearGradient>());
         final gradient = decoration!.gradient as LinearGradient;
-        expect(gradient.begin, Alignment.centerLeft);
-        expect(gradient.end, Alignment.centerRight);
+        expect(gradient.begin, Alignment.centerRight);
+        expect(gradient.end, Alignment.centerLeft);
         expect(gradient.colors.first, AppColors.messagesHeaderGradientStart);
         expect(gradient.colors.last, AppColors.messagesHeaderGradientEnd);
+
+        // Title is right-aligned (not centered).
+        final headerRect = tester.getRect(headerFinder);
+        final titleRect = tester.getRect(find.text('Notifications'));
+        expect(titleRect.right, greaterThan(headerRect.center.dx + 100));
       },
     );
 
-    testWidgets('renders filter chips with All and Unread options', (
-      tester,
-    ) async {
-      await tester.pumpWidget(buildTestNotificationsView());
-      await tester.pumpAndSettle();
+    testWidgets(
+      'renders filter chips with All and Unread options and blue stroke on selected',
+      (tester) async {
+        await tester.pumpWidget(buildTestNotificationsView());
+        await tester.pumpAndSettle();
 
-      expect(find.byType(NotificationsFilterChips), findsOneWidget);
-      expect(find.text('All'), findsOneWidget);
-      expect(find.text('Unread'), findsOneWidget);
-    });
+        expect(find.byType(NotificationsFilterChips), findsOneWidget);
+        expect(find.text('All'), findsOneWidget);
+        expect(find.text('Unread'), findsOneWidget);
+
+        Border chipBorder(String label) {
+          final chip = find.descendant(
+            of: find.byType(NotificationsFilterChips),
+            matching: find.ancestor(
+              of: find.text(label),
+              matching: find.byType(Container),
+            ),
+          );
+          final decoration =
+              tester.widget<Container>(chip.first).decoration! as BoxDecoration;
+          return decoration.border! as Border;
+        }
+
+        expect(chipBorder('All').top.color, AppColors.messagesSearchBorder);
+        expect(chipBorder('Unread').top.color, Colors.transparent);
+
+        await tester.tap(find.text('Unread'));
+        await tester.pumpAndSettle();
+        expect(chipBorder('Unread').top.color, AppColors.messagesSearchBorder);
+        expect(chipBorder('All').top.color, Colors.transparent);
+      },
+    );
 
     testWidgets(
       'unread notification has #FFFBE9 background and #FECE01 left bar',
