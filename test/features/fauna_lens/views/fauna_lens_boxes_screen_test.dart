@@ -1,4 +1,5 @@
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
 import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
@@ -32,7 +33,10 @@ void main() {
     popped = false;
   });
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(
+    WidgetTester tester, {
+    FaunaLensPhoto photo = _photo,
+  }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.reset);
@@ -51,7 +55,7 @@ void main() {
                 onPressed: () async {
                   choice = await Navigator.of(context).push<AiResultChoice>(
                     MaterialPageRoute(
-                      builder: (_) => const FaunaLensBoxesScreen(photo: _photo),
+                      builder: (_) => FaunaLensBoxesScreen(photo: photo),
                     ),
                   );
                   popped = true;
@@ -208,6 +212,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(choice, isA<RetakeFromAiResult>());
   });
+
+  testWidgets(
+    'gallery mode gives Choose another photo more width than Draw a box',
+    (tester) async {
+      await open(
+        tester,
+        photo: const FaunaLensPhoto(
+          path: 'missing.jpg',
+          source: FaunaLensPhotoSource.gallery,
+        ),
+      );
+      final drawWidth = tester
+          .getSize(find.widgetWithText(PillButton, 'Draw a box'))
+          .width;
+      final chooseWidth = tester
+          .getSize(find.widgetWithText(PillButton, 'Choose another photo'))
+          .width;
+      expect(chooseWidth, greaterThan(drawWidth));
+      expect(chooseWidth / drawWidth, closeTo(5 / 3, 0.05));
+
+      final analyseButton = tester.widget<PillButton>(
+        find.widgetWithText(PillButton, 'Analyse animal'),
+      );
+      expect(analyseButton.primaryText, AppColors.faunaLensBlue);
+    },
+  );
 
   testWidgets('back from the AI Result keeps the boxes screen', (tester) async {
     await open(tester);

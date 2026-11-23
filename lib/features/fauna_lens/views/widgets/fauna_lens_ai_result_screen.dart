@@ -1,3 +1,4 @@
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
@@ -121,31 +122,43 @@ class _FaunaLensAiResultScreenState
                   children: [
                     PillButton(
                       label: 'Use these results',
+                      primaryText: AppColors.faunaLensBlue,
                       onPressed: state.canUseResults
                           ? () =>
                                 Navigator.of(context).pop(UseAiResults(result!))
                           : null,
                     ),
                     const SizedBox(height: 10),
-                    PillButton(
-                      label: 'Analyse again',
-                      isPrimary: false,
-                      secondaryFill: colors.outlineFill,
-                      secondaryBorder: colors.outlineBorder,
-                      secondaryText: colors.outlineText,
-                      onPressed: state.isAnalyzing ? null : _analyze,
-                    ),
-                    const SizedBox(height: 10),
-                    PillButton(
-                      label: isGallery
-                          ? 'Choose another photo'
-                          : 'Retake photo',
-                      isPrimary: false,
-                      secondaryFill: colors.outlineFill,
-                      secondaryBorder: colors.outlineBorder,
-                      secondaryText: colors.outlineText,
-                      onPressed: () =>
-                          Navigator.of(context).pop(const RetakeFromAiResult()),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: isGallery ? 2 : 1,
+                          child: PillButton(
+                            label: 'Analyse again',
+                            isPrimary: false,
+                            secondaryFill: colors.outlineFill,
+                            secondaryBorder: colors.outlineBorder,
+                            secondaryText: colors.outlineText,
+                            onPressed: state.isAnalyzing ? null : _analyze,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: isGallery ? 3 : 1,
+                          child: PillButton(
+                            label: isGallery
+                                ? 'Choose another photo'
+                                : 'Retake photo',
+                            isPrimary: false,
+                            secondaryFill: colors.outlineFill,
+                            secondaryBorder: colors.outlineBorder,
+                            secondaryText: colors.outlineText,
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pop(const RetakeFromAiResult()),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -278,7 +291,7 @@ class _BackupKeyNote extends StatelessWidget {
   }
 }
 
-/// Thumbnail, "Preliminary AI assessment" chip and the always-on disclaimer.
+/// Centered enlarged photo, "Preliminary AI assessment" chip, and disclaimer.
 class _PhotoSummary extends StatelessWidget {
   const _PhotoSummary({required this.photo, required this.boxes});
 
@@ -287,51 +300,44 @@ class _PhotoSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            width: 68,
-            child: BoxedPhoto(
-              path: photo.path,
-              boxes: boxes,
-              chosen: {for (final box in boxes) box.color},
-              showLabels: false,
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 240, maxWidth: 280),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BoxedPhoto(
+                path: photo.path,
+                boxes: boxes,
+                chosen: {for (final box in boxes) box.color},
+                showLabels: false,
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: FaunaLensTheme.of(context).badge,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '✦ Preliminary AI assessment',
-                  style: GoogleFonts.dmSans(
-                    color: FaunaLensTheme.of(context).badgeText,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'AI can be wrong. Please check the results before you post.',
-                style: aiResultBodyStyle(context).copyWith(fontSize: 12),
-              ),
-            ],
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: FaunaLensTheme.of(context).badge,
+            borderRadius: BorderRadius.circular(10),
           ),
+          child: Text(
+            '✦ Preliminary AI assessment',
+            style: GoogleFonts.dmSans(
+              color: FaunaLensTheme.of(context).badgeText,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'AI can be wrong. Please check the results before you post.',
+          textAlign: TextAlign.center,
+          style: aiResultBodyStyle(context).copyWith(fontSize: 12),
         ),
       ],
     );

@@ -256,6 +256,14 @@ void main() {
       locations.location = const GeoCoordinates(latitude: 11, longitude: 125);
       await vm.locate();
       expect(container.read(createPostViewModelProvider).latitude, '11.0');
+      expect(
+        container.read(createPostViewModelProvider).locationLabel,
+        'Current location',
+      );
+      vm.clearLocation();
+      expect(container.read(createPostViewModelProvider).hasLocation, isFalse);
+      await vm.locate();
+      expect(container.read(createPostViewModelProvider).latitude, '11.0');
       // A location the user chose stays for a photo without one.
       vm.usePhoto(
         const FaunaLensPhoto(

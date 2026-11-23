@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/create_post/services/create_post_service.dart';
 import 'package:faunawatch/features/create_post/viewmodels/create_post_viewmodel.dart';
@@ -119,6 +120,25 @@ void main() {
       expect(find.text(testPlace.label), findsOneWidget);
       expect(find.text('Tap to choose where you saw it'), findsNothing);
       expect(submitButton().onPressed, isNotNull);
+      final submitBox = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('create_post_submit_container')),
+      );
+      final submitDecoration = submitBox.decoration as BoxDecoration;
+      final submitGradient = submitDecoration.gradient! as LinearGradient;
+      expect(submitGradient.begin, Alignment.centerLeft);
+      expect(submitGradient.end, Alignment.centerRight);
+      expect(submitGradient.colors, const [
+        Color(0xFFF9DC5F),
+        Color(0xFFB2EFFF),
+      ]);
+      expect(
+        (submitDecoration.border! as Border).top.color,
+        AppColors.faunaLensBlue,
+      );
+      expect(
+        submitButton().style?.foregroundColor?.resolve(const {}),
+        const Color(0xFF003E43),
+      );
       await tester.ensureVisible(find.text('Submit post'));
       await tester.tap(find.text('Submit post'));
       await tester.pumpAndSettle();
@@ -234,6 +254,23 @@ void main() {
     tester,
   ) async {
     await openAsPage(tester, makeContainer());
+
+    final scaffold = tester.widget<Scaffold>(
+      find.descendant(
+        of: find.byType(CreatePostView),
+        matching: find.byType(Scaffold),
+      ),
+    );
+    expect(scaffold.backgroundColor, Colors.white);
+
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(appBar.backgroundColor, AppColors.aiResultHeader);
+    final backIcon = tester.widget<Icon>(
+      find.byIcon(Icons.chevron_left_rounded),
+    );
+    expect(backIcon.color, AppColors.aiResultBackChevron);
+    final titleText = tester.widget<Text>(find.text('Create post'));
+    expect(titleText.style?.color, AppColors.faunaLensBlue);
 
     final title = tester.getRect(find.text('Create post'));
     expect(title.center.dx, lessThan(400 / 2));
@@ -471,6 +508,101 @@ void main() {
       await tester.pump();
     });
   });
+
+  testWidgets(
+    'Use current location button is full-width light yellow with blue semibold text and toggle/clear indicator',
+    (tester) async {
+      final locations = FakeLocations()
+        ..location = const GeoCoordinates(
+          latitude: 10.3157,
+          longitude: 123.8854,
+        );
+      final map = FakePickerMap();
+      final container = ProviderContainer(
+        overrides: [
+          currentUserIdProvider.overrideWith((ref) => const Stream.empty()),
+          createPostServiceProvider.overrideWithValue(FakeCreatePostService()),
+          photoLocationServiceProvider.overrideWithValue(locations),
+          postPhotoPickerServiceProvider.overrideWithValue(
+            FakePostPhotoPicker(),
+          ),
+          locationSearchServiceProvider.overrideWithValue(FakePlaceSearch()),
+          locationPickerMapServiceProvider.overrideWithValue(map),
+          locationPickerCanvasBuilderProvider.overrideWithValue(
+            FakePickerCanvas(map),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await openAsPage(tester, container);
+
+      final buttonFinder = find.byKey(
+        const ValueKey('use_current_location_button'),
+      );
+      await tester.ensureVisible(buttonFinder);
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<Container>(buttonFinder);
+      final decoration = button.decoration! as BoxDecoration;
+      expect(decoration.color, AppColors.galleryFilterButtonBackground);
+      expect((decoration.border! as Border).top.color, Colors.transparent);
+
+      // Spans horizontally matching the form card width.
+      final buttonRect = tester.getRect(buttonFinder);
+      expect(buttonRect.width, greaterThan(300));
+
+      final label = tester.widget<Text>(find.text('Use current location'));
+      expect(label.style?.color, AppColors.faunaLensBlue);
+      expect(label.style?.fontWeight, FontWeight.w600);
+
+      // Inactive before tapping: unchecked indicator and no clear X button.
+      final indicatorBefore = tester.widget<Icon>(
+        find.byKey(const ValueKey('current_location_indicator')),
+      );
+      expect(indicatorBefore.icon, Icons.radio_button_unchecked_rounded);
+      expect(
+        find.byKey(const ValueKey('clear_current_location_button')),
+        findsNothing,
+      );
+
+      // Tapping locates and activates the blue stroke, check indicator + X clear button.
+      await tester.tap(find.text('Use current location'));
+      await tester.pumpAndSettle();
+      expect(container.read(createPostViewModelProvider).hasLocation, isTrue);
+      final activeDecoration =
+          tester.widget<Container>(buttonFinder).decoration! as BoxDecoration;
+      expect(
+        (activeDecoration.border! as Border).top.color,
+        AppColors.faunaLensBlue,
+      );
+      final indicatorAfter = tester.widget<Icon>(
+        find.byKey(const ValueKey('current_location_indicator')),
+      );
+      expect(indicatorAfter.icon, Icons.check_circle_rounded);
+      expect(
+        find.byKey(const ValueKey('clear_current_location_button')),
+        findsOneWidget,
+      );
+
+      // Tapping X clears the current location and removes the blue stroke.
+      await tester.tap(
+        find.byKey(const ValueKey('clear_current_location_button')),
+      );
+      await tester.pumpAndSettle();
+      expect(container.read(createPostViewModelProvider).hasLocation, isFalse);
+      final clearedDecoration =
+          tester.widget<Container>(buttonFinder).decoration! as BoxDecoration;
+      expect(
+        (clearedDecoration.border! as Border).top.color,
+        Colors.transparent,
+      );
+      expect(
+        find.byKey(const ValueKey('clear_current_location_button')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('form fits a narrow screen with large text', (tester) async {
     tester.view.physicalSize = const Size(320, 568);

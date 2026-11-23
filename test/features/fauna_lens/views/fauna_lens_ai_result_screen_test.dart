@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/services/window_security_service.dart';
+import 'package:faunawatch/core/widgets/pill_button.dart';
 import 'package:faunawatch/features/fauna_lens/models/ai_identification.dart';
 import 'package:faunawatch/features/fauna_lens/models/animal_box.dart';
 import 'package:faunawatch/features/fauna_lens/models/fauna_lens_state.dart';
 import 'package:faunawatch/features/fauna_lens/services/species_identification_service.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/ai_result_cards.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/boxed_photo.dart';
 import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_ai_result_screen.dart';
 import 'package:faunawatch/features/settings/models/ai_provider.dart';
 import 'package:faunawatch/features/settings/services/ai_api_key_storage_service.dart';
@@ -254,6 +257,34 @@ void main() {
     );
     expect(find.text('Choose another photo'), findsOneWidget);
     expect(find.text('Retake photo'), findsNothing);
+
+    // Enlarged centered photo above the preliminary badge.
+    final screenWidth = tester
+        .getSize(find.byType(FaunaLensAiResultScreen))
+        .width;
+    final photoRect = tester.getRect(find.byType(BoxedPhoto));
+    expect(photoRect.width, greaterThan(120));
+    expect(photoRect.center.dx, closeTo(screenWidth / 2, 1.0));
+
+    // Yellow primary button on top with blue text, two secondary buttons side-by-side below.
+    final useButtonFinder = find.widgetWithText(
+      PillButton,
+      'Use these results',
+    );
+    final useButton = tester.widget<PillButton>(useButtonFinder);
+    expect(useButton.primaryText, AppColors.faunaLensBlue);
+
+    final useRect = tester.getRect(useButtonFinder);
+    final againRect = tester.getRect(
+      find.widgetWithText(PillButton, 'Analyse again'),
+    );
+    final chooseRect = tester.getRect(
+      find.widgetWithText(PillButton, 'Choose another photo'),
+    );
+    expect(againRect.top, greaterThan(useRect.bottom));
+    expect(againRect.top, closeTo(chooseRect.top, 0.5));
+    expect(chooseRect.left, greaterThan(againRect.right));
+    expect(chooseRect.width, greaterThan(againRect.width));
   });
 
   testWidgets('back returns without a choice', (tester) async {
