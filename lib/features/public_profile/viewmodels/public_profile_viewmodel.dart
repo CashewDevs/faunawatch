@@ -12,7 +12,8 @@ import 'package:faunawatch/features/public_profile/services/public_profile_servi
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PublicProfileViewModel
-    extends AutoDisposeFamilyNotifier<PublicProfileState, String> {
+    extends AutoDisposeFamilyNotifier<PublicProfileState, String>
+    with PublicProfileChat {
   late PublicProfileService _service;
   int _generation = 0;
   int _postsGeneration = 0;
@@ -156,17 +157,45 @@ class PublicProfileViewModel
       ),
   ];
 
+  @override
+  int get loadGeneration => _generation;
+}
+
+final publicProfileViewModelProvider = NotifierProvider.autoDispose
+    .family<PublicProfileViewModel, PublicProfileState, String>(
+      PublicProfileViewModel.new,
+    );
+
+/// Whether the signed-in user may start a chat with the account [userId]
+/// from its profile or profile preview: signed in, and not their own account.
+///
+/// Both Message buttons read this one rule, so a later rule (for example
+/// "restricted accounts can't message") only needs to be added here.
+final canMessageProvider = Provider.autoDispose.family<bool, String>((
+  ref,
+  userId,
+) {
+  final viewerId = ref.watch(currentUserIdProvider).valueOrNull;
+  return viewerId != null && viewerId != userId;
+});
+
+/// The "Message" action shared by the public profile and its preview sheet:
+/// opens or creates a private one-to-one chat with the profile's account.
+mixin PublicProfileChat
+    on AutoDisposeFamilyNotifier<PublicProfileState, String> {
+  /// Changes whenever the profile is reloaded or closed, so a chat that
+  /// finishes opening afterwards is ignored.
+  int get loadGeneration;
+
   /// Opens or creates a private one-to-one chat thread with this profile user.
   Future<MessageThread?> openPrivateChat() async {
     final profile = state.profile;
-    final viewerId = ref.read(currentUserIdProvider).valueOrNull;
     if (profile == null ||
-        viewerId == null ||
-        viewerId == arg ||
+        !ref.read(canMessageProvider(arg)) ||
         state.isOpeningChat) {
       return null;
     }
-    final generation = _generation;
+    final generation = loadGeneration;
     state = state.copyWith(isOpeningChat: true, clearMessage: true);
     try {
       final user = ChatUser(
@@ -178,11 +207,11 @@ class PublicProfileViewModel
         avatarUrl: profile.avatarUrl,
       );
       final thread = await ref.read(messagesServiceProvider).openChat(user);
-      if (generation != _generation) return null;
+      if (generation != loadGeneration) return null;
       state = state.copyWith(isOpeningChat: false);
       return thread;
     } catch (_) {
-      if (generation == _generation) {
+      if (generation == loadGeneration) {
         state = state.copyWith(
           isOpeningChat: false,
           message: 'Could not start this chat. Please try again.',
@@ -194,8 +223,3 @@ class PublicProfileViewModel
 
   void clearMessage() => state = state.copyWith(clearMessage: true);
 }
-
-final publicProfileViewModelProvider = NotifierProvider.autoDispose
-    .family<PublicProfileViewModel, PublicProfileState, String>(
-      PublicProfileViewModel.new,
-    );

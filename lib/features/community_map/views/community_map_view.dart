@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_spot_sheet.dart';
-import 'package:faunawatch/features/public_profile/views/public_profile_navigation.dart';
+import 'package:faunawatch/features/public_profile/views/widgets/profile_preview_sheet.dart';
 import 'package:faunawatch/features/fauna_guard/viewmodels/fauna_guard_viewmodel.dart';
 import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_intro_dialog.dart';
 import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_status.dart';
@@ -87,13 +87,14 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                 },
                 onAuthorTap: (authorId) {
                   // The Profile tab is behind the card, so close it first.
-                  // A public profile opens on top; Back returns to the card.
+                  // Anyone else's profile preview slides up over the card;
+                  // closing it (or Back from the full profile) returns here.
                   if (authorId == ref.read(currentUserIdProvider).valueOrNull) {
                     Navigator.pop(dialogContext);
                   }
                   viewModel.openAuthor(
                     authorId,
-                    (id) => openPublicProfile(dialogContext, id),
+                    (id) => ProfilePreviewSheet.show(dialogContext, id),
                   );
                 },
               ),

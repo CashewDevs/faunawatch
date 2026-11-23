@@ -25,6 +25,9 @@ import 'package:faunawatch/features/community_map/views/community_map_view.dart'
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_guide_sheet.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_spot_sheet.dart';
+import 'package:faunawatch/features/public_profile/services/public_profile_service.dart';
+import 'package:faunawatch/features/public_profile/views/widgets/profile_preview_sheet.dart';
+import '../../public_profile/fake_public_profile_service.dart';
 
 void main() {
   Widget buildMap({
@@ -329,6 +332,56 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets("a pin card's author opens the profile preview over the card", (
+    tester,
+  ) async {
+    final public = FakePublicProfileService();
+    await tester.pumpWidget(
+      buildMap(
+        userId: 'viewer',
+        extraOverrides: [
+          communityReportsServiceProvider.overrideWithValue(
+            const _FakeReports([
+              CommunityReport(
+                id: 'r1',
+                category: 'animal_in_need',
+                latitude: 10.12,
+                longitude: 123.12,
+                description: 'Bird near the road.',
+              ),
+            ]),
+          ),
+          feedServiceProvider.overrideWithValue(
+            FakeFeedService(
+              posts: [testPost('r1', authorId: 'u-ana', authorName: 'ana')],
+            ),
+          ),
+          publicProfileServiceProvider.overrideWithValue(public),
+        ],
+      ),
+    );
+    await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CommunityMapView)),
+    );
+    final vm = container.read(communityMapViewModelProvider.notifier);
+    await vm.onStyleLoaded();
+    vm.selectPost('r1');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ana'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProfilePreviewSheet), findsOneWidget);
+    expect(find.byType(MapPostDialog), findsOneWidget);
+    expect(public.profileRequests, ['u-ana']);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ProfilePreviewSheet), findsNothing);
+    expect(find.byType(MapPostDialog), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('uses compact controls with info beside the dimension toggle', (
     tester,

@@ -323,6 +323,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // Other authors open the preview sheet first; it leads to the profile.
+    await tester.tap(
+      find.byKey(const ValueKey('profile_preview_full_profile')),
+    );
+    await tester.pumpAndSettle();
     expect(find.byType(PublicProfileScreen), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();

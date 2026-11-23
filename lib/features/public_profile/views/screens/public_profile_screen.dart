@@ -40,7 +40,7 @@ class PublicProfileScreen extends ConsumerWidget {
     final profile = state.profile;
     final viewerId = ref.watch(currentUserIdProvider).valueOrNull;
     final signedIn = viewerId != null;
-    final canMessage = signedIn && viewerId != userId;
+    final canMessage = ref.watch(canMessageProvider(userId));
     final items = vm.items;
     ref.listen(provider.select((state) => state.message), (_, message) {
       if (message == null) return;
