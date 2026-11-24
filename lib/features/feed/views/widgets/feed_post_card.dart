@@ -24,10 +24,14 @@ class FeedPostCard extends ConsumerWidget {
     this.onComments,
     this.onAuthorTap,
     this.onLocation,
+    this.onMore,
   });
   final FeedPost post;
   final Color backgroundColor;
   final VoidCallback? onLike, onComments, onAuthorTap;
+
+  /// Opens the options of the user's own post; null on other people's posts.
+  final VoidCallback? onMore;
 
   /// Shows the post on the map; null leaves its location as plain text.
   final VoidCallback? onLocation;
@@ -90,6 +94,7 @@ class FeedPostCard extends ConsumerWidget {
                         onLike: like,
                         onComments: onComments,
                         onAuthorTap: openAuthor,
+                        onMore: onMore,
                       ),
                     ),
                   ),

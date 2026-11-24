@@ -32,6 +32,7 @@ import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
 import 'package:faunawatch/features/notifications/services/notifications_service.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
+import 'package:faunawatch/features/suspension/services/suspension_service.dart';
 import 'package:faunawatch/features/shell/views/widgets/shell_header.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_ai_analysis_sheet.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
@@ -61,20 +62,22 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  List<Override> overrides([List<Override> more = const []]) => [
-    currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
-    feedServiceProvider.overrideWithValue(service),
-    ...more,
-  ];
+  List<Override> overrides([List<Override> more = const [], String? userId]) =>
+      [
+        currentUserIdProvider.overrideWith((ref) => Stream.value(userId)),
+        feedServiceProvider.overrideWithValue(service),
+        ...more,
+      ];
 
   Future<ProviderContainer> pumpFeed(
     WidgetTester tester, {
     ThemeData? theme,
     Widget? home,
     List<Override> more = const [],
+    String? userId,
   }) async {
     usePhone(tester);
-    final container = ProviderContainer(overrides: overrides(more));
+    final container = ProviderContainer(overrides: overrides(more, userId));
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -103,6 +106,41 @@ void main() {
   });
 
   group('FeedView', () {
+    testWidgets('only your own posts have the "⋯" options button', (
+      tester,
+    ) async {
+      service = FakeFeedService(
+        posts: [
+          testPost('mine', authorId: 'me'),
+          testPost('theirs', index: 1, authorId: 'someone'),
+        ],
+      );
+      await pumpFeed(
+        tester,
+        userId: 'me',
+        // Signed in but not suspended; the real service needs Supabase.
+        more: [
+          suspensionServiceProvider.overrideWithValue(
+            const SignedOutSuspensionService(),
+          ),
+        ],
+      );
+      expect(find.bySemanticsLabel('Post options'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Post options'));
+      await tester.pumpAndSettle();
+      expect(find.text('Your post'), findsOneWidget);
+      expect(find.text('Hide post'), findsOneWidget);
+      expect(find.text('Delete post'), findsOneWidget);
+      // Posts in the feed are never hidden already.
+      expect(find.text('Show post again'), findsNothing);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(PageView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Post options'), findsNothing);
+    });
+
     testWidgets('shows the real post: author, title, text, area and tags', (
       tester,
     ) async {

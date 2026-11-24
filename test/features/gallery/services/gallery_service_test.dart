@@ -17,6 +17,9 @@ void main() {
   late List<Map<String, dynamic>> rows;
   late Set<String> missing;
 
+  /// Acts like a database without reports.hidden_at.
+  late bool noHiddenColumn;
+
   Map<String, dynamic> row(String id) => {
     'id': id,
     'user_id': 'user-a',
@@ -33,6 +36,7 @@ void main() {
     requests = [];
     rows = [];
     missing = {};
+    noHiddenColumn = false;
     client = SupabaseClient(
       'https://gallery-tests.invalid',
       'test-anon-key',
@@ -65,7 +69,16 @@ void main() {
             },
           };
         } else if (request.url.path == '/rest/v1/reports') {
-          body = rows;
+          if (noHiddenColumn &&
+              request.url.queryParameters['select']!.contains('hidden_at')) {
+            status = 400;
+            body = {
+              'code': '42703',
+              'message': 'column reports.hidden_at does not exist',
+            };
+          } else {
+            body = rows;
+          }
         } else if (request.url.path.contains('/object/sign/')) {
           final path = request.url.path.split('/object/sign/').last;
           if (missing.any(path.endsWith)) {
@@ -220,5 +233,54 @@ void main() {
     expect(post.title, 'Animal in need');
     expect(post.photoUrls, isEmpty);
     expect(post.location, FeedPost.approximateLocation);
+  });
+
+  group('hidden posts', () {
+    test(
+      'reads the hidden flag; the Hidden chip asks only for hidden posts',
+      () async {
+        await signIn();
+        rows = [
+          {...row('r1'), 'hidden_at': '2026-11-24T08:00:00Z'},
+          row('r0'),
+        ];
+        final posts = await service.fetchPage();
+        expect(posts.map((entry) => entry.isHidden), [true, false]);
+        final all = requests.single.url.queryParameters;
+        expect(all['select'], contains('hidden_at'));
+        expect(all.containsKey('hidden_at'), isFalse);
+
+        requests.clear();
+        await service.fetchPage(
+          filter: const GalleryFilter(status: GalleryStatusFilter.hidden),
+        );
+        final hidden = requests.single.url.queryParameters;
+        expect(hidden['hidden_at'], 'not.is.null');
+        expect(hidden['status'], 'in.("approved","pending","declined")');
+      },
+    );
+
+    test(
+      'a database without the column still loads, with nothing hidden',
+      () async {
+        await signIn();
+        noHiddenColumn = true;
+        rows = [row('r1')];
+        final posts = await service.fetchPage();
+        expect(posts.single.isHidden, isFalse);
+        expect(requests, hasLength(2));
+        expect(
+          requests.last.url.queryParameters['select'],
+          isNot(contains('hidden_at')),
+        );
+
+        requests.clear();
+        final hidden = await service.fetchPage(
+          filter: const GalleryFilter(status: GalleryStatusFilter.hidden),
+        );
+        expect(hidden, isEmpty);
+        expect(requests, hasLength(1));
+      },
+    );
   });
 }

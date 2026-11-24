@@ -175,6 +175,19 @@ class FeedViewModel extends Notifier<FeedState> {
     }
   }
 
+  /// Takes a post out of the feed at once, e.g. after its owner hid or
+  /// deleted it.
+  void removePost(String postId) {
+    final pinned = state.pinnedPost;
+    state = state.copyWith(
+      posts: [
+        for (final post in state.posts)
+          if (post.id != postId) post,
+      ],
+      clearPinned: pinned != null && pinned.id == postId,
+    );
+  }
+
   void consumeFocus() => state = state.copyWith(clearFocus: true);
 
   void clearMessage() => state = state.copyWith(clearMessage: true);

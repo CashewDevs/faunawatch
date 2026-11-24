@@ -6,20 +6,26 @@ import 'package:faunawatch/features/gallery/models/gallery_post.dart';
 import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
 
-/// Filters like the database: by [statuses] (approved when missing) and by
-/// category, newest first in [posts] order.
+/// Filters like the database: by [statuses] (approved when missing), by
+/// category and, for the Hidden chip, by [hidden]; newest first in [posts]
+/// order.
 class FakeGalleryService implements GalleryService {
   FakeGalleryService({
     List<FeedPost> posts = const [],
     Map<String, ReportStatus>? statuses,
+    Set<String>? hidden,
   }) : posts = [...posts],
-       statuses = statuses ?? {};
+       statuses = statuses ?? {},
+       hidden = hidden ?? {};
 
   List<FeedPost> posts;
 
   /// Posts the gallery never lists (e.g. only the feed knows them).
   List<FeedPost> unlisted = [];
   final Map<String, ReportStatus> statuses;
+
+  /// Ids of posts the user hid.
+  final Set<String> hidden;
 
   /// The `before` and filter of every page request, in order.
   final pageRequests = <FeedPost?>[];
@@ -43,6 +49,7 @@ class FakeGalleryService implements GalleryService {
     final matching = [
       for (final post in posts)
         if (filter.status.statuses.contains(statusOf(post.id)) &&
+            (!filter.status.onlyHidden || hidden.contains(post.id)) &&
             (filter.category == null || post.category == filter.category))
           post,
     ];
@@ -51,7 +58,11 @@ class FakeGalleryService implements GalleryService {
         : matching.indexWhere((post) => post.id == before.id) + 1;
     return [
       for (final post in matching.skip(start).take(GalleryService.pageSize))
-        GalleryPost(post, statusOf(post.id)),
+        GalleryPost(
+          post,
+          statusOf(post.id),
+          isHidden: hidden.contains(post.id),
+        ),
     ];
   }
 }

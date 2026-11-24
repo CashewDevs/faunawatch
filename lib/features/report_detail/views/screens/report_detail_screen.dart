@@ -8,6 +8,9 @@ import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.da
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_image_carousel.dart';
+import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
+import 'package:faunawatch/features/post_management/models/own_post_menu.dart';
+import 'package:faunawatch/features/post_management/views/widgets/own_post_options_sheet.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
 import 'package:faunawatch/features/report_detail/viewmodels/report_detail_viewmodel.dart';
 
@@ -80,6 +83,29 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
             FaunaLensPageHeader(
               title: 'Your report',
               onBack: () => Navigator.of(context).maybePop(),
+              action: report == null
+                  ? null
+                  : IconButton(
+                      tooltip: 'Post options',
+                      icon: Icon(
+                        Icons.more_horiz_rounded,
+                        color: colors.accent,
+                        size: 28,
+                      ),
+                      onPressed: () {
+                        final navigator = Navigator.of(context);
+                        showOwnPostOptions(
+                          context,
+                          ref,
+                          OwnPostMenu(
+                            postId: widget.reportId,
+                            status: report.status,
+                            isHidden: report.isHidden,
+                          ),
+                          onDeleted: () => navigator.maybePop(),
+                        );
+                      },
+                    ),
             ),
             Expanded(
               child: state.isLoading
@@ -105,6 +131,11 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                           child: _StatusNoticeCard(status: report.status),
                         ),
+                        if (report.isHidden)
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: _HiddenNotice(),
+                          ),
                         Expanded(
                           child: FeedPostCard(
                             post: report.post,
@@ -120,6 +151,31 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Says that the user hid this post, under its status card.
+class _HiddenNotice extends StatelessWidget {
+  const _HiddenNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const HiddenPostBadge(large: true),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Only you and admins can see this post.',
+            style: GoogleFonts.dmSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -357,6 +413,10 @@ class _ReportDetails extends StatelessWidget {
                   ],
                   const SizedBox(height: 20),
                   _StatusNoticeCard(status: report.status),
+                  if (report.isHidden) ...[
+                    const SizedBox(height: 12),
+                    const _HiddenNotice(),
+                  ],
                 ],
               ),
             ),

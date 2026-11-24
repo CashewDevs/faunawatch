@@ -358,4 +358,23 @@ void main() {
     await pumpEventQueue();
     expect(ids(), ['other']);
   });
+
+  group('removePost', () {
+    test('takes a hidden or deleted post out of the feed', () async {
+      create(serviceWith(3));
+      await open();
+      vm().removePost('p1');
+      expect(ids(), ['p0', 'p2']);
+    });
+
+    test('also drops it when it was pinned from the map', () async {
+      create(serviceWith(1)..unlisted = [testPost('far', index: 9)]);
+      await open();
+      await vm().openReport('far');
+      expect(state().pinnedPost?.id, 'far');
+      vm().removePost('far');
+      expect(state().pinnedPost, isNull);
+      expect(ids(), ['p0']);
+    });
+  });
 }
