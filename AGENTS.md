@@ -738,6 +738,33 @@ App side (`lib/features/post_management/`):
   and a `HiddenPostBadge` (next to `PostStatusBadge`, both in
   `gallery_card.dart`) on tiles and in the viewer. `ReportDetailScreen` shows
   "Only you and admins can see this post".
+- **Edit post** (`EditPostView`): the menu's "Edit post" opens it, for
+  approved and pending posts only. It is blocked while suspended
+  (`SuspendedAction.editPost`) and pops with an `EditPostOutcome`.
+  - **State and ViewModel:** `EditPostViewModel` (family by post id) holds an
+    `EditPostState`. Its photos are `ExistingPhoto` (a `report_images` row
+    with a signed link) or `NewPhoto` (a file on the phone); the first is
+    the cover.
+  - **Caption only:** saved through `updateCaption`; the post keeps its
+    status. The caption is saved first.
+  - **Photos:** any photo change (remove, add, "Make cover") goes through
+    `replacePhotos`. It prepares the new photos with `PostPhotoService`,
+    uploads them as `{id}/edit-<ms>-<n>.webp`, calls
+    `apply_my_report_photo_edit`, then removes the returned files. If the
+    call fails, it removes the uploaded files again.
+  - **New cover:** a new cover (`coverChanged`) needs `coverAnalysis` before
+    Save is enabled. "Analyze with AI" opens FaunaLens's
+    `FaunaLensBoxesScreen` on the cover. An existing photo is first copied
+    to the phone (`EditPostService.localCopy`; on the web its signed link).
+    `UseAiResults` attaches the result to that photo's `key`, so it stops
+    counting if another photo becomes the cover. The category follows it.
+  - **Afterwards:** `PostActionsViewModel.postEdited` updates the screens:
+    - Feed: drops the post after a photo edit, or loads again after a
+      caption edit.
+    - Gallery: loads again.
+    - `galleryPostViewModelProvider` and the report detail are invalidated.
+    - The map loads its reports again.
+  - Leaving with unsaved changes asks "Discard your changes?".
 - **Older databases:** `SupabaseGalleryService` and
   `SupabaseReportDetailService` read `hidden_at`. On a database without it
   (`isMissingColumnError` in `lib/core/services/supabase_errors.dart`), they

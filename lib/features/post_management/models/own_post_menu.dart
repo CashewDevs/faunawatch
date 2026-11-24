@@ -13,6 +13,10 @@ class OwnPostMenu {
   final ReportStatus status;
   final bool isHidden;
 
+  /// Approved and pending posts can be edited; declined ones are final.
+  bool get canEdit =>
+      status == ReportStatus.approved || status == ReportStatus.pending;
+
   /// Only approved posts are public, so only they can be hidden.
   bool get canHide => !isHidden && status == ReportStatus.approved;
 

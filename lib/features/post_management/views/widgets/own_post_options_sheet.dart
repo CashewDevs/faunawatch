@@ -4,13 +4,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:faunawatch/core/constants/app_colors.dart';
 import 'package:faunawatch/core/theme/app_palette_colors.dart';
 import 'package:faunawatch/features/post_management/models/own_post_menu.dart';
+import 'package:faunawatch/features/post_management/models/edit_post_state.dart';
 import 'package:faunawatch/features/post_management/viewmodels/post_actions_viewmodel.dart';
+import 'package:faunawatch/features/post_management/views/screens/edit_post_view.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
+import 'package:faunawatch/features/suspension/models/account_suspension.dart';
+import 'package:faunawatch/features/suspension/views/widgets/suspension_notices.dart';
 
-enum _OwnPostOption { hide, unhide, delete }
+enum _OwnPostOption { edit, hide, unhide, delete }
 
 /// Opens the "⋯" menu of one of the user's own posts and carries out the
-/// choice: hide (with Undo), show again, or delete after a confirmation.
+/// choice: edit (not while suspended), hide (with Undo), show again, or
+/// delete after a confirmation.
 /// [onDeleted] runs after a successful delete, e.g. to close the screen.
 ///
 /// The post's screen may go away while an action runs (a hidden post leaves
@@ -22,6 +27,7 @@ Future<void> showOwnPostOptions(
   VoidCallback? onDeleted,
 }) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
+  final navigator = Navigator.of(context);
   final actions = ref.read(postActionsViewModelProvider.notifier);
   final choice = await showModalBottomSheet<_OwnPostOption>(
     context: context,
@@ -37,6 +43,24 @@ Future<void> showOwnPostOptions(
     ..showSnackBar(SnackBar(content: Text(text), action: action));
 
   switch (choice) {
+    case _OwnPostOption.edit:
+      if (!context.mounted) return;
+      if (blockedBySuspension(context, ref, SuspendedAction.editPost)) return;
+      final outcome = await navigator.push<EditPostOutcome>(
+        MaterialPageRoute(builder: (_) => EditPostView(postId: menu.postId)),
+      );
+      switch (outcome) {
+        case EditPostOutcome.saved:
+          show('Changes saved.');
+        case EditPostOutcome.sentForReview:
+          show(
+            menu.status == ReportStatus.approved
+                ? 'Changes saved. Your post is back once an admin approves it.'
+                : 'Changes saved. Your post is waiting for review.',
+          );
+        case null:
+          break;
+      }
     case _OwnPostOption.hide:
       final result = await actions.setHidden(menu.postId, hidden: true);
       if (result.error case final error?) return show(error);
@@ -216,6 +240,18 @@ class _OwnPostOptionsSheet extends StatelessWidget {
               color: isDark ? AppColors.darkBorder : const Color(0xFFEDF2F7),
             ),
             const SizedBox(height: 10),
+            if (menu.canEdit)
+              _OptionTile(
+                icon: Icons.edit_outlined,
+                label: 'Edit post',
+                hint: menu.status == ReportStatus.approved
+                    ? 'Changing photos sends it back for review.'
+                    : 'Change the caption or photos.',
+                iconColor: accent,
+                textColor: textColor,
+                hintColor: hintColor,
+                onTap: () => choose(_OwnPostOption.edit),
+              ),
             if (menu.canHide)
               _OptionTile(
                 icon: Icons.visibility_off_outlined,

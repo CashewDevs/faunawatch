@@ -45,7 +45,8 @@ enum SuspendedAction {
   like('like posts'),
   comment('comment'),
   message('send messages'),
-  editProfile('edit your profile');
+  editProfile('edit your profile'),
+  editPost('edit posts');
 
   const SuspendedAction(this.phrase);
   final String phrase;
