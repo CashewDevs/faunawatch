@@ -21,6 +21,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/models/map_pin_filter.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/community_map/services/map_pin_photo_service.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
@@ -715,6 +717,397 @@ void main() {
       },
     );
   });
+
+  group('pin filter', () {
+    const inNeed = ReportCategory.animalInNeed;
+    const dangerous = ReportCategory.potentiallyDangerousAnimal;
+
+    CommunityReport post(
+      String id,
+      ReportCategory category, {
+      String? species,
+      double lat = 10.12,
+      DateTime? createdAt,
+      bool withPhoto = false,
+    }) => CommunityReport(
+      id: id,
+      category: category.value,
+      latitude: lat,
+      longitude: 123.12,
+      description: id,
+      species: species,
+      createdAt: createdAt,
+      photoPath: withPhoto ? '$id/photo.webp' : null,
+    );
+
+    final cobra = post(
+      'cobra',
+      dangerous,
+      species: 'Philippine cobra',
+      lat: 11,
+    );
+    final eagle = post('eagle', inNeed, species: 'Philippine eagle', lat: 12);
+    final unknown = post('unknown', inNeed, lat: 13);
+    const all = ['cobra', 'eagle', 'unknown'];
+
+    CommunityMapState state() => container.read(communityMapViewModelProvider);
+    CommunityMapViewModel vm() =>
+        container.read(communityMapViewModelProvider.notifier);
+    List<String> drawn() =>
+        mapboxMapService.reportCalls.last.reports.map((r) => r.id).toList();
+
+    setUp(() => reports.items = [cobra, eagle, unknown]);
+
+    test(
+      'draws only the matching pins without moving the camera, and clears',
+      () async {
+        await vm().onStyleLoaded();
+        expect(drawn(), all);
+
+        await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+        expect(drawn(), ['eagle', 'unknown']);
+        expect(mapboxMapService.reportCalls.last.recenter, isFalse);
+        expect(state().visibleReports.map((r) => r.id), ['eagle', 'unknown']);
+        expect(state().reports, hasLength(3));
+
+        // The same filter again does not redraw.
+        final draws = mapboxMapService.reportCalls.length;
+        await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+        expect(mapboxMapService.reportCalls, hasLength(draws));
+
+        await vm().clearFilter();
+        expect(state().filter.isActive, isFalse);
+        expect(drawn(), all);
+      },
+    );
+
+    test('species ticks outside the ticked categories are dropped', () async {
+      await vm().onStyleLoaded();
+      await vm().setFilter(
+        const MapPinFilter(
+          categories: {inNeed},
+          species: {'philippine cobra', 'philippine eagle'},
+        ),
+      );
+      expect(
+        state().filter,
+        const MapPinFilter(categories: {inNeed}, species: {'philippine eagle'}),
+      );
+      expect(drawn(), ['eagle']);
+    });
+
+    test(
+      'a refresh keeps the filter and drops species whose last post is gone',
+      () async {
+        await vm().onStyleLoaded();
+        await vm().setFilter(
+          const MapPinFilter(species: {'philippine cobra', 'philippine eagle'}),
+        );
+        expect(drawn(), ['cobra', 'eagle']);
+
+        reports.items = [eagle, unknown];
+        await vm().refreshReports();
+        expect(
+          state().filter,
+          const MapPinFilter(species: {'philippine eagle'}),
+        );
+        expect(drawn(), ['eagle']);
+      },
+    );
+
+    test('a filter picked while the pins are drawn is drawn next', () async {
+      await vm().onStyleLoaded();
+      final gate = mapboxMapService.drawGate = Completer<void>();
+      final refreshing = vm().refreshReports();
+      await pumpEventQueue();
+      expect(drawn(), all);
+
+      await vm().setFilter(const MapPinFilter(categories: {dangerous}));
+      // Waits for the refresh instead of drawing at the same time.
+      expect(drawn(), all);
+      mapboxMapService.drawGate = null;
+      gate.complete();
+      await refreshing;
+      await pumpEventQueue();
+      expect(drawn(), ['cobra']);
+      expect(state().filter.categories, {dangerous});
+    });
+
+    test('tapping a pin only counts the posts it shows', () async {
+      reports.items = [post('a', inNeed), post('b', dangerous)];
+      await vm().onStyleLoaded();
+      vm().onPinTap('a');
+      expect(state().selectedSpot?.count, 2);
+      vm().dismissSpot();
+
+      await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+      vm().onPinTap('a');
+      expect(state().selectedSpot, isNull);
+      expect(state().selectedPostId, 'a');
+      vm().dismissPost();
+      // A hidden post's pin cannot be tapped.
+      vm().onPinTap('b');
+      expect(state().selectedPostId, isNull);
+    });
+
+    test('a shared pin loads the photo of the post it now shows', () async {
+      final photos = _PinPhotos();
+      reports.items = [
+        post(
+          'new',
+          dangerous,
+          createdAt: DateTime.utc(2026, 11, 20),
+          withPhoto: true,
+        ),
+        post(
+          'old',
+          inNeed,
+          createdAt: DateTime.utc(2026, 11, 1),
+          withPhoto: true,
+        ),
+      ];
+      final withPhotos = ProviderContainer(
+        overrides: [
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
+          feedServiceProvider.overrideWithValue(feed),
+          mapPinPhotoServiceProvider.overrideWithValue(photos),
+        ],
+      );
+      addTearDown(withPhotos.dispose);
+      final map = withPhotos.read(communityMapViewModelProvider.notifier);
+      await map.onStyleLoaded();
+      await pumpEventQueue();
+      expect(photos.requests, ['new/photo.webp']);
+
+      await map.setFilter(const MapPinFilter(categories: {inNeed}));
+      await pumpEventQueue();
+      expect(photos.requests, ['new/photo.webp', 'old/photo.webp']);
+    });
+
+    test('FaunaGuard rings keep every post', () async {
+      final gps = FakeGuardLocation();
+      final guarded = ProviderContainer(
+        overrides: [
+          currentUserIdProvider.overrideWith((ref) => Stream.value('map-user')),
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          guardLocationServiceProvider.overrideWithValue(gps),
+          guardNotificationServiceProvider.overrideWithValue(
+            FakeGuardNotifications(),
+          ),
+        ],
+      );
+      addTearDown(guarded.dispose);
+      addTearDown(gps.fixes.close);
+      final map = guarded.read(communityMapViewModelProvider.notifier);
+      await pumpEventQueue();
+      await map.onStyleLoaded();
+      await guarded.read(faunaGuardViewModelProvider.notifier).enable();
+      await pumpEventQueue();
+
+      await map.setFilter(const MapPinFilter(categories: {inNeed}));
+      await map.refreshReports();
+      expect(drawn(), ['eagle', 'unknown']);
+      expect(mapboxMapService.radiusCalls.last.map((r) => r.id), all);
+    });
+
+    test("opening a hidden post's location clears the filter", () async {
+      await vm().onStyleLoaded();
+      await vm().setFilter(const MapPinFilter(categories: {dangerous}));
+
+      // A post the filter shows keeps it.
+      const shown = MapFocus(
+        postId: 'cobra',
+        latitude: 11,
+        longitude: 123.12,
+        isPublic: true,
+      );
+      await vm().focusOn(shown);
+      expect(state().filter.categories, {dangerous});
+
+      const hidden = MapFocus(
+        postId: 'eagle',
+        latitude: 12,
+        longitude: 123.12,
+        isPublic: true,
+      );
+      await vm().focusOn(hidden);
+      expect(state().filter.isActive, isFalse);
+      expect(drawn(), all);
+      expect(mapboxMapService.focusCalls.last.focus, hidden);
+    });
+
+    test('gives the filter sheet one snapshot of lists and counts', () async {
+      await vm().onStyleLoaded();
+      final choices = vm().filterChoices;
+      expect(choices.categoryCounts, {dangerous: 1, inNeed: 2});
+      expect(choices.speciesFor({inNeed}).map((o) => o.label), [
+        'Philippine eagle',
+        MapPinFilter.unknownSpeciesLabel,
+      ]);
+      expect(choices.speciesFor({}), hasLength(3));
+      expect(
+        choices.countMatching(const MapPinFilter(categories: {inNeed})),
+        2,
+      );
+      // The eagle tick does not apply to dangerous animals, so it is ignored.
+      expect(
+        choices.countMatching(
+          const MapPinFilter(
+            categories: {dangerous},
+            species: {'philippine eagle'},
+          ),
+        ),
+        1,
+      );
+
+      // A refresh while the sheet is open does not change its numbers.
+      reports.items = [cobra, eagle, unknown, post('new', inNeed)];
+      await vm().refreshReports();
+      expect(choices.categoryCounts[inNeed], 2);
+      expect(
+        choices.countMatching(const MapPinFilter(categories: {inNeed})),
+        2,
+      );
+      expect(vm().filterChoices.categoryCounts[inNeed], 3);
+    });
+
+    test(
+      'a filter picked during a refresh that fails is still drawn',
+      () async {
+        await vm().onStyleLoaded();
+        final gate = reports.gate = Completer<void>();
+        reports.fail = true;
+        final refreshing = vm().refreshReports();
+        await pumpEventQueue();
+
+        await vm().setFilter(const MapPinFilter(categories: {dangerous}));
+        expect(drawn(), all);
+        gate.complete();
+        await refreshing;
+        await pumpEventQueue();
+        expect(state().reportsHaveError, isTrue);
+        expect(drawn(), ['cobra']);
+      },
+    );
+
+    test(
+      'opening a new post while the tab is refreshing waits, then clears a filter hiding it',
+      () async {
+        await vm().onStyleLoaded();
+        await vm().setFilter(const MapPinFilter(categories: {dangerous}));
+        final fresh = post('fresh', inNeed, lat: 14);
+        reports.items = [cobra, eagle, unknown, fresh];
+        final gate = reports.gate = Completer<void>();
+        // Opening the Map tab started a refresh.
+        final tabRefresh = vm().refreshReports();
+        await pumpEventQueue();
+
+        const focus = MapFocus(
+          postId: 'fresh',
+          latitude: 14,
+          longitude: 123.12,
+          isPublic: true,
+        );
+        final focusing = vm().focusOn(focus);
+        await pumpEventQueue();
+        expect(mapboxMapService.focusCalls, isEmpty);
+        gate.complete();
+        await tabRefresh;
+        await focusing;
+
+        // One refresh for both, and the new post's pin is shown.
+        expect(reports.loads, 2);
+        expect(state().filter.isActive, isFalse);
+        expect(drawn(), contains('fresh'));
+        expect(mapboxMapService.focusCalls.last.focus, focus);
+      },
+    );
+
+    test(
+      'a first load hidden by the filter never makes a later refresh jump',
+      () async {
+        // Picked before the map loaded, e.g. kept from an earlier map.
+        await vm().setFilter(
+          const MapPinFilter(
+            categories: {ReportCategory.otherWildlifeIncident},
+          ),
+        );
+        await vm().onStyleLoaded();
+        expect(drawn(), isEmpty);
+        expect(mapboxMapService.reportCalls.last.recenter, isFalse);
+
+        await vm().clearFilter();
+        expect(drawn(), all);
+        await vm().refreshReports();
+        expect(mapboxMapService.reportCalls.last.recenter, isFalse);
+      },
+    );
+
+    test(
+      'a refresh removing every ticked species keeps the ticks and hides all pins',
+      () async {
+        await vm().onStyleLoaded();
+        await vm().setFilter(const MapPinFilter(species: {'philippine cobra'}));
+        expect(drawn(), ['cobra']);
+
+        reports.items = [eagle, unknown];
+        await vm().refreshReports();
+        expect(
+          state().filter,
+          const MapPinFilter(species: {'philippine cobra'}),
+        );
+        expect(state().visibleReports, isEmpty);
+        expect(drawn(), isEmpty);
+      },
+    );
+
+    test('applying the same filter again retries a failed drawing', () async {
+      await vm().onStyleLoaded();
+      mapboxMapService.failReports = true;
+      await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+      mapboxMapService.failReports = false;
+      final draws = mapboxMapService.reportCalls.length;
+
+      await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+      expect(mapboxMapService.reportCalls, hasLength(draws + 1));
+      expect(drawn(), ['eagle', 'unknown']);
+
+      // Drawn now, so the same filter again does nothing.
+      await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+      expect(mapboxMapService.reportCalls, hasLength(draws + 1));
+    });
+
+    test('another account starts without the filter', () async {
+      final user = StateProvider<String?>((ref) => 'first');
+      final accounts = ProviderContainer(
+        overrides: [
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          currentUserIdProvider.overrideWith(
+            (ref) => Stream.value(ref.watch(user)),
+          ),
+          feedServiceProvider.overrideWithValue(feed),
+        ],
+      );
+      addTearDown(accounts.dispose);
+      await accounts.read(currentUserIdProvider.future);
+      final map = accounts.read(communityMapViewModelProvider.notifier);
+      await map.onStyleLoaded();
+      await map.setFilter(const MapPinFilter(categories: {inNeed}));
+      expect(drawn(), ['eagle', 'unknown']);
+
+      accounts.read(user.notifier).state = 'second';
+      await pumpEventQueue();
+      expect(
+        accounts.read(communityMapViewModelProvider).filter.isActive,
+        isFalse,
+      );
+      expect(drawn(), all);
+    });
+  });
 }
 
 class _FakeMapboxMapService implements MapboxMapService {
@@ -750,12 +1143,16 @@ class _FakeMapboxMapService implements MapboxMapService {
     radiusCalls.add(reports);
   }
 
+  /// Holds the next drawing of the pins until completed.
+  Completer<void>? drawGate;
+
   @override
   Future<void> showReports(
     List<CommunityReport> reports, {
     bool recenter = false,
   }) async {
     reportCalls.add((reports: reports, recenter: recenter));
+    await drawGate?.future;
     if (failReports) throw StateError('Unavailable');
   }
 
@@ -785,9 +1182,15 @@ class _Reports implements CommunityReportsService {
   bool fail = false;
   int loads = 0;
   List<CommunityReport> items = [_report];
+
+  /// Holds the next load until completed.
+  Completer<void>? gate;
   @override
   Future<List<CommunityReport>> load() async {
     loads++;
+    final wait = gate;
+    gate = null;
+    await wait?.future;
     if (fail) throw StateError('offline');
     return items;
   }

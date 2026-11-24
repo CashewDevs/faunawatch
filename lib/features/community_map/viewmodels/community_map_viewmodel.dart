@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/models/map_pin_filter.dart';
 import 'package:faunawatch/features/community_map/models/map_pin_spot.dart';
 import 'package:faunawatch/features/community_map/services/map_pin_photo_service.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
@@ -44,6 +45,17 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   bool _loadingPhotos = false, _photosAgain = false;
   int _photoGeneration = 0;
 
+  /// The latest pin redraw after a filter change; the next one waits for it.
+  Future<void> _pinRedraws = Future.value();
+
+  /// The filter the pins on the map were last drawn with; null before the
+  /// first successful drawing on this map. Differs from the state's filter
+  /// when a drawing failed or a refresh failed after the filter changed.
+  MapPinFilter? _drawnFilter;
+
+  /// The refresh in progress, so a second request waits for it.
+  Future<void>? _refreshing;
+
   @override
   CommunityMapState build() {
     _mapboxMapService = ref.watch(mapboxMapServiceProvider);
@@ -64,6 +76,8 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       if (previous == next) return;
       dismissPrivateFocus();
       _forgetPinPhotos();
+      // The next person starts with every pin, not the last one's filter.
+      unawaited(clearFilter());
     });
     // The map stays alive in the background, so posts approved meanwhile
     // appear when it is opened again.
@@ -97,6 +111,8 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   Future<void> onMapCreated(MapboxMap mapboxMap) async {
     _isStyleLoaded = false;
     _hasCenteredReports = false;
+    // A new map has no pins yet.
+    _drawnFilter = null;
     await _mapboxMapService.attach(mapboxMap, onPostTap: onPinTap);
   }
 
@@ -104,7 +120,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   void onPinTap(String postId) {
     if (_disposed) return;
     final spot = groupReportsBySpot(
-      state.reports,
+      state.visibleReports,
     ).where((spot) => spot.reports.any((r) => r.id == postId)).firstOrNull;
     if (spot == null) return;
     if (spot.count == 1) {
@@ -221,9 +237,17 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     _pendingFocus = null;
     // The first report load must not move the camera away again.
     _hasCenteredReports = true;
-    // A post approved since the last refresh has no pin yet.
+    // A post approved since the last refresh has no pin yet. Opening the Map
+    // tab may already be refreshing; then this waits for that refresh, so
+    // the filter check below sees the post.
     if (focus.isPublic && !state.reports.any((r) => r.id == focus.postId)) {
       await refreshReports();
+    }
+    if (_disposed) return;
+    // The filter must not hide the pin that was asked for.
+    final report = state.reports.where((r) => r.id == focus.postId).firstOrNull;
+    if (focus.isPublic && report != null && !state.filter.matches(report)) {
+      await clearFilter();
     }
     if (_disposed) return;
     try {
@@ -324,7 +348,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     // A shared pin shows only its newest post's photo.
     final waiting = [
       for (final report in groupReportsBySpot(
-        state.reports,
+        state.visibleReports,
       ).map((spot) => spot.top))
         if (report.photoPath != null &&
             !_pinPhotos.containsKey(report.id) &&
@@ -386,29 +410,47 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     _failedPhotos.clear();
   }
 
-  Future<void> refreshReports() async {
-    if (!_isStyleLoaded || state.isLoadingReports) return;
+  /// Reloads the posts and redraws the pins. While a refresh is running,
+  /// another call waits for it instead of starting a second one.
+  Future<void> refreshReports() {
+    if (!_isStyleLoaded) return Future.value();
+    return _refreshing ??= _refresh().whenComplete(() => _refreshing = null);
+  }
+
+  Future<void> _refresh() async {
     // A refresh retries photos that failed before.
     _failedPhotos.clear();
     state = state.copyWith(isLoadingReports: true, reportsHaveError: false);
     try {
       final reports = await ref.read(communityReportsServiceProvider).load();
       if (_disposed) return;
+      // A filter change waits for the refresh, and the refresh for an
+      // earlier filter redraw, so the pins are never drawn twice at once.
+      await _pinRedraws;
+      if (_disposed) return;
+      final drawnFilter = state.filter.keptAfterRefresh(reports);
+      final visible = drawnFilter.apply(reports);
       await _mapboxMapService.showReports(
-        reports,
+        visible,
         recenter:
             !_hasCenteredReports &&
-            reports.isNotEmpty &&
+            visible.isNotEmpty &&
             !ref.read(faunaGuardViewModelProvider).isEnabled,
       );
+      _drawnFilter = drawnFilter;
       if (!_disposed) {
         _loadedAt = ref.read(communityMapClockProvider)();
+        // Counted even when the filter hides every pin, so clearing it
+        // later never makes a refresh jump the camera.
         if (reports.isNotEmpty) _hasCenteredReports = true;
         state = state.copyWith(
           reports: List.unmodifiable(reports),
+          filter: state.filter.keptAfterRefresh(reports),
           isLoadingReports: false,
           clearSelectedPost: !reports.any((r) => r.id == state.selectedPostId),
         );
+        // The filter changed while the pins were being drawn.
+        if (state.filter != _drawnFilter) await _redrawPins();
         await _updateGuardRadius();
         await _showKnownPinPhotos();
         unawaited(onMapIdle());
@@ -416,6 +458,9 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     } catch (_) {
       if (!_disposed) {
         state = state.copyWith(reportsHaveError: true, isLoadingReports: false);
+        // A filter picked during the failed refresh still needs drawing,
+        // over the posts already loaded.
+        if (state.filter != _drawnFilter) await _redrawPins();
       }
     }
   }
@@ -432,6 +477,44 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       // The pins keep the logo until the next refresh.
     }
   }
+
+  /// Shows only the posts [filter] lets through. Species ticks that no
+  /// longer appear in the ticked categories are dropped. The camera does not
+  /// move, and FaunaGuard keeps using every post.
+  Future<void> setFilter(MapPinFilter filter) async {
+    if (_disposed) return;
+    final next = filter.prunedFor(state.reports);
+    // The same filter again redraws only if its pins failed to draw.
+    if (next == state.filter && next == _drawnFilter) return;
+    state = state.copyWith(filter: next);
+    // A refresh in progress draws the new filter when it finishes.
+    if (state.isLoadingReports) return;
+    await _redrawPins();
+    // A shared pin may now show another post, whose photo may be missing.
+    unawaited(onMapIdle());
+  }
+
+  /// Shows every post again.
+  Future<void> clearFilter() => setFilter(const MapPinFilter());
+
+  /// Draws the pins for the current filter once any earlier redraw is done,
+  /// so two quick changes cannot finish in the wrong order.
+  Future<void> _redrawPins() {
+    return _pinRedraws = _pinRedraws.then((_) async {
+      if (_disposed || !_isStyleLoaded) return;
+      final filter = state.filter;
+      try {
+        await _mapboxMapService.showReports(filter.apply(state.reports));
+        _drawnFilter = filter;
+      } catch (_) {
+        // The pins stay as they were; applying the filter again or the next
+        // refresh draws them again.
+      }
+    });
+  }
+
+  /// The filter sheet's lists and counts, from the posts loaded now.
+  MapFilterChoices get filterChoices => MapFilterChoices(state.reports);
 
   /// Keeps Mapbox Standard lighting aligned with the active app theme.
   Future<void> setBrightness(Brightness brightness) async {
