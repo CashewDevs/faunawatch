@@ -58,6 +58,15 @@ class MapGuideSheet extends StatelessWidget {
                   'an animal in need, a potentially dangerous animal, a possible '
                   'invasive species, or another wildlife incident. Open the full post in the feed for photos and more details.',
             ),
+            const SizedBox(height: 20),
+            const _GuideStep(
+              icon: Icons.tune_rounded,
+              title: 'Filter the pins',
+              description:
+                  'Tap Filter to show only some categories, then narrow them to species. '
+                  "Species are the AI's best guess for each post; posts it couldn't name are under Unknown species. "
+                  'FaunaGuard still warns you about every post, even ones the filter hides.',
+            ),
             const SizedBox(height: 24),
             const _GuideStep(
               icon: Icons.shield_outlined,

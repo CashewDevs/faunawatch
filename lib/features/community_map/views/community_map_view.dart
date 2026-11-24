@@ -7,6 +7,8 @@ import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_intro_
 import 'package:faunawatch/features/fauna_guard/views/widgets/fauna_guard_status.dart';
 import 'package:faunawatch/features/community_map/models/community_map_state.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/models/map_pin_filter.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_filter_sheet.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_dialog.dart';
 import 'package:faunawatch/features/community_map/views/widgets/map_post_flip_transition.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +29,7 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
   Brightness? _lastBrightness;
   bool _postDialogOpen = false;
   bool _guardDialogOpen = false;
+  bool _filterOpen = false;
   late final AppLifecycleListener _lifecycle;
   late final FaunaGuardViewModel _guardViewModel;
 
@@ -128,6 +131,36 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
     if (postId != null) viewModel.selectPost(postId);
   }
 
+  /// Opens the tick boxes for which pins to show; Show applies them.
+  Future<void> _openFilter() async {
+    if (_filterOpen) return;
+    _filterOpen = true;
+    final viewModel = ref.read(communityMapViewModelProvider.notifier);
+    final filter = await showModalBottomSheet<MapPinFilter>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+      ),
+      builder: (sheetContext) => Padding(
+        // Keeps the species search above the keyboard.
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: MapFilterSheet(
+          initial: ref.read(communityMapViewModelProvider).filter,
+          categoryCounts: viewModel.categoryCounts,
+          speciesOptionsFor: viewModel.speciesOptionsFor,
+          countMatching: viewModel.countMatching,
+        ),
+      ),
+    );
+    _filterOpen = false;
+    if (mounted && filter != null) await viewModel.setFilter(filter);
+  }
+
   void _openMapGuide() {
     showModalBottomSheet<void>(
       context: context,
@@ -191,7 +224,15 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
         ? 'Could not load reports. Tap to retry'
         : state.reports.isEmpty
         ? 'No approved reports yet. Refresh'
+        : state.filter.isActive
+        ? 'Refresh reports (showing ${state.visibleReports.length} of '
+              '${state.reports.length})'
         : 'Refresh reports (${state.reports.length} approved)';
+    final showNoMatch =
+        state.filter.isActive &&
+        !state.isLoadingReports &&
+        state.reports.isNotEmpty &&
+        state.visibleReports.isEmpty;
 
     return Scaffold(
       body: LayoutBuilder(
@@ -228,8 +269,17 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   bottom: false,
                   minimum: const EdgeInsets.all(12),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _MapFilterButton(
+                            ticked: state.filter.tickedCount,
+                            onPressed: _openFilter,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       _MapControlButton(
                         tooltip: guard.isEnabled
                             ? 'Turn off FaunaGuard'
@@ -288,17 +338,31 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
                   ),
                 ),
               ),
-              if (state.privateFocus != null)
+              if (state.privateFocus != null || showNoMatch)
                 Positioned(
                   left: 12,
                   right: 12,
                   // Above the shell's floating nav bar.
                   bottom: MediaQuery.paddingOf(context).bottom + 12,
-                  child: _PrivateFocusBanner(
-                    focus: state.privateFocus!,
-                    onClose: ref
-                        .read(communityMapViewModelProvider.notifier)
-                        .dismissPrivateFocus,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (showNoMatch)
+                        _NoMatchBanner(
+                          onClear: ref
+                              .read(communityMapViewModelProvider.notifier)
+                              .clearFilter,
+                        ),
+                      if (showNoMatch && state.privateFocus != null)
+                        const SizedBox(height: 8),
+                      if (state.privateFocus != null)
+                        _PrivateFocusBanner(
+                          focus: state.privateFocus!,
+                          onClose: ref
+                              .read(communityMapViewModelProvider.notifier)
+                              .dismissPrivateFocus,
+                        ),
+                    ],
                   ),
                 ),
               if (guard.isEnabled || guard.message != null)
@@ -385,6 +449,95 @@ class _PrivateFocusBanner extends StatelessWidget {
               icon: const Icon(Icons.close),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the filter hides every pin, e.g. after a refresh.
+class _NoMatchBanner extends StatelessWidget {
+  const _NoMatchBanner({required this.onClear});
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface.withValues(alpha: 0.96),
+      elevation: 4,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+        child: Row(
+          children: [
+            Icon(
+              Icons.filter_alt_off_outlined,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'No pins match this filter.',
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+            TextButton(onPressed: onClear, child: const Text('Clear filter')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The pill that opens the pin filter; shows how many boxes are ticked.
+class _MapFilterButton extends StatelessWidget {
+  const _MapFilterButton({required this.ticked, required this.onPressed});
+
+  final int ticked;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final active = ticked > 0;
+    final color = active
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurface;
+    return Tooltip(
+      message: active ? 'Filter pins ($ticked selected)' : 'Filter pins',
+      child: Material(
+        color: theme.colorScheme.surface.withValues(alpha: 0.94),
+        elevation: 4,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.tune_rounded, size: 20, color: color),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      active ? 'Filter · $ticked' : 'Filter',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

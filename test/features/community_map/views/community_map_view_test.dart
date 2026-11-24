@@ -20,6 +20,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/models/map_pin_filter.dart';
+import 'package:faunawatch/features/community_map/views/widgets/map_filter_sheet.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/community_map/services/mapbox_map_service.dart';
 import 'package:faunawatch/features/community_map/views/community_map_view.dart';
 import 'package:faunawatch/features/community_map/views/widgets/mapbox_map_canvas.dart';
@@ -571,6 +574,160 @@ void main() {
 
     expect(find.text('2D'), findsOneWidget);
     expect(canvasBuilder.viewports.last, same(viewportBeforeToggle));
+  });
+
+  group('pin filter', () {
+    const reports = [
+      CommunityReport(
+        id: 'cobra',
+        category: 'potentially_dangerous_animal',
+        latitude: 10.12,
+        longitude: 123.12,
+        description: 'Snake',
+        species: 'Philippine cobra',
+      ),
+      CommunityReport(
+        id: 'eagle',
+        category: 'animal_in_need',
+        latitude: 11.12,
+        longitude: 123.12,
+        description: 'Bird',
+        species: 'Philippine eagle',
+      ),
+    ];
+
+    Future<ProviderContainer> openMap(
+      WidgetTester tester, {
+      ThemeData? theme,
+      double textScale = 1,
+    }) async {
+      await tester.pumpWidget(
+        buildMap(
+          theme: theme,
+          textScale: textScale,
+          extraOverrides: [
+            communityReportsServiceProvider.overrideWithValue(
+              const _FakeReports(reports),
+            ),
+          ],
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CommunityMapView)),
+      );
+      await container
+          .read(communityMapViewModelProvider.notifier)
+          .onStyleLoaded();
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('the Filter pill sits left of the controls and shows ticks', (
+      tester,
+    ) async {
+      final container = await openMap(tester);
+      final pill = tester.getRect(find.byTooltip('Filter pins'));
+      final refresh = tester.getRect(
+        find.byTooltip('Refresh reports (2 approved)'),
+      );
+      expect(pill.height, 48);
+      expect(pill.center.dy, refresh.center.dy);
+      expect(pill.right, lessThan(refresh.left));
+      expect(find.text('Filter'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Filter pins'));
+      await tester.pumpAndSettle();
+      expect(find.byType(MapFilterSheet), findsOneWidget);
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Animal in need'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show 1 post'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapFilterSheet), findsNothing);
+      expect(find.text('Filter · 1'), findsOneWidget);
+      expect(find.byTooltip('Filter pins (1 selected)'), findsOneWidget);
+      expect(
+        find.byTooltip('Refresh reports (showing 1 of 2)'),
+        findsOneWidget,
+      );
+      expect(
+        container
+            .read(communityMapViewModelProvider)
+            .visibleReports
+            .map((r) => r.id),
+        ['eagle'],
+      );
+
+      // Reopening starts from the applied ticks.
+      await tester.tap(find.byTooltip('Filter pins (1 selected)'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<CheckboxListTile>(
+              find.widgetWithText(CheckboxListTile, 'Animal in need'),
+            )
+            .value,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a filter hiding every pin offers to clear it', (tester) async {
+      final container = await openMap(tester);
+      expect(find.text('No pins match this filter.'), findsNothing);
+      await container
+          .read(communityMapViewModelProvider.notifier)
+          .setFilter(
+            const MapPinFilter(
+              categories: {ReportCategory.otherWildlifeIncident},
+            ),
+          );
+      await tester.pumpAndSettle();
+      expect(find.text('No pins match this filter.'), findsOneWidget);
+
+      await tester.tap(find.text('Clear filter'));
+      await tester.pumpAndSettle();
+      expect(find.text('No pins match this filter.'), findsNothing);
+      expect(find.text('Filter'), findsOneWidget);
+      expect(find.byTooltip('Refresh reports (2 approved)'), findsOneWidget);
+    });
+
+    testWidgets('the pill and sheet fit a small dark screen with large text', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await openMap(
+        tester,
+        theme: ThemeData.dark(useMaterial3: true),
+        textScale: 1.5,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('Filter pins'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Philippine eagle'),
+        80,
+        scrollable: find
+            .descendant(
+              of: find.byType(MapFilterSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.text('Show 2 posts'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('the guide explains the filter', (tester) async {
+    await tester.pumpWidget(buildMap());
+    await tester.pump();
+    await tester.tap(find.byTooltip('About this map'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Filter the pins'));
+    expect(find.textContaining('Unknown species'), findsOneWidget);
   });
 }
 
