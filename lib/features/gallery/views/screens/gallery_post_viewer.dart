@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:faunawatch/core/constants/app_colors.dart';
+import 'package:faunawatch/features/fauna_lens/views/widgets/fauna_lens_theme.dart';
 import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_load_more.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_post_page.dart';
@@ -47,8 +50,34 @@ class _GalleryPostViewerState extends ConsumerState<GalleryPostViewer> {
   Widget build(BuildContext context) {
     final state = ref.watch(galleryViewModelProvider);
     final items = state.items;
+    final colors = FaunaLensTheme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('My posts')),
+      appBar: AppBar(
+        backgroundColor: colors.header,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 60,
+        centerTitle: true,
+        systemOverlayStyle: colors.statusBar,
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(
+            Icons.chevron_left_rounded,
+            color: AppColors.aiResultBackChevron,
+            size: 34,
+          ),
+        ),
+        title: Text(
+          'My posts',
+          style: GoogleFonts.dmSans(
+            color: colors.accent,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
       body: items.isEmpty
           ? const Center(child: Text('No posts available.'))
           : Column(
