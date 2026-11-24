@@ -40,29 +40,24 @@ class MapPinFilter {
       isActive ? reports.where(matches).toList() : reports;
 
   /// This filter without the ticked species that do not appear among
-  /// [reports] in the ticked categories, e.g. after their category was
-  /// unticked in the sheet. The sheet only lists species of the ticked
-  /// categories, so such a tick could not be seen or unticked there.
-  MapPinFilter prunedFor(Iterable<CommunityReport> reports) {
+  /// [reports] in the ticked categories (a refresh removed their last post,
+  /// or their category was unticked), unless every ticked species is gone:
+  /// then the ticks are kept. Dropping them all would turn "only these
+  /// species" into "every species" and show more pins without saying why;
+  /// kept, the map shows none and offers to clear the filter, and the sheet
+  /// lists them with 0 posts so they can be unticked.
+  ///
+  /// The map, the sheet's counts and every filter change use this one rule.
+  MapPinFilter withoutGoneSpecies(Iterable<CommunityReport> reports) {
     if (species.isEmpty) return this;
     final present = {
       for (final report in reports)
         if (matchesCategory(report)) report.speciesKey,
     };
     final kept = species.where(present.contains).toSet();
-    return kept.length == species.length
+    return kept.length == species.length || kept.isEmpty
         ? this
         : MapPinFilter(categories: categories, species: kept);
-  }
-
-  /// This filter after a refresh brought [reports]: like [prunedFor], but
-  /// when every ticked species is gone the ticks are kept. Dropping them all
-  /// would turn "only these species" into "every species" and show more
-  /// pins without saying why; kept, the map shows none and offers to clear
-  /// the filter.
-  MapPinFilter keptAfterRefresh(Iterable<CommunityReport> reports) {
-    final pruned = prunedFor(reports);
-    return species.isNotEmpty && pruned.species.isEmpty ? this : pruned;
   }
 
   /// How many of [reports] are in each category; categories without posts
@@ -152,13 +147,48 @@ class MapFilterChoices {
   /// Posts per category; categories without posts are left out.
   final Map<ReportCategory, int> categoryCounts;
 
-  /// The species among the posts in [categories] (all when empty).
-  List<MapSpeciesOption> speciesFor(Set<ReportCategory> categories) =>
-      MapPinFilter.speciesOptions(_reports, categories: categories);
+  /// The species among the posts in [categories] (all when empty), then
+  /// every [ticked] species that has no post there, with a count of 0, so a
+  /// tick is never hidden. "Unknown species" stays last.
+  List<MapSpeciesOption> speciesFor(
+    Set<ReportCategory> categories, {
+    Set<String> ticked = const {},
+  }) {
+    final options = MapPinFilter.speciesOptions(
+      _reports,
+      categories: categories,
+    );
+    final listed = {for (final option in options) option.key};
+    final missing = ticked.where((key) => !listed.contains(key)).toList()
+      ..sort();
+    if (missing.isEmpty) return options;
+    final empty = [
+      for (final key in missing)
+        MapSpeciesOption(key: key, label: _labelOf(key), count: 0),
+    ];
+    return [
+      ...options.where((o) => !o.isUnknown),
+      ...empty.where((o) => !o.isUnknown),
+      ...options.where((o) => o.isUnknown),
+      ...empty.where((o) => o.isUnknown),
+    ];
+  }
+
+  /// A species' name as most posts in any category spell it, or the stored
+  /// key with a capital first letter when no post has it any more.
+  String _labelOf(String key) {
+    if (key == MapPinFilter.unknownSpeciesKey) {
+      return MapPinFilter.unknownSpeciesLabel;
+    }
+    for (final option in MapPinFilter.speciesOptions(_reports)) {
+      if (option.key == key) return option.label;
+    }
+    return key[0].toUpperCase() + key.substring(1);
+  }
 
   /// How many posts [filter] would show, as the map would apply it.
   int countMatching(MapPinFilter filter) =>
-      filter.prunedFor(_reports).apply(_reports).length;
+      filter.withoutGoneSpecies(_reports).apply(_reports).length;
 }
 
 /// One species in the filter's list.

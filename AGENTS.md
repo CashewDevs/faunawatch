@@ -854,8 +854,28 @@ falling back to `created_at`, then `id`) and the `report_likes` table. Rules:
   Back step returns to the map)
   (`FeedViewModel.openReport`, fetching it through `community_feed(p_report_id)`
   when it is not loaded). The map shows only real approved reports at the
-  approximate coordinates returned by `community_reports()`. It fits the first
-  nonempty load into view; later refreshes preserve the current camera.
+  approximate coordinates returned by `community_reports()`. It fits the
+  first load that has posts into view (nothing is fitted if the pin filter
+  hides them all); later refreshes preserve the current camera. A refresh
+  asked for while one is running waits for it and one more load follows, so
+  callers such as hide/delete/edit always get posts loaded after their
+  change.
+  **Pin filter:** the "Filter" pill (top left) opens `MapFilterSheet`: tick
+  categories, then optionally species. Species are the AI's top guess
+  (`possible_species[0].common_name`, read into `CommunityReport.species`),
+  grouped ignoring capitals and extra spaces; posts without one are "Unknown
+  species". The user-typed species is not used (`community_reports()` does
+  not return it). The filter (`MapPinFilter`) runs on the phone over the
+  loaded posts: only the drawn pins follow it, the camera does not move, and
+  FaunaGuard still uses every post (it loads its own). Ticked species with no
+  post left in the ticked categories are dropped, unless all of them are
+  gone; then the ticks stay, the sheet lists them with 0 posts, and the map
+  shows a "No pins match this filter" notice with Clear filter
+  (`MapPinFilter.withoutGoneSpecies`, the one rule for the map, the sheet's
+  counts and every change). The sheet's numbers come from one snapshot
+  (`MapFilterChoices`). The filter lasts while the app is open, is cleared
+  when the account changes, and is cleared when opening a post's location
+  would otherwise hide its pin.
   **Photo pins:** each pin shows its post's first photo in the blue pin head
   (`createPhotoPinImage` in `lib/core/services/map_pin_image.dart`; same
   104 x 128 size at 2x as the logo pin). `community_reports()` returns

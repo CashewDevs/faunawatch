@@ -113,19 +113,20 @@ void main() {
       expect(_ids(filter.apply(_posts)), ['cobra-1', 'cobra-2', 'cobra-3']);
     });
 
-    test('pruning drops species missing from the ticked categories', () {
+    test('drops ticked species missing from the ticked categories', () {
       const filter = MapPinFilter(
         categories: {_invasive},
         species: {'cane toad', 'philippine cobra'},
       );
       expect(
-        filter.prunedFor(_posts),
+        filter.withoutGoneSpecies(_posts),
         const MapPinFilter(categories: {_invasive}, species: {'cane toad'}),
       );
       // Nothing to drop: the same filter comes back.
       const kept = MapPinFilter(species: {'cane toad'});
-      expect(kept.prunedFor(_posts), same(kept));
-      expect(kept.prunedFor(const []), const MapPinFilter());
+      expect(kept.withoutGoneSpecies(_posts), same(kept));
+      // Every ticked species gone: the ticks stay (see below).
+      expect(kept.withoutGoneSpecies(const []), same(kept));
     });
 
     test('filters with the same ticks are equal', () {
@@ -196,19 +197,19 @@ void main() {
       expect(options.single.isUnknown, isFalse);
     });
 
-    test('after a refresh, ticks are kept when every species is gone', () {
+    test('keeps the ticks when every ticked species is gone', () {
       const onlyDingo = MapPinFilter(species: {'dingo'});
-      expect(onlyDingo.keptAfterRefresh(_posts), same(onlyDingo));
+      expect(onlyDingo.withoutGoneSpecies(_posts), same(onlyDingo));
       expect(onlyDingo.apply(_posts), isEmpty);
 
       // With another ticked species still there, the gone one is dropped.
       const dingoAndToad = MapPinFilter(species: {'dingo', 'cane toad'});
       expect(
-        dingoAndToad.keptAfterRefresh(_posts),
+        dingoAndToad.withoutGoneSpecies(_posts),
         const MapPinFilter(species: {'cane toad'}),
       );
       const noSpecies = MapPinFilter(categories: {_inNeed});
-      expect(noSpecies.keptAfterRefresh(_posts), same(noSpecies));
+      expect(noSpecies.withoutGoneSpecies(_posts), same(noSpecies));
     });
   });
 
@@ -223,7 +224,18 @@ void main() {
         MapSpeciesOption(key: 'cane toad', label: 'Cane toad', count: 1),
       ]);
       expect(choices.countMatching(const MapPinFilter()), 6);
-      // Applied as the map would: the eagle tick is not in this category.
+      // Applied as the map would: the eagle tick is dropped because the
+      // cobra tick is still there...
+      expect(
+        choices.countMatching(
+          const MapPinFilter(
+            categories: {_dangerous},
+            species: {'philippine eagle', 'philippine cobra'},
+          ),
+        ),
+        2,
+      );
+      // ...but kept when it is the only one, so nothing matches.
       expect(
         choices.countMatching(
           const MapPinFilter(
@@ -231,8 +243,46 @@ void main() {
             species: {'philippine eagle'},
           ),
         ),
-        2,
+        0,
       );
     });
+
+    test(
+      'lists ticked species without posts with 0, so they can be unticked',
+      () {
+        final choices = MapFilterChoices(_posts);
+        expect(
+          choices.speciesFor(
+            {_invasive},
+            ticked: {
+              'philippine eagle',
+              'dingo',
+              MapPinFilter.unknownSpeciesKey,
+            },
+          ),
+          const [
+            MapSpeciesOption(key: 'cane toad', label: 'Cane toad', count: 1),
+            // No post anywhere: the stored name with a capital letter.
+            MapSpeciesOption(key: 'dingo', label: 'Dingo', count: 0),
+            // Spelled as its posts in other categories spell it.
+            MapSpeciesOption(
+              key: 'philippine eagle',
+              label: 'Philippine eagle',
+              count: 0,
+            ),
+            MapSpeciesOption(
+              key: MapPinFilter.unknownSpeciesKey,
+              label: MapPinFilter.unknownSpeciesLabel,
+              count: 0,
+            ),
+          ],
+        );
+        // A ticked species that is listed anyway is not added twice.
+        expect(
+          choices.speciesFor({_invasive}, ticked: {'cane toad'}),
+          hasLength(1),
+        );
+      },
+    );
   });
 }
