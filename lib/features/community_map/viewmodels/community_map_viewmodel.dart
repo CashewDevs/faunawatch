@@ -5,8 +5,10 @@ import 'dart:async';
 
 import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/features/community_map/models/map_focus.dart';
+import 'package:faunawatch/features/community_map/models/map_pin_filter.dart';
 import 'package:faunawatch/features/community_map/models/map_pin_spot.dart';
 import 'package:faunawatch/features/community_map/services/map_pin_photo_service.dart';
+import 'package:faunawatch/features/create_post/models/post_draft.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
 import 'package:faunawatch/features/fauna_guard/models/guard_location.dart';
@@ -43,6 +45,9 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   final _failedPhotos = <String>{};
   bool _loadingPhotos = false, _photosAgain = false;
   int _photoGeneration = 0;
+
+  /// The latest pin redraw after a filter change; the next one waits for it.
+  Future<void> _pinRedraws = Future.value();
 
   @override
   CommunityMapState build() {
@@ -104,7 +109,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
   void onPinTap(String postId) {
     if (_disposed) return;
     final spot = groupReportsBySpot(
-      state.reports,
+      state.visibleReports,
     ).where((spot) => spot.reports.any((r) => r.id == postId)).firstOrNull;
     if (spot == null) return;
     if (spot.count == 1) {
@@ -226,6 +231,12 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       await refreshReports();
     }
     if (_disposed) return;
+    // The filter must not hide the pin that was asked for.
+    final report = state.reports.where((r) => r.id == focus.postId).firstOrNull;
+    if (focus.isPublic && report != null && !state.filter.matches(report)) {
+      await clearFilter();
+    }
+    if (_disposed) return;
     try {
       await _mapboxMapService.showFocus(focus);
     } catch (_) {
@@ -324,7 +335,7 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     // A shared pin shows only its newest post's photo.
     final waiting = [
       for (final report in groupReportsBySpot(
-        state.reports,
+        state.visibleReports,
       ).map((spot) => spot.top))
         if (report.photoPath != null &&
             !_pinPhotos.containsKey(report.id) &&
@@ -394,21 +405,31 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
     try {
       final reports = await ref.read(communityReportsServiceProvider).load();
       if (_disposed) return;
+      // A filter change waits for the refresh, and the refresh for an
+      // earlier filter redraw, so the pins are never drawn twice at once.
+      await _pinRedraws;
+      if (_disposed) return;
+      final drawnFilter = state.filter.prunedFor(reports);
+      final visible = drawnFilter.apply(reports);
       await _mapboxMapService.showReports(
-        reports,
+        visible,
         recenter:
             !_hasCenteredReports &&
-            reports.isNotEmpty &&
+            visible.isNotEmpty &&
             !ref.read(faunaGuardViewModelProvider).isEnabled,
       );
       if (!_disposed) {
         _loadedAt = ref.read(communityMapClockProvider)();
-        if (reports.isNotEmpty) _hasCenteredReports = true;
+        if (visible.isNotEmpty) _hasCenteredReports = true;
+        final filter = state.filter.prunedFor(reports);
         state = state.copyWith(
           reports: List.unmodifiable(reports),
+          filter: filter,
           isLoadingReports: false,
           clearSelectedPost: !reports.any((r) => r.id == state.selectedPostId),
         );
+        // The filter changed while the pins were being drawn.
+        if (filter != drawnFilter) await _redrawPins();
         await _updateGuardRadius();
         await _showKnownPinPhotos();
         unawaited(onMapIdle());
@@ -432,6 +453,50 @@ class CommunityMapViewModel extends Notifier<CommunityMapState> {
       // The pins keep the logo until the next refresh.
     }
   }
+
+  /// Shows only the posts [filter] lets through. Species ticks that no
+  /// longer appear in the ticked categories are dropped. The camera does not
+  /// move, and FaunaGuard keeps using every post.
+  Future<void> setFilter(MapPinFilter filter) async {
+    if (_disposed) return;
+    final next = filter.prunedFor(state.reports);
+    if (next == state.filter) return;
+    state = state.copyWith(filter: next);
+    // A refresh in progress draws the new filter when it finishes.
+    if (state.isLoadingReports) return;
+    await _redrawPins();
+    // A shared pin may now show another post, whose photo may be missing.
+    unawaited(onMapIdle());
+  }
+
+  /// Shows every post again.
+  Future<void> clearFilter() => setFilter(const MapPinFilter());
+
+  /// Draws the pins for the current filter once any earlier redraw is done,
+  /// so two quick changes cannot finish in the wrong order.
+  Future<void> _redrawPins() {
+    return _pinRedraws = _pinRedraws.then((_) async {
+      if (_disposed || !_isStyleLoaded) return;
+      try {
+        await _mapboxMapService.showReports(state.visibleReports);
+      } catch (_) {
+        // The pins stay as they were; the next refresh draws them again.
+      }
+    });
+  }
+
+  /// Posts per category, for the filter's category list.
+  Map<ReportCategory, int> get categoryCounts =>
+      MapPinFilter.categoryCounts(state.reports);
+
+  /// The species among the posts in [categories] (all when empty), for the
+  /// filter's species list.
+  List<MapSpeciesOption> speciesOptionsFor(Set<ReportCategory> categories) =>
+      MapPinFilter.speciesOptions(state.reports, categories: categories);
+
+  /// How many posts [filter] would show, for the filter's "Show" button.
+  int countMatching(MapPinFilter filter) =>
+      filter.prunedFor(state.reports).apply(state.reports).length;
 
   /// Keeps Mapbox Standard lighting aligned with the active app theme.
   Future<void> setBrightness(Brightness brightness) async {

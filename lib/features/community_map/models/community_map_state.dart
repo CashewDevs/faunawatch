@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'community_report.dart';
 import 'map_focus.dart';
+import 'map_pin_filter.dart';
 import 'map_pin_spot.dart';
 
 /// Presentation state for the community sightings map.
@@ -16,6 +17,7 @@ class CommunityMapState {
     this.isLoadingReports = false,
     this.privateFocus,
     this.selectedSpot,
+    this.filter = const MapPinFilter(),
   });
 
   final bool is3dEnabled;
@@ -30,6 +32,12 @@ class CommunityMapState {
   /// A tapped pin holding several posts; its list is open.
   final MapPinSpot? selectedSpot;
 
+  /// Which posts are drawn as pins; FaunaGuard ignores it.
+  final MapPinFilter filter;
+
+  /// The posts drawn as pins: [reports] that match [filter].
+  List<CommunityReport> get visibleReports => filter.apply(reports);
+
   CommunityMapState copyWith({
     bool? is3dEnabled,
     Brightness? brightness,
@@ -42,6 +50,7 @@ class CommunityMapState {
     bool clearPrivateFocus = false,
     MapPinSpot? selectedSpot,
     bool clearSelectedSpot = false,
+    MapPinFilter? filter,
   }) {
     return CommunityMapState(
       is3dEnabled: is3dEnabled ?? this.is3dEnabled,
@@ -58,6 +67,7 @@ class CommunityMapState {
       selectedSpot: clearSelectedSpot
           ? null
           : selectedSpot ?? this.selectedSpot,
+      filter: filter ?? this.filter,
     );
   }
 }
