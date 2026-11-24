@@ -667,6 +667,46 @@ render `SettingsView` signed in must override `postsPrivacyServiceProvider`.
 There is no location-privacy switch; public locations are always rounded by
 the server. Apply `20261123150000_add_private_posts.sql` by hand.
 
+Edit / hide / delete own posts (server side,
+`20261124170000_add_edit_hide_delete_posts.sql`, applied by hand):
+- **Hide:** `reports.hidden_at`, set only through
+  `set_my_report_hidden(report_id, hidden)`. Only approved posts can be hidden;
+  unhiding works in any status. Hiding is allowed while suspended. Hidden posts
+  are left out of `community_feed()` (except the owner's own post loaded by
+  `p_report_id`), `community_reports()` and `public_profile_gallery()` (for the
+  owner too). `is_admin()` still sees them. `can_view_report_media()`,
+  `can_view_report_comments()`, `is_report_approved()` (likes and comments) and
+  the `ai_analyses` select policy treat a hidden post as the owner's and
+  admins' only. Hotspot numbers still count hidden posts.
+- **Edit caption:** `update_my_report_caption(report_id, description)` works
+  on approved and pending posts and keeps the status.
+- **Edit photos:** the app first uploads the new files to `{report_id}/...`.
+  The `report_images_storage_insert` policy also allows this on the owner's
+  approved posts through `can_add_report_photo()`. The app then calls
+  `apply_my_report_photo_edit(report_id, photos, analysis, category)` once.
+  - `photos` lists 1–3 items in display order: `{image_id}` to keep a photo,
+    or `{storage_path, size_bytes, fingerprint, exif}` for a new one.
+  - A new cover needs `analysis` (the `toAnalysisRow` map). It replaces the old
+    completed analysis, and `category` follows it.
+  - The post goes back to `pending` and `photos_edited_at` is set.
+  - The function returns the removed photos' paths so the app can delete those
+    files. Owners may delete their own posts' photo files in any status
+    (`owns_report()`).
+  - `guard_report_status()` allows the owner's approved → pending change only
+    inside this function, via the transaction setting
+    `faunawatch.owner_editing_post`.
+  - The owner gets "Your edited post is pending review".
+- **Delete:** the app removes the photo files first, then deletes the report
+  through the existing `reports_delete_own` policy. Everything linked to the
+  report is deleted with it ("on delete cascade").
+- **Rules for all of them:**
+  - `guard_report_owner_fields()` stops owners from setting `hidden_at` or
+    `photos_edited_at` directly.
+  - Edits are refused while suspended (`account_suspended`, FW403).
+  - Errors: `report_not_found` / `photo_not_found` (FW404);
+    `report_not_public`, `report_not_editable`, `photo_not_uploaded`,
+    `analysis_required` and `analysis_without_new_cover` (FW409).
+
 Apply `20261121233000_create_public_profile_gallery.sql` manually after
 `20261112100000_create_community_feed.sql` and its prerequisites. Agents must
 not apply hosted changes. This adds one gallery RPC and an index, no table or
