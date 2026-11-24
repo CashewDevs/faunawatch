@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/community_map/viewmodels/community_map_viewmodel.dart';
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
+import 'package:faunawatch/features/gallery/viewmodels/gallery_post_viewmodel.dart';
 import 'package:faunawatch/features/gallery/viewmodels/gallery_viewmodel.dart';
 import 'package:faunawatch/features/post_management/services/post_management_service.dart';
 import 'package:faunawatch/features/report_detail/viewmodels/report_detail_viewmodel.dart';
@@ -55,6 +56,22 @@ class PostActionsViewModel extends Notifier<Set<String>> {
     }
     _refreshMapAndDetail(postId);
   });
+
+  /// The Edit post screen saved [postId]. A photo change sent it back for
+  /// review, so it leaves the feed and the map; a caption change shows once
+  /// the feed loads again. My Gallery and open post screens load it again.
+  void postEdited(String postId, {required bool sentForReview}) {
+    if (ref.exists(feedViewModelProvider)) {
+      final feed = ref.read(feedViewModelProvider.notifier);
+      sentForReview ? feed.removePost(postId) : unawaited(feed.refresh());
+    }
+    if (ref.exists(galleryViewModelProvider)) {
+      unawaited(ref.read(galleryViewModelProvider.notifier).reload());
+    }
+    // Any open full-screen gallery page of this post shows the new version.
+    ref.invalidate(galleryPostViewModelProvider);
+    _refreshMapAndDetail(postId);
+  }
 
   Future<PostActionResult> _run(
     String postId,
