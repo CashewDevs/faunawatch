@@ -1,5 +1,6 @@
 {{/* Invite user. Layout shared with the other files in this folder; see README.md. */}}
-{{/* Until the admin site has its "accept invite" page, the link goes through Supabase as before. */}}
+{{/* The link goes straight to the admin site's /accept-invite page with the token, which works in any browser and is only used when the new admin saves a password. Send invitations from the admin site's Admins page: it sets RedirectTo to that page. */}}
+{{ $link := printf "%s#token_hash=%s" .RedirectTo .TokenHash }}
 <!doctype html>
 <html lang="en">
 <head>
@@ -20,11 +21,11 @@
 <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#0f1a3c;">You're invited to FaunaWatch Admin</h1>
 <p style="margin:0 0 24px;">A FaunaWatch admin invited <strong style="color:#0f1a3c;">{{ .Email }}</strong> to the admin site, where the team reviews posts and looks after the community. Accept the invitation to choose your password.</p>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;"><tr><td style="background:#ffd400;border:2px solid #0f1a3c;border-radius:12px;">
-<a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 28px;color:#0f1a3c;font-size:16px;font-weight:bold;text-decoration:none;">Accept the invitation</a>
+<a href="{{ $link }}" style="display:inline-block;padding:12px 28px;color:#0f1a3c;font-size:16px;font-weight:bold;text-decoration:none;">Accept the invitation</a>
 </td></tr></table>
 <p style="margin:0 0 16px;">This link works once and expires in 1 hour. If it has expired, ask the admin who invited you to send a new one.</p>
 <p style="margin:0 0 16px;">Not expecting this? You can ignore this email.</p>
-<p style="margin:0 0 24px;font-size:13px;color:#64748b;">If the button doesn't work, copy this link into your browser:<br><a href="{{ .ConfirmationURL }}" style="color:#1a5dc9;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+<p style="margin:0 0 24px;font-size:13px;color:#64748b;">If the button doesn't work, copy this link into your browser:<br><a href="{{ $link }}" style="color:#1a5dc9;word-break:break-all;">{{ $link }}</a></p>
 </td></tr>
 <tr><td style="padding:16px 32px 24px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;line-height:1.5;">
 FaunaWatch · Mapping life, one sighting at a time.<br>This is an automatic email about your FaunaWatch account.

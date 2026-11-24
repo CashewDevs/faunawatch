@@ -42,6 +42,10 @@ they keep Supabase's default text.
   site's `/reset-password`) gets `{{ .RedirectTo }}#token_hash=...` directly,
   which works in any browser. An app link can't be put in the email itself:
   email apps drop links that aren't `https://`.
+- **Invite link.** `invite.html` links to `{{ .RedirectTo }}#token_hash=...`:
+  the admin site's `/accept-invite` page, which the Admins page (Edge
+  Function `manage-admins`) sets as the redirect. Invite admins from there,
+  not from the Dashboard's "Invite user", whose redirect is the Site URL.
 - **Expiry.** The text says links expire in 1 hour: Supabase's "Email OTP
   Expiration" setting (3600 seconds by default). Update the text if that
   setting changes.
