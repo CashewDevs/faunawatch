@@ -530,7 +530,7 @@ class _Submitted extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedCheck(color: theme.colorScheme.primary),
+              const AnimatedCheck(color: AppColors.faunaLensYellow),
               const SizedBox(height: 24),
               Text(
                 'Thanks for your report!',
@@ -552,18 +552,38 @@ class _Submitted extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: FilledButton(
-                  onPressed: onDone,
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        AppColors.onboardingButtonGradientStart,
+                        AppColors.onboardingButtonGradientEnd,
+                      ],
                     ),
-                    textStyle: GoogleFonts.dmSans(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(
+                      color: AppColors.faunaLensBlue,
+                      width: 2,
                     ),
                   ),
-                  child: const Text('Done'),
+                  child: FilledButton(
+                    onPressed: onDone,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: const Color(0xFF003E43),
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      textStyle: GoogleFonts.dmSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    child: const Text('Done'),
+                  ),
                 ),
               ),
             ],
