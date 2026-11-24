@@ -939,18 +939,22 @@ void main() {
       expect(mapboxMapService.focusCalls.last.focus, hidden);
     });
 
-    test('gives the filter sheet its lists and counts', () async {
+    test('gives the filter sheet one snapshot of lists and counts', () async {
       await vm().onStyleLoaded();
-      expect(vm().categoryCounts, {dangerous: 1, inNeed: 2});
-      expect(vm().speciesOptionsFor({inNeed}).map((o) => o.label), [
+      final choices = vm().filterChoices;
+      expect(choices.categoryCounts, {dangerous: 1, inNeed: 2});
+      expect(choices.speciesFor({inNeed}).map((o) => o.label), [
         'Philippine eagle',
         MapPinFilter.unknownSpeciesLabel,
       ]);
-      expect(vm().speciesOptionsFor({}), hasLength(3));
-      expect(vm().countMatching(const MapPinFilter(categories: {inNeed})), 2);
+      expect(choices.speciesFor({}), hasLength(3));
+      expect(
+        choices.countMatching(const MapPinFilter(categories: {inNeed})),
+        2,
+      );
       // The eagle tick does not apply to dangerous animals, so it is ignored.
       expect(
-        vm().countMatching(
+        choices.countMatching(
           const MapPinFilter(
             categories: {dangerous},
             species: {'philippine eagle'},
@@ -958,6 +962,150 @@ void main() {
         ),
         1,
       );
+
+      // A refresh while the sheet is open does not change its numbers.
+      reports.items = [cobra, eagle, unknown, post('new', inNeed)];
+      await vm().refreshReports();
+      expect(choices.categoryCounts[inNeed], 2);
+      expect(
+        choices.countMatching(const MapPinFilter(categories: {inNeed})),
+        2,
+      );
+      expect(vm().filterChoices.categoryCounts[inNeed], 3);
+    });
+
+    test(
+      'a filter picked during a refresh that fails is still drawn',
+      () async {
+        await vm().onStyleLoaded();
+        final gate = reports.gate = Completer<void>();
+        reports.fail = true;
+        final refreshing = vm().refreshReports();
+        await pumpEventQueue();
+
+        await vm().setFilter(const MapPinFilter(categories: {dangerous}));
+        expect(drawn(), all);
+        gate.complete();
+        await refreshing;
+        await pumpEventQueue();
+        expect(state().reportsHaveError, isTrue);
+        expect(drawn(), ['cobra']);
+      },
+    );
+
+    test(
+      'opening a new post while the tab is refreshing waits, then clears a filter hiding it',
+      () async {
+        await vm().onStyleLoaded();
+        await vm().setFilter(const MapPinFilter(categories: {dangerous}));
+        final fresh = post('fresh', inNeed, lat: 14);
+        reports.items = [cobra, eagle, unknown, fresh];
+        final gate = reports.gate = Completer<void>();
+        // Opening the Map tab started a refresh.
+        final tabRefresh = vm().refreshReports();
+        await pumpEventQueue();
+
+        const focus = MapFocus(
+          postId: 'fresh',
+          latitude: 14,
+          longitude: 123.12,
+          isPublic: true,
+        );
+        final focusing = vm().focusOn(focus);
+        await pumpEventQueue();
+        expect(mapboxMapService.focusCalls, isEmpty);
+        gate.complete();
+        await tabRefresh;
+        await focusing;
+
+        // One refresh for both, and the new post's pin is shown.
+        expect(reports.loads, 2);
+        expect(state().filter.isActive, isFalse);
+        expect(drawn(), contains('fresh'));
+        expect(mapboxMapService.focusCalls.last.focus, focus);
+      },
+    );
+
+    test(
+      'a first load hidden by the filter never makes a later refresh jump',
+      () async {
+        // Picked before the map loaded, e.g. kept from an earlier map.
+        await vm().setFilter(
+          const MapPinFilter(
+            categories: {ReportCategory.otherWildlifeIncident},
+          ),
+        );
+        await vm().onStyleLoaded();
+        expect(drawn(), isEmpty);
+        expect(mapboxMapService.reportCalls.last.recenter, isFalse);
+
+        await vm().clearFilter();
+        expect(drawn(), all);
+        await vm().refreshReports();
+        expect(mapboxMapService.reportCalls.last.recenter, isFalse);
+      },
+    );
+
+    test(
+      'a refresh removing every ticked species keeps the ticks and hides all pins',
+      () async {
+        await vm().onStyleLoaded();
+        await vm().setFilter(const MapPinFilter(species: {'philippine cobra'}));
+        expect(drawn(), ['cobra']);
+
+        reports.items = [eagle, unknown];
+        await vm().refreshReports();
+        expect(
+          state().filter,
+          const MapPinFilter(species: {'philippine cobra'}),
+        );
+        expect(state().visibleReports, isEmpty);
+        expect(drawn(), isEmpty);
+      },
+    );
+
+    test('applying the same filter again retries a failed drawing', () async {
+      await vm().onStyleLoaded();
+      mapboxMapService.failReports = true;
+      await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+      mapboxMapService.failReports = false;
+      final draws = mapboxMapService.reportCalls.length;
+
+      await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+      expect(mapboxMapService.reportCalls, hasLength(draws + 1));
+      expect(drawn(), ['eagle', 'unknown']);
+
+      // Drawn now, so the same filter again does nothing.
+      await vm().setFilter(const MapPinFilter(categories: {inNeed}));
+      expect(mapboxMapService.reportCalls, hasLength(draws + 1));
+    });
+
+    test('another account starts without the filter', () async {
+      final user = StateProvider<String?>((ref) => 'first');
+      final accounts = ProviderContainer(
+        overrides: [
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          currentUserIdProvider.overrideWith(
+            (ref) => Stream.value(ref.watch(user)),
+          ),
+          feedServiceProvider.overrideWithValue(feed),
+        ],
+      );
+      addTearDown(accounts.dispose);
+      await accounts.read(currentUserIdProvider.future);
+      final map = accounts.read(communityMapViewModelProvider.notifier);
+      await map.onStyleLoaded();
+      await map.setFilter(const MapPinFilter(categories: {inNeed}));
+      expect(drawn(), ['eagle', 'unknown']);
+
+      accounts.read(user.notifier).state = 'second';
+      await pumpEventQueue();
+      expect(
+        accounts.read(communityMapViewModelProvider).filter.isActive,
+        isFalse,
+      );
+      expect(drawn(), all);
     });
   });
 }
@@ -1034,9 +1182,15 @@ class _Reports implements CommunityReportsService {
   bool fail = false;
   int loads = 0;
   List<CommunityReport> items = [_report];
+
+  /// Holds the next load until completed.
+  Completer<void>? gate;
   @override
   Future<List<CommunityReport>> load() async {
     loads++;
+    final wait = gate;
+    gate = null;
+    await wait?.future;
     if (fail) throw StateError('offline');
     return items;
   }

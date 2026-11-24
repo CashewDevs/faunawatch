@@ -60,14 +60,7 @@ void main() {
                     showDragHandle: true,
                     builder: (_) => MapFilterSheet(
                       initial: initial,
-                      categoryCounts: MapPinFilter.categoryCounts(reports),
-                      speciesOptionsFor: (categories) =>
-                          MapPinFilter.speciesOptions(
-                            reports,
-                            categories: categories,
-                          ),
-                      countMatching: (filter) =>
-                          filter.prunedFor(reports).apply(reports).length,
+                      choices: MapFilterChoices(reports),
                     ),
                   );
                   closed = true;
@@ -127,7 +120,7 @@ void main() {
       expect(tile('Cane toad'), findsOneWidget);
       await reveal(tester, tile(MapPinFilter.unknownSpeciesLabel));
       expect(tile(MapPinFilter.unknownSpeciesLabel), findsOneWidget);
-      expect(find.text('Show 6 posts'), findsOneWidget);
+      expect(find.text('Show all posts'), findsOneWidget);
       expect(clearButton(tester).onPressed, isNull);
 
       // Ticking a category narrows the species to the ones in it.
@@ -167,7 +160,7 @@ void main() {
       tester.widget<CheckboxListTile>(tile('Animal in need')).value,
       isFalse,
     );
-    expect(find.text('Show 6 posts'), findsOneWidget);
+    expect(find.text('Show all posts'), findsOneWidget);
     expect(clearButton(tester).onPressed, isNull);
   });
 
@@ -188,6 +181,24 @@ void main() {
     expect(find.text('No posts to pick a species from.'), findsOneWidget);
     final show = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(show.onPressed, isNull);
+  });
+
+  testWidgets('with no posts loaded, a filter can still be removed', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      posts: const [],
+      initial: const MapPinFilter(categories: {_inNeed}),
+    );
+    expect(find.text('No posts match'), findsOneWidget);
+
+    await tester.tap(find.text('Clear'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show all posts'));
+    await tester.pumpAndSettle();
+    expect(closed, isTrue);
+    expect(result, const MapPinFilter());
   });
 
   testWidgets('a long species list gets a search box', (tester) async {
@@ -222,7 +233,7 @@ void main() {
     await open(tester, textScale: 1.8);
     await reveal(tester, tile(MapPinFilter.unknownSpeciesLabel));
     await tester.pumpAndSettle();
-    expect(find.text('Show 6 posts'), findsOneWidget);
+    expect(find.text('Show all posts'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

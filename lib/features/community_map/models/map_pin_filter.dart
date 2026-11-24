@@ -39,10 +39,10 @@ class MapPinFilter {
   List<CommunityReport> apply(List<CommunityReport> reports) =>
       isActive ? reports.where(matches).toList() : reports;
 
-  /// This filter without the ticked species that no longer appear among
-  /// [reports] in the ticked categories, e.g. after a refresh removed their
-  /// last post or their category was unticked. A tick nobody can see would
-  /// hide pins for no visible reason.
+  /// This filter without the ticked species that do not appear among
+  /// [reports] in the ticked categories, e.g. after their category was
+  /// unticked in the sheet. The sheet only lists species of the ticked
+  /// categories, so such a tick could not be seen or unticked there.
   MapPinFilter prunedFor(Iterable<CommunityReport> reports) {
     if (species.isEmpty) return this;
     final present = {
@@ -53,6 +53,16 @@ class MapPinFilter {
     return kept.length == species.length
         ? this
         : MapPinFilter(categories: categories, species: kept);
+  }
+
+  /// This filter after a refresh brought [reports]: like [prunedFor], but
+  /// when every ticked species is gone the ticks are kept. Dropping them all
+  /// would turn "only these species" into "every species" and show more
+  /// pins without saying why; kept, the map shows none and offers to clear
+  /// the filter.
+  MapPinFilter keptAfterRefresh(Iterable<CommunityReport> reports) {
+    final pruned = prunedFor(reports);
+    return species.isNotEmpty && pruned.species.isEmpty ? this : pruned;
   }
 
   /// How many of [reports] are in each category; categories without posts
@@ -128,6 +138,27 @@ class MapPinFilter {
     Object.hashAllUnordered(categories),
     Object.hashAllUnordered(species),
   );
+}
+
+/// The filter sheet's lists and counts, all worked out from the same posts,
+/// so a refresh while the sheet is open cannot make its numbers disagree.
+class MapFilterChoices {
+  MapFilterChoices(List<CommunityReport> reports)
+    : _reports = List.unmodifiable(reports),
+      categoryCounts = Map.unmodifiable(MapPinFilter.categoryCounts(reports));
+
+  final List<CommunityReport> _reports;
+
+  /// Posts per category; categories without posts are left out.
+  final Map<ReportCategory, int> categoryCounts;
+
+  /// The species among the posts in [categories] (all when empty).
+  List<MapSpeciesOption> speciesFor(Set<ReportCategory> categories) =>
+      MapPinFilter.speciesOptions(_reports, categories: categories);
+
+  /// How many posts [filter] would show, as the map would apply it.
+  int countMatching(MapPinFilter filter) =>
+      filter.prunedFor(_reports).apply(_reports).length;
 }
 
 /// One species in the filter's list.

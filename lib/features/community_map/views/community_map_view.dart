@@ -136,6 +136,8 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
     if (_filterOpen) return;
     _filterOpen = true;
     final viewModel = ref.read(communityMapViewModelProvider.notifier);
+    // One snapshot, so every number in the open sheet agrees.
+    final choices = viewModel.filterChoices;
     final filter = await showModalBottomSheet<MapPinFilter>(
       context: context,
       isScrollControlled: true,
@@ -151,9 +153,7 @@ class _CommunityMapViewState extends ConsumerState<CommunityMapView> {
         ),
         child: MapFilterSheet(
           initial: ref.read(communityMapViewModelProvider).filter,
-          categoryCounts: viewModel.categoryCounts,
-          speciesOptionsFor: viewModel.speciesOptionsFor,
-          countMatching: viewModel.countMatching,
+          choices: choices,
         ),
       ),
     );

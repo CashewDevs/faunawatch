@@ -7,21 +7,17 @@ import 'package:flutter/material.dart';
 ///
 /// The ticks stay a draft until Show is tapped, which closes the sheet with
 /// the new filter; closing it any other way keeps the old one. The lists and
-/// counts come from the map's view model.
+/// counts come from [choices], taken from the map's view model when the
+/// sheet opens.
 class MapFilterSheet extends StatefulWidget {
   const MapFilterSheet({
     super.key,
     required this.initial,
-    required this.categoryCounts,
-    required this.speciesOptionsFor,
-    required this.countMatching,
+    required this.choices,
   });
 
   final MapPinFilter initial;
-  final Map<ReportCategory, int> categoryCounts;
-  final List<MapSpeciesOption> Function(Set<ReportCategory> categories)
-  speciesOptionsFor;
-  final int Function(MapPinFilter filter) countMatching;
+  final MapFilterChoices choices;
 
   /// Above this many species, a search box helps find one.
   static const searchFrom = 8;
@@ -63,12 +59,15 @@ class _MapFilterSheetState extends State<MapFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final options = widget.speciesOptionsFor(_categories);
+    final options = widget.choices.speciesFor(_categories);
     final query = _search.text.trim().toLowerCase();
     final shownOptions = query.isEmpty
         ? options
         : options.where((o) => o.label.toLowerCase().contains(query)).toList();
-    final matching = widget.countMatching(_draft);
+    final matching = widget.choices.countMatching(_draft);
+    // Nothing ticked always works, even with no posts loaded, so a filter
+    // can be removed at any time.
+    final showsAll = !_draft.isActive;
     final hint = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
@@ -111,7 +110,7 @@ class _MapFilterSheetState extends State<MapFilterSheet> {
               for (final category in ReportCategory.values)
                 _CountedCheckbox(
                   label: category.label,
-                  count: widget.categoryCounts[category] ?? 0,
+                  count: widget.choices.categoryCounts[category] ?? 0,
                   value: _categories.contains(category),
                   onChanged: (on) => _toggleCategory(category, on),
                 ),
@@ -169,13 +168,14 @@ class _MapFilterSheetState extends State<MapFilterSheet> {
           top: false,
           minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
           child: FilledButton(
-            onPressed: matching == 0
-                ? null
-                : () => Navigator.of(context).pop(_draft),
+            onPressed: showsAll || matching > 0
+                ? () => Navigator.of(context).pop(_draft)
+                : null,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
             ),
             child: Text(switch (matching) {
+              _ when showsAll => 'Show all posts',
               0 => 'No posts match',
               1 => 'Show 1 post',
               _ => 'Show $matching posts',

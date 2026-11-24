@@ -195,5 +195,44 @@ void main() {
       expect(options.single.label, 'Cane toad');
       expect(options.single.isUnknown, isFalse);
     });
+
+    test('after a refresh, ticks are kept when every species is gone', () {
+      const onlyDingo = MapPinFilter(species: {'dingo'});
+      expect(onlyDingo.keptAfterRefresh(_posts), same(onlyDingo));
+      expect(onlyDingo.apply(_posts), isEmpty);
+
+      // With another ticked species still there, the gone one is dropped.
+      const dingoAndToad = MapPinFilter(species: {'dingo', 'cane toad'});
+      expect(
+        dingoAndToad.keptAfterRefresh(_posts),
+        const MapPinFilter(species: {'cane toad'}),
+      );
+      const noSpecies = MapPinFilter(categories: {_inNeed});
+      expect(noSpecies.keptAfterRefresh(_posts), same(noSpecies));
+    });
+  });
+
+  group('MapFilterChoices', () {
+    test('works out every number from the posts it was given', () {
+      final posts = List.of(_posts);
+      final choices = MapFilterChoices(posts);
+      posts.add(_post('later', _inNeed, 'Cane toad'));
+
+      expect(choices.categoryCounts, {_dangerous: 2, _invasive: 1, _inNeed: 3});
+      expect(choices.speciesFor({_invasive}), const [
+        MapSpeciesOption(key: 'cane toad', label: 'Cane toad', count: 1),
+      ]);
+      expect(choices.countMatching(const MapPinFilter()), 6);
+      // Applied as the map would: the eagle tick is not in this category.
+      expect(
+        choices.countMatching(
+          const MapPinFilter(
+            categories: {_dangerous},
+            species: {'philippine eagle'},
+          ),
+        ),
+        2,
+      );
+    });
   });
 }

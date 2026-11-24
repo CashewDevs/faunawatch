@@ -716,7 +716,7 @@ void main() {
             )
             .first,
       );
-      expect(find.text('Show 2 posts'), findsOneWidget);
+      expect(find.text('Show all posts'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
