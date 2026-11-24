@@ -7,7 +7,10 @@ import 'package:faunawatch/features/community_map/viewmodels/community_map_viewm
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/feed/views/widgets/binoculars_icon.dart';
 import 'package:faunawatch/features/feed/views/widgets/feed_post_card.dart';
+import 'package:faunawatch/features/post_management/models/own_post_menu.dart';
+import 'package:faunawatch/features/post_management/views/widgets/own_post_options_sheet.dart';
 import 'package:faunawatch/features/public_profile/views/widgets/profile_preview_sheet.dart';
+import 'package:faunawatch/features/report_detail/models/own_report.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 /// The For You tab: approved reports, one full-screen post at a time. Swipe up
@@ -140,6 +143,17 @@ class _ForYouFeedState extends ConsumerState<ForYouFeed> {
                     ? () => ref
                           .read(communityMapViewModelProvider.notifier)
                           .focusOnPost(post, isPublic: true)
+                    : null,
+                // Posts in the feed are approved and not hidden.
+                onMore: post.authorId == currentUserId
+                    ? () => showOwnPostOptions(
+                        context,
+                        ref,
+                        OwnPostMenu(
+                          postId: post.id,
+                          status: ReportStatus.approved,
+                        ),
+                      )
                     : null,
               );
             },

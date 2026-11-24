@@ -11,6 +11,7 @@ import 'package:faunawatch/features/gallery/services/gallery_service.dart';
 import 'package:faunawatch/features/gallery/views/gallery_view.dart';
 import 'package:faunawatch/features/gallery/views/screens/gallery_post_viewer.dart';
 import 'package:faunawatch/features/gallery/views/widgets/gallery_card.dart';
+import 'package:faunawatch/features/post_management/services/post_management_service.dart';
 import 'package:faunawatch/features/profile/models/profile_data.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
 import 'package:faunawatch/features/report_detail/services/report_detail_service.dart';
@@ -19,6 +20,7 @@ import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 
 import '../../feed/fake_feed_service.dart';
 import '../fake_gallery_service.dart';
+import '../../post_management/fake_post_management_service.dart';
 import '../../feed/post_title_finder.dart';
 
 void main() {
@@ -38,7 +40,11 @@ void main() {
     service = FakeFeedService(posts: gallery.posts);
   });
 
-  Future<void> pumpGallery(WidgetTester tester, {bool dark = false}) async {
+  Future<void> pumpGallery(
+    WidgetTester tester, {
+    bool dark = false,
+    List<Override> more = const [],
+  }) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -53,6 +59,7 @@ void main() {
         feedServiceProvider.overrideWithValue(service),
         profileViewModelProvider.overrideWith(_TestProfile.new),
         reportDetailServiceProvider.overrideWithValue(reports),
+        ...more,
       ],
     );
     addTearDown(container.dispose);
@@ -336,6 +343,38 @@ void main() {
     );
     expect(scaffold.backgroundColor, isNull);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a hidden post shows its badge; deleting it from "⋯" returns '
+      'to the grid', (tester) async {
+    gallery.hidden.add('p1');
+    final posts = FakePostManagementService();
+    await pumpGallery(
+      tester,
+      more: [postManagementServiceProvider.overrideWithValue(posts)],
+    );
+    await openPost(tester, 'p1');
+    expect(
+      find.descendant(
+        of: find.byType(GalleryPostViewer),
+        matching: find.byType(HiddenPostBadge),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.bySemanticsLabel('Post options'));
+    await tester.pumpAndSettle();
+    // Already hidden: it can be shown again, not hidden twice.
+    expect(find.text('Show post again'), findsOneWidget);
+    expect(find.text('Hide post'), findsNothing);
+    await tester.tap(find.text('Delete post'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(posts.deleted, ['p1']);
+    expect(find.byType(GalleryPostViewer), findsNothing);
+    expect(find.byType(GalleryCard), findsNWidgets(2));
+    staysInProfile();
   });
 }
 

@@ -318,4 +318,43 @@ void main() {
     expect(find.text('No posts in this category.'), findsOneWidget);
     expect(find.text('Load older posts'), findsNothing);
   });
+
+  testWidgets('hidden posts carry a Hidden badge and have their own chip', (
+    tester,
+  ) async {
+    service.hidden.add('other');
+    await pumpGallery(tester);
+    expect(find.byType(GalleryCard), findsNWidgets(3));
+    expect(
+      find.descendant(
+        of: find.byWidgetPredicate(
+          (w) => w is GalleryCard && w.item.id == 'other',
+        ),
+        matching: find.byType(HiddenPostBadge),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(HiddenPostBadge), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Red Fox.*Hidden')), findsOne);
+
+    // The chip, not the badge that has the same word.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(GalleryHeader),
+        matching: find.text('Hidden'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(GalleryCard), findsOneWidget);
+    expect(find.text('Red Fox'), findsOneWidget);
+
+    service.hidden.clear();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(find.text('No hidden posts.'), findsOneWidget);
+    expect(
+      find.text('Posts you hide appear here. Only you can see them.'),
+      findsOneWidget,
+    );
+  });
 }

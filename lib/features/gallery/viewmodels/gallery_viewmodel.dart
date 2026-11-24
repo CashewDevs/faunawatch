@@ -32,7 +32,7 @@ class GalleryViewModel extends Notifier<GalleryState> {
   }
 
   List<GalleryItem> _items(List<GalleryPost> posts) => [
-    for (final GalleryPost(:post, :status) in posts)
+    for (final GalleryPost(:post, :status, :isHidden) in posts)
       GalleryItem(
         id: post.id,
         title: post.title,
@@ -41,6 +41,7 @@ class GalleryViewModel extends Notifier<GalleryState> {
         category: post.categoryLabel,
         imageUrl: post.photoUrls.firstOrNull,
         status: status,
+        isHidden: isHidden,
       ),
   ];
 
@@ -125,7 +126,40 @@ class GalleryViewModel extends Notifier<GalleryState> {
 
   void clearMessage() => state = state.copyWith(clearMessage: true);
 
-  /// Shows All, Pending or Approved posts.
+  /// The user hid or showed [postId]. Its tile changes at once; under the
+  /// Hidden chip a shown post leaves, and a newly hidden post that isn't
+  /// loaded yet is fetched. Remembered filters load again when visited.
+  void postHiddenChanged(String postId, {required bool hidden}) {
+    _cache.clear();
+    final onlyHidden = state.filter.status.onlyHidden;
+    if (!_posts.any((entry) => entry.post.id == postId)) {
+      if (hidden && onlyHidden && !state.isLoading) {
+        _checkForChanges(_generation);
+      }
+      return;
+    }
+    _posts = [
+      for (final entry in _posts)
+        if (entry.post.id != postId)
+          entry
+        else if (hidden || !onlyHidden)
+          GalleryPost(entry.post, entry.status, isHidden: hidden),
+    ];
+    state = state.copyWith(items: _items(_posts));
+  }
+
+  /// The user deleted [postId]: its tile leaves every filter.
+  void postDeleted(String postId) {
+    _cache.clear();
+    if (!_posts.any((entry) => entry.post.id == postId)) return;
+    _posts = [
+      for (final entry in _posts)
+        if (entry.post.id != postId) entry,
+    ];
+    state = state.copyWith(items: _items(_posts));
+  }
+
+  /// Shows All, Pending, Approved, Declined or Hidden posts.
   void setStatus(GalleryStatusFilter status) =>
       _applyFilter(state.filter.copyWith(status: status));
 

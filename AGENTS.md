@@ -707,6 +707,42 @@ Edit / hide / delete own posts (server side,
     `report_not_public`, `report_not_editable`, `photo_not_uploaded`,
     `analysis_required` and `analysis_without_new_cover` (FW409).
 
+App side (`lib/features/post_management/`):
+- **The "⋯" menu:** `showOwnPostOptions(context, ref, OwnPostMenu, onDeleted:)`
+  opens it. `OwnPostMenu` carries the post id, status and hidden flag, and
+  decides what the menu offers:
+  - **Hide:** approved posts only; the snackbar has Undo.
+  - **Show post again:** hidden posts only.
+  - **Delete:** every post, after a confirmation dialog.
+
+  The menu appears through `FeedPostCard.onMore` / `PostActionRail.onMore`
+  (null on other people's posts), in three places:
+  - the user's own posts in the Feed
+  - the profile's `GalleryPostPage` (own gallery only, i.e. `authorId` null;
+    a delete pops the viewer)
+  - the header action of `ReportDetailScreen` (`FaunaLensPageHeader.action`)
+- **`PostActionsViewModel`:** its state is the set of post ids with an action
+  running; a second tap on such a post is ignored. It calls
+  `PostManagementService` and then updates only the screens already loaded
+  (`ref.exists`):
+  - `FeedViewModel.removePost`, or a feed refresh after unhiding
+  - `GalleryViewModel.postHiddenChanged` / `postDeleted` (these clear the
+    remembered filters)
+  - `CommunityMapViewModel.refreshReports`
+  - invalidating `reportDetailViewModelProvider(id)`
+- **`SupabasePostManagementService.delete`:** lists the post's
+  `report_images` paths plus the files in its storage folder (so leftovers
+  from a failed photo edit go too). It removes them first, then deletes the
+  report with `.select('id')`. An empty result means not found.
+- **Gallery:** a "Hidden" chip (`GalleryStatusFilter.hidden`, `onlyHidden`)
+  and a `HiddenPostBadge` (next to `PostStatusBadge`, both in
+  `gallery_card.dart`) on tiles and in the viewer. `ReportDetailScreen` shows
+  "Only you and admins can see this post".
+- **Older databases:** `SupabaseGalleryService` and
+  `SupabaseReportDetailService` read `hidden_at`. On a database without it
+  (`isMissingColumnError` in `lib/core/services/supabase_errors.dart`), they
+  read again without it, and the Hidden chip is empty.
+
 Apply `20261121233000_create_public_profile_gallery.sql` manually after
 `20261112100000_create_community_feed.sql` and its prerequisites. Agents must
 not apply hosted changes. This adds one gallery RPC and an index, no table or

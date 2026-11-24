@@ -8,8 +8,9 @@ import 'package:faunawatch/features/feed/views/widgets/post_avatar.dart';
 import 'package:faunawatch/features/feed/views/widgets/post_comments_sheet.dart';
 import 'package:faunawatch/features/public_profile/views/widgets/profile_link.dart';
 
-/// Author picture, engagement actions and (when the post has one) the AI
-/// analysis button, floating over a post's photos.
+/// Author picture, engagement actions, (when the post has one) the AI
+/// analysis button and, on the user's own posts, the "⋯" options button,
+/// floating over a post's photos.
 ///
 /// The rail has no background, so a contrasting glow keeps theme-colored icons
 /// readable over both the photo and the screen background.
@@ -20,9 +21,14 @@ class PostActionRail extends ConsumerWidget {
     this.onLike,
     this.onComments,
     this.onAuthorTap,
+    this.onMore,
   });
   final FeedPost post;
   final VoidCallback? onLike, onComments, onAuthorTap;
+
+  /// Opens the post's options (edit, hide, delete). Null hides the button,
+  /// as on other people's posts.
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -89,6 +95,18 @@ class PostActionRail extends ConsumerWidget {
               shadows: shadows,
             ),
           ),
+        if (onMore != null)
+          _RailAction(
+            label: 'Post options',
+            shadows: shadows,
+            onTap: onMore!,
+            child: Icon(
+              Icons.more_horiz_rounded,
+              color: color,
+              size: 32,
+              shadows: shadows,
+            ),
+          ),
       ],
     );
   }
@@ -97,7 +115,7 @@ class PostActionRail extends ConsumerWidget {
 class _RailAction extends StatelessWidget {
   const _RailAction({
     required this.label,
-    required this.caption,
+    this.caption,
     required this.shadows,
     required this.onTap,
     required this.child,
@@ -106,8 +124,8 @@ class _RailAction extends StatelessWidget {
   /// What screen readers announce, e.g. "Comments, 3".
   final String label;
 
-  /// The short text under the icon, e.g. a count.
-  final String caption;
+  /// The short text under the icon, e.g. a count. Null for none.
+  final String? caption;
   final List<Shadow> shadows;
   final VoidCallback onTap;
   final Widget child;
@@ -128,14 +146,16 @@ class _RailAction extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               child,
-              const SizedBox(height: 2),
-              Text(
-                caption,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  shadows: shadows,
+              if (caption case final caption?) ...[
+                const SizedBox(height: 2),
+                Text(
+                  caption,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    shadows: shadows,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

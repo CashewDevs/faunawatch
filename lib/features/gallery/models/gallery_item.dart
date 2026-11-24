@@ -16,6 +16,7 @@ class GalleryItem {
     this.category = 'All',
     this.imageUrl,
     this.status = ReportStatus.approved,
+    this.isHidden = false,
   });
 
   final String id;
@@ -30,6 +31,9 @@ class GalleryItem {
   /// Approved, pending or declined; pending and declined tiles carry a badge.
   final ReportStatus status;
 
+  /// Hidden by the user; the tile carries a "Hidden" badge.
+  final bool isHidden;
+
   bool get isPending => status == ReportStatus.pending;
   bool get isDeclined => status == ReportStatus.declined;
 
@@ -41,6 +45,7 @@ class GalleryItem {
     String? category,
     String? imageUrl,
     ReportStatus? status,
+    bool? isHidden,
   }) {
     return GalleryItem(
       id: id ?? this.id,
@@ -50,6 +55,7 @@ class GalleryItem {
       category: category ?? this.category,
       imageUrl: imageUrl ?? this.imageUrl,
       status: status ?? this.status,
+      isHidden: isHidden ?? this.isHidden,
     );
   }
 
@@ -63,12 +69,21 @@ class GalleryItem {
         other.date == date &&
         other.category == category &&
         other.imageUrl == imageUrl &&
-        other.status == status;
+        other.status == status &&
+        other.isHidden == isHidden;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, title, location, date, category, imageUrl, status);
+  int get hashCode => Object.hash(
+    id,
+    title,
+    location,
+    date,
+    category,
+    imageUrl,
+    status,
+    isHidden,
+  );
 }
 
 /// State container for the Gallery screen.
@@ -113,6 +128,10 @@ class GalleryState {
       GalleryStatusFilter.declined => (
         title: 'No declined posts.',
         hint: 'Posts an admin declines or takes down appear here.',
+      ),
+      GalleryStatusFilter.hidden => (
+        title: 'No hidden posts.',
+        hint: 'Posts you hide appear here. Only you can see them.',
       ),
     };
   }

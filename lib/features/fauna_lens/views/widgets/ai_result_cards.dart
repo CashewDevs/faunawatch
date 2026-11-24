@@ -341,11 +341,15 @@ class FaunaLensPageHeader extends StatelessWidget {
     super.key,
     required this.title,
     required this.onBack,
+    this.action,
   });
 
   final String title;
 
   final VoidCallback onBack;
+
+  /// An optional button after the title, e.g. a post's "⋯" options.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -369,7 +373,7 @@ class FaunaLensPageHeader extends StatelessWidget {
               ),
               const Spacer(),
               Padding(
-                padding: const EdgeInsets.only(right: 20),
+                padding: EdgeInsets.only(right: action == null ? 20 : 4),
                 child: Text(
                   title,
                   style: GoogleFonts.dmSans(
@@ -379,6 +383,11 @@ class FaunaLensPageHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              if (action case final action?)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: action,
+                ),
             ],
           ),
         ),

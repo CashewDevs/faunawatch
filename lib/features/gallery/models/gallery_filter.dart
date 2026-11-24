@@ -10,14 +10,29 @@ enum GalleryStatusFilter {
   ]),
   pending('Pending', [ReportStatus.pending]),
   approved('Approved', [ReportStatus.approved]),
-  declined('Declined', [ReportStatus.declined]);
+  declined('Declined', [ReportStatus.declined]),
 
-  const GalleryStatusFilter(this.label, this.statuses);
+  /// Posts the user hid, in any status. Only the owner sees this chip.
+  hidden('Hidden', [
+    ReportStatus.approved,
+    ReportStatus.pending,
+    ReportStatus.declined,
+  ], onlyHidden: true);
+
+  const GalleryStatusFilter(
+    this.label,
+    this.statuses, {
+    this.onlyHidden = false,
+  });
   final String label;
 
   /// Report statuses this chip shows. Changes-requested reports are never
   /// part of the gallery.
   final List<ReportStatus> statuses;
+
+  /// Shows only hidden posts. The other chips show hidden posts too, with a
+  /// "Hidden" badge.
+  final bool onlyHidden;
 }
 
 /// The gallery's status chip and optional category, applied by the server.

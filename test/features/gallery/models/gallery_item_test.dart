@@ -96,6 +96,24 @@ void main() {
         GalleryStatusFilter.values.expand((filter) => filter.statuses),
         isNot(contains(ReportStatus.changesRequested)),
       );
+      // Only the Hidden chip limits to hidden posts, in every status.
+      expect(GalleryStatusFilter.values.where((filter) => filter.onlyHidden), [
+        GalleryStatusFilter.hidden,
+      ]);
+      expect(
+        GalleryStatusFilter.hidden.statuses,
+        GalleryStatusFilter.all.statuses,
+      );
+      expect(
+        const GalleryState(
+          filter: GalleryFilter(status: GalleryStatusFilter.hidden),
+        ).emptyMessage.title,
+        'No hidden posts.',
+      );
+      const item = GalleryItem(id: 'a');
+      expect(item.isHidden, isFalse);
+      expect(item.copyWith(isHidden: true), isNot(item));
+      expect(item.copyWith(isHidden: true).isHidden, isTrue);
     });
   });
 }

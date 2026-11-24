@@ -453,4 +453,86 @@ void main() {
     expect(state().items, hasLength(15));
     expect(state().hasMore, isFalse);
   });
+
+  group('hide and delete', () {
+    test(
+      'hidden posts carry the flag and the Hidden chip lists only them',
+      () async {
+        create(
+          FakeGalleryService(
+            posts: [testPost('a', index: 0), testPost('b', index: 1)],
+            hidden: {'b'},
+          ),
+        );
+        await open();
+        expect(state().items.map((item) => item.isHidden), [false, true]);
+        vm().setStatus(GalleryStatusFilter.hidden);
+        await pumpEventQueue();
+        expect(state().items.map((item) => item.id), ['b']);
+        expect(service.filterRequests.last.status.onlyHidden, isTrue);
+      },
+    );
+
+    test('hiding updates the tile at once; showing again leaves the Hidden '
+        'chip', () async {
+      create(
+        FakeGalleryService(
+          posts: [testPost('a', index: 0), testPost('b', index: 1)],
+        ),
+      );
+      await open();
+      vm().postHiddenChanged('a', hidden: true);
+      expect(state().items.first.isHidden, isTrue);
+      expect(state().items, hasLength(2));
+
+      service.hidden.add('a');
+      vm().setStatus(GalleryStatusFilter.hidden);
+      await pumpEventQueue();
+      expect(state().items.map((item) => item.id), ['a']);
+      vm().postHiddenChanged('a', hidden: false);
+      expect(state().items, isEmpty);
+    });
+
+    test('a post hidden elsewhere is fetched under the Hidden chip', () async {
+      create(FakeGalleryService(posts: [testPost('a', index: 0)]));
+      await open();
+      vm().setStatus(GalleryStatusFilter.hidden);
+      await pumpEventQueue();
+      expect(state().items, isEmpty);
+
+      // Hidden from the Feed: not loaded here yet.
+      service.hidden.add('a');
+      vm().postHiddenChanged('a', hidden: true);
+      await pumpEventQueue();
+      expect(state().items.map((item) => item.id), ['a']);
+    });
+
+    test('remembered filters load again after a change', () async {
+      create(FakeGalleryService(posts: [testPost('a', index: 0)]));
+      await open();
+      vm().setStatus(GalleryStatusFilter.pending);
+      await pumpEventQueue();
+      vm().postHiddenChanged('a', hidden: true);
+      service.hidden.add('a');
+      vm().setStatus(GalleryStatusFilter.all);
+      // Not shown from memory with the old badge: loads again.
+      expect(state().isLoading, isTrue);
+      await pumpEventQueue();
+      expect(state().items.single.isHidden, isTrue);
+    });
+
+    test('a deleted post leaves the gallery', () async {
+      create(
+        FakeGalleryService(
+          posts: [testPost('a', index: 0), testPost('b', index: 1)],
+        ),
+      );
+      await open();
+      vm().postDeleted('a');
+      expect(state().items.map((item) => item.id), ['b']);
+      // Unknown posts change nothing.
+      vm().postDeleted('missing');
+      expect(state().items.map((item) => item.id), ['b']);
+    });
+  });
 }

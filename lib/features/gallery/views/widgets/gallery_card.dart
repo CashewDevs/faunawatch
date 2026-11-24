@@ -19,7 +19,8 @@ const galleryGridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
 /// - Signed network photo over a blue gradient fallback
 /// - Yellow [#FFF7D6] bottom section for the title and submission date
 /// - A "Pending review" or "Declined" badge on posts that are not public,
-///   shown under every filter so they never look published
+///   shown under every filter so they never look published, and a "Hidden"
+///   badge on posts the user hid
 class GalleryCard extends StatelessWidget {
   const GalleryCard({super.key, required this.item, this.onTap});
 
@@ -35,6 +36,7 @@ class GalleryCard extends StatelessWidget {
         item.location,
         if (PostStatusBadge.shows(item.status))
           PostStatusBadge.labelFor(item.status),
+        if (item.isHidden) HiddenPostBadge.label,
       ].join(', '),
       child: GestureDetector(
         onTap: onTap,
@@ -79,14 +81,21 @@ class GalleryCard extends StatelessWidget {
                                 const _PhotoPlaceholder(),
                           )
                         : const _PhotoPlaceholder(),
-                    if (PostStatusBadge.shows(item.status))
+                    if (PostStatusBadge.shows(item.status) || item.isHidden)
                       Positioned(
                         top: 6,
                         left: 6,
                         right: 6,
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: PostStatusBadge(status: item.status),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (PostStatusBadge.shows(item.status))
+                              PostStatusBadge(status: item.status),
+                            if (PostStatusBadge.shows(item.status) &&
+                                item.isHidden)
+                              const SizedBox(height: 4),
+                            if (item.isHidden) const HiddenPostBadge(),
+                          ],
                         ),
                       ),
                   ],
@@ -158,6 +167,53 @@ class PostStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final declined = status == ReportStatus.declined;
+    return _Badge(
+      label: labelFor(status),
+      icon: declined ? Icons.block_rounded : Icons.schedule_rounded,
+      iconColor: declined ? Colors.white : const Color(0xFFFFC94D),
+      background: declined
+          ? const Color(0xFFC62828).withValues(alpha: 0.92)
+          : Colors.black.withValues(alpha: 0.72),
+      large: large,
+    );
+  }
+}
+
+/// Marks a post the user hid: only they (and admins) can see it. Small on
+/// grid tiles, [large] on the full-screen post.
+class HiddenPostBadge extends StatelessWidget {
+  const HiddenPostBadge({super.key, this.large = false});
+
+  final bool large;
+
+  static const label = 'Hidden';
+
+  @override
+  Widget build(BuildContext context) => _Badge(
+    label: label,
+    icon: Icons.visibility_off_rounded,
+    iconColor: Colors.white,
+    background: const Color(0xFF455A64).withValues(alpha: 0.92),
+    large: large,
+  );
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({
+    required this.label,
+    required this.icon,
+    required this.iconColor,
+    required this.background,
+    required this.large,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color iconColor, background;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
     return ExcludeSemantics(
       // Scales down instead of overflowing on narrow tiles.
       child: FittedBox(
@@ -168,22 +224,16 @@ class PostStatusBadge extends StatelessWidget {
               ? const EdgeInsets.symmetric(horizontal: 10, vertical: 5)
               : const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           decoration: BoxDecoration(
-            color: declined
-                ? const Color(0xFFC62828).withValues(alpha: 0.92)
-                : Colors.black.withValues(alpha: 0.72),
+            color: background,
             borderRadius: BorderRadius.circular(large ? 14 : 10),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                declined ? Icons.block_rounded : Icons.schedule_rounded,
-                size: large ? 16 : 11,
-                color: declined ? Colors.white : const Color(0xFFFFC94D),
-              ),
+              Icon(icon, size: large ? 16 : 11, color: iconColor),
               SizedBox(width: large ? 5 : 3),
               Text(
-                labelFor(status),
+                label,
                 style: GoogleFonts.dmSans(
                   fontSize: large ? 13 : 9,
                   fontWeight: FontWeight.w700,

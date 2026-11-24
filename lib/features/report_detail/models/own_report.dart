@@ -66,9 +66,13 @@ class OwnReport {
     required this.post,
     required this.status,
     this.declineReason,
+    this.isHidden = false,
   });
   final FeedPost post;
   final ReportStatus status;
+
+  /// Hidden by the user: only they (and admins) can see it.
+  final bool isHidden;
 
   /// The admin's latest reason, only for a declined report.
   final DeclineReason? declineReason;
@@ -79,6 +83,7 @@ class OwnReport {
     post: post ?? this.post,
     status: status,
     declineReason: declineReason,
+    isHidden: isHidden,
   );
 }
 

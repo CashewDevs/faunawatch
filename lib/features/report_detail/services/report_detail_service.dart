@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
+import 'package:faunawatch/core/services/supabase_errors.dart';
 import 'package:faunawatch/features/auth/services/auth_service.dart';
 import 'package:faunawatch/features/feed/models/feed_post.dart';
 import 'package:faunawatch/features/report_detail/models/own_report.dart';
@@ -76,16 +77,14 @@ class SupabaseReportDetailService implements ReportDetailService {
     if (userId == null) {
       throw const AuthException('Sign in to view your report.');
     }
-    final row = await _client
-        .from('reports')
-        .select(ownReportColumns)
-        .eq('id', reportId)
-        .eq('user_id', userId)
-        .order('created_at', ascending: true, referencedTable: 'report_images')
-        .order('id', ascending: true, referencedTable: 'report_images')
-        .order('created_at', ascending: false, referencedTable: 'ai_analyses')
-        .order('id', ascending: false, referencedTable: 'ai_analyses')
-        .maybeSingle();
+    Map<String, dynamic>? row;
+    try {
+      row = await _fetchRow(reportId, userId, '$ownReportColumns, hidden_at');
+    } catch (error) {
+      // A database without reports.hidden_at has no hidden posts.
+      if (!isMissingColumnError(error, 'hidden_at')) rethrow;
+      row = await _fetchRow(reportId, userId, ownReportColumns);
+    }
     if (row == null) return null;
 
     final post = ownReportPost(row, userId);
@@ -100,8 +99,24 @@ class SupabaseReportDetailService implements ReportDetailService {
       post: post.copyWith(photoUrls: [for (final url in urls) ?url]),
       status: status,
       declineReason: reason,
+      isHidden: row['hidden_at'] != null,
     );
   }
+
+  Future<Map<String, dynamic>?> _fetchRow(
+    String reportId,
+    String userId,
+    String columns,
+  ) => _client
+      .from('reports')
+      .select(columns)
+      .eq('id', reportId)
+      .eq('user_id', userId)
+      .order('created_at', ascending: true, referencedTable: 'report_images')
+      .order('id', ascending: true, referencedTable: 'report_images')
+      .order('created_at', ascending: false, referencedTable: 'ai_analyses')
+      .order('id', ascending: false, referencedTable: 'ai_analyses')
+      .maybeSingle();
 
   @override
   Future<({double latitude, double longitude})?> fetchOwnLocation(
