@@ -59,7 +59,7 @@ class _MapFilterSheetState extends State<MapFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final options = widget.choices.speciesFor(_categories);
+    final options = widget.choices.speciesFor(_categories, ticked: _species);
     final query = _search.text.trim().toLowerCase();
     final shownOptions = query.isEmpty
         ? options

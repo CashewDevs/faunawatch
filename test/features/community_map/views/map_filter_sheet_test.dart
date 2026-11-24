@@ -78,19 +78,23 @@ void main() {
 
   Finder tile(String label) => find.widgetWithText(CheckboxListTile, label);
 
-  /// Scrolls the sheet's list until [finder] is built and on screen: rows
-  /// below the fold are not built yet.
-  Future<void> reveal(WidgetTester tester, Finder finder) =>
-      tester.scrollUntilVisible(
-        finder,
-        80,
-        scrollable: find
-            .descendant(
-              of: find.byType(MapFilterSheet),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
+  /// Scrolls the sheet's list until [finder] is built and fully on screen:
+  /// rows out of view are not built, and scrolling stops as soon as any part
+  /// of the row shows, so it is then brought fully into view.
+  Future<void> reveal(WidgetTester tester, Finder finder) async {
+    final list = find
+        .descendant(
+          of: find.byType(MapFilterSheet),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    // Rows scrolled past are not built either, so start from the top.
+    tester.state<ScrollableState>(list).position.jumpTo(0);
+    await tester.pump();
+    await tester.scrollUntilVisible(finder, 80, scrollable: list);
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+  }
 
   Future<void> tapTile(WidgetTester tester, String label) async {
     await reveal(tester, tile(label));
@@ -181,6 +185,30 @@ void main() {
     expect(find.text('No posts to pick a species from.'), findsOneWidget);
     final show = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(show.onPressed, isNull);
+  });
+
+  testWidgets('a ticked species with no posts left is listed with 0', (
+    tester,
+  ) async {
+    // The cobra tick was kept after its posts left the invasive category.
+    await open(
+      tester,
+      initial: const MapPinFilter(
+        categories: {_invasive},
+        species: {'philippine cobra'},
+      ),
+    );
+    await reveal(tester, tile('Philippine cobra'));
+    final cobra = tester.widget<CheckboxListTile>(tile('Philippine cobra'));
+    expect(cobra.value, isTrue);
+    expect(
+      find.descendant(of: tile('Philippine cobra'), matching: find.text('0')),
+      findsOneWidget,
+    );
+    expect(find.text('No posts match'), findsOneWidget);
+
+    await tapTile(tester, 'Philippine cobra');
+    expect(find.text('Show 1 post'), findsOneWidget);
   });
 
   testWidgets('with no posts loaded, a filter can still be removed', (

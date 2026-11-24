@@ -14,6 +14,7 @@ import 'package:faunawatch/features/community_map/models/community_report.dart';
 import 'package:faunawatch/core/auth/current_user_provider.dart';
 import 'package:faunawatch/features/feed/services/feed_service.dart';
 import '../../feed/fake_feed_service.dart';
+import '../../create_post/location_picker_fakes.dart' show FakePickerPlatform;
 import 'package:faunawatch/features/feed/viewmodels/feed_viewmodel.dart';
 import 'package:faunawatch/features/shell/viewmodels/shell_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -952,7 +953,8 @@ void main() {
         choices.countMatching(const MapPinFilter(categories: {inNeed})),
         2,
       );
-      // The eagle tick does not apply to dangerous animals, so it is ignored.
+      // The only ticked species is not a dangerous animal: the tick is
+      // kept, as the map would keep it, so nothing matches.
       expect(
         choices.countMatching(
           const MapPinFilter(
@@ -960,7 +962,7 @@ void main() {
             species: {'philippine eagle'},
           ),
         ),
-        1,
+        0,
       );
 
       // A refresh while the sheet is open does not change its numbers.
@@ -1018,8 +1020,9 @@ void main() {
         await tabRefresh;
         await focusing;
 
-        // One refresh for both, and the new post's pin is shown.
-        expect(reports.loads, 2);
+        // The focus waited for the tab's refresh and the load after it,
+        // and the new post's pin is shown.
+        expect(reports.loads, 3);
         expect(state().filter.isActive, isFalse);
         expect(drawn(), contains('fresh'));
         expect(mapboxMapService.focusCalls.last.focus, focus);
@@ -1106,6 +1109,119 @@ void main() {
         isFalse,
       );
       expect(drawn(), all);
+    });
+
+    test(
+      'a refresh asked for during one loads again, e.g. after hiding a post',
+      () async {
+        await vm().onStyleLoaded();
+        final gate = reports.gate = Completer<void>();
+        // Opening the Map tab started a refresh; it loads the old posts.
+        final tabRefresh = vm().refreshReports();
+        await pumpEventQueue();
+
+        // The cobra post is hidden meanwhile, and hiding asks for a refresh.
+        reports.items = [eagle, unknown];
+        final afterHide = vm().refreshReports();
+        gate.complete();
+        await afterHide;
+        await tabRefresh;
+
+        expect(reports.loads, 3);
+        expect(drawn(), ['eagle', 'unknown']);
+        expect(state().reports.map((r) => r.id), ['eagle', 'unknown']);
+      },
+    );
+
+    test(
+      'applying species that are all gone keeps them, showing no pins',
+      () async {
+        await vm().onStyleLoaded();
+        // The sheet still listed the cobra; a refresh removed it meanwhile.
+        reports.items = [eagle, unknown];
+        await vm().refreshReports();
+
+        await vm().setFilter(const MapPinFilter(species: {'philippine cobra'}));
+        expect(
+          state().filter,
+          const MapPinFilter(species: {'philippine cobra'}),
+        );
+        expect(state().visibleReports, isEmpty);
+        expect(drawn(), isEmpty);
+      },
+    );
+
+    test(
+      'a refresh from an earlier map does not mark a new map as drawn',
+      () async {
+        // A fake platform map, as in the location picker tests.
+        // ignore: invalid_use_of_internal_member
+        final firstMap = MapboxMap(FakePickerPlatform());
+        // ignore: invalid_use_of_internal_member
+        final secondMap = MapboxMap(FakePickerPlatform());
+        await vm().onMapCreated(firstMap);
+        await vm().onStyleLoaded();
+        final draws = mapboxMapService.reportCalls.length;
+
+        // The map is rebuilt while a refresh is still drawing on the old one.
+        final gate = mapboxMapService.drawGate = Completer<void>();
+        final oldRefresh = vm().refreshReports();
+        await pumpEventQueue();
+        await vm().onMapCreated(secondMap);
+        mapboxMapService.drawGate = null;
+        gate.complete();
+        await oldRefresh;
+
+        // The new map's style loads: it gets its own drawing.
+        await vm().onStyleLoaded();
+        expect(mapboxMapService.reportCalls.length, greaterThan(draws + 1));
+        expect(drawn(), all);
+        // The new map may be framed; the old refresh did not use that up.
+        expect(mapboxMapService.reportCalls.last.recenter, isTrue);
+      },
+    );
+
+    test('pins redrawn after a failed refresh load their photos', () async {
+      final photos = _PinPhotos();
+      reports.items = [
+        post(
+          'new',
+          dangerous,
+          createdAt: DateTime.utc(2026, 11, 20),
+          withPhoto: true,
+        ),
+        post(
+          'old',
+          inNeed,
+          createdAt: DateTime.utc(2026, 11, 1),
+          withPhoto: true,
+        ),
+      ];
+      final withPhotos = ProviderContainer(
+        overrides: [
+          mapboxMapServiceProvider.overrideWithValue(mapboxMapService),
+          communityReportsServiceProvider.overrideWithValue(reports),
+          currentUserIdProvider.overrideWith((ref) => Stream.value(null)),
+          feedServiceProvider.overrideWithValue(feed),
+          mapPinPhotoServiceProvider.overrideWithValue(photos),
+        ],
+      );
+      addTearDown(withPhotos.dispose);
+      final map = withPhotos.read(communityMapViewModelProvider.notifier);
+      await map.onStyleLoaded();
+      await pumpEventQueue();
+      expect(photos.requests, ['new/photo.webp']);
+
+      final gate = reports.gate = Completer<void>();
+      reports.fail = true;
+      final refreshing = map.refreshReports();
+      await pumpEventQueue();
+      await map.setFilter(const MapPinFilter(categories: {inNeed}));
+      gate.complete();
+      await refreshing;
+      await pumpEventQueue();
+      expect(drawn(), ['old']);
+      expect(photos.requests, ['new/photo.webp', 'old/photo.webp']);
     });
   });
 }
